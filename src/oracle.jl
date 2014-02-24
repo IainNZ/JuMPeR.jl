@@ -42,6 +42,8 @@ generateCut(w::AbstractOracle, rm::Model, ind::Int, m::Model) = error("Not imple
 # Called before the main loop, adds anything it wants to the model
 generateReform(w::AbstractOracle, rm::Model, ind::Int, m::Model) = error("Not implemented")
 
+export AbstractOracle, registerConstraint, setup, generateCut, generateReform
+
 #############################################################################
 # Default included oracles
 include("oracle_poly.jl")         # PolyhedralOracle

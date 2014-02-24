@@ -12,6 +12,7 @@ import JuMP.IndexedVector, JuMP.addelt, JuMP.isexpr
 importall JuMP  # What does this do exactly?
 
 export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
+export UncConstraint, UncSetConstraint
 
 # JuMP rexports
 export
@@ -183,14 +184,11 @@ function affToStr(a::FullAffExpr, showConstant=true)
 end
 
 #############################################################################
-# UncSetConstraint class
-# A constraint just involving uncertainties
+# UncSetConstraint      Just uncertainties
 typealias UncSetConstraint GenericRangeConstraint{UAffExpr}
 addConstraint(m::Model, c::UncSetConstraint) = push!(getRobust(m).uncertaintyset, c)
 
-#############################################################################
-# UncConstraint class
-# A mix of variables and uncertains
+# UncConstraint         Mix of variables and uncertains
 typealias UncConstraint GenericRangeConstraint{FullAffExpr}
 function addConstraint(m::Model, c::UncConstraint, w=nothing)
     push!(getRobust(m).uncertainconstr,c)
