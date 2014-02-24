@@ -11,6 +11,23 @@ commercial solvers ([COIN Clp], [COIN Cbc], [GNU GLPK], [Gurobi], [MOSEK], [CPLE
 
 Build status: [![Build Status](https://travis-ci.org/IainNZ/JuMPeR.jl.png)](https://travis-ci.org/IainNZ/JuMPeR.jl)
 
+### Installation Instructions
+
+JuMPeR isn't a listed package (yet). Heres what you're going to need to do to install it:
+
+```
+Pkg.add("JuMP")             # JuMP is a dependency
+Pkg.checkout("JuMP")        # For now we are using cutting edge JuMP, but
+                            # will probably be fine using normal after JuMP 0.4
+Pkg.clone("https://github.com/IainNZ/JuMPeR.jl.git")
+                            # Installs JuMPeR straight from the repository -
+                            # now you can get updates using Pkg.update()
+# If you don't have a solver, get a free one.
+Pkg.add("Cbc")
+Pkg.add("Clp")
+# Optional other packages
+Pkg.add("Distributions")    # Used by the portfolio example to generate data.
+```
 
 
 [mathematical programming]: http://en.wikipedia.org/wiki/Mathematical_optimization
