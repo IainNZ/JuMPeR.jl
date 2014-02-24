@@ -34,6 +34,7 @@ function solveRobust(rm::Model;report=false, args...)
     master.colCat    = rm.colCat
     mastervars       = [Variable(master, i) for i = 1:rm.numCols]
     master_init_time = time() - start_time
+    num_wrangler     = length(robdata.uncertainconstr)
 
     # As a more general question, need to figure out a principled way of putting
     # box around original solution, or doing something when original solution is unbounded.
@@ -51,28 +52,30 @@ function solveRobust(rm::Model;report=false, args...)
         prefs[name] = value
     end
     default_wrangler = PolyhedralWrangler()
-    for ind in 1:length(robdata.uncertainconstr)
+    for ind in 1:num_wrangler
         c = robdata.uncertainconstr[ind]
-        if c.wrangler == nothing
-            c.wrangler = default_wrangler
+        w = robdata.wranglers[ind]
+        if w == nothing
+            w = default_wrangler
+            robdata.wranglers[ind] = default_wrangler
         end
-        registerConstraint(c.wrangler, c, ind, prefs)
+        registerConstraint(w, c, ind, prefs)
     end
     wrangler_register_time = time() - wrangler_register_time
 
 
     # Give wranglers time to do any setup
     wrangler_setup_time = time()
-    for c in robdata.uncertainconstr
-        setup(c.wrangler, rm)
+    for ind in 1:num_wrangler
+        setup(robdata.wranglers[ind], rm)
     end
     wrangler_setup_time = time() - wrangler_setup_time
 
     # For wranglers that want/have to reformulate, process them now
     reform_time = time()
     reformed_cons = 0
-    for i = 1:length(robdata.uncertainconstr)
-        if generateReform(robdata.uncertainconstr[i].wrangler, rm, i, master)
+    for ind = 1:num_wrangler
+        if generateReform(robdata.wranglers[ind], rm, ind, master)
             reformed_cons += 1
         end
     end
@@ -94,9 +97,8 @@ function solveRobust(rm::Model;report=false, args...)
         # Generate cuts
         cut_added = false
         tic()
-        for ind = 1:length(robdata.uncertainconstr)
-            num_cuts_added = generateCut(robdata.uncertainconstr[ind].wrangler,
-                                         rm, ind, master)
+        for ind = 1:num_wrangler
+            num_cuts_added = generateCut(robdata.wranglers[ind], rm, ind, master)
             if num_cuts_added > 0
                 cut_added = true
                 cuts_added += num_cuts_added

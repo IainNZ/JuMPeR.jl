@@ -6,8 +6,8 @@
 
 module JuMPeR
 
-using JuMP
-import JuMP.GenericAffExpr, JuMP.JuMPConstraint
+import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
+import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt, JuMP.isexpr
 importall JuMP  # What does this do exactly?
 
@@ -39,6 +39,8 @@ export
 type RobustData
     # Variable-Uncertain mixed constraints
     uncertainconstr
+    # Wranglers associated with each uncertainconstr
+    wranglers
     # Uncertain-only constraints
     uncertaintyset
     
@@ -48,7 +50,7 @@ type RobustData
     uncLower::Vector{Float64}
     uncUpper::Vector{Float64}
 end
-RobustData() = RobustData(Any[],Any[],0,String[],Float64[],Float64[])
+RobustData() = RobustData(Any[],Any[],Any[],0,String[],Float64[],Float64[])
 
 function RobustModel(;solver=nothing)
     m = Model(solver=solver)
@@ -183,122 +185,16 @@ end
 #############################################################################
 # UncSetConstraint class
 # A constraint just involving uncertainties
-type UncSetConstraint <: JuMPConstraint
-    terms::UAffExpr
-    lb::Float64
-    ub::Float64
-end
-
-if VERSION.major == 0 && VERSION.minor < 3
-    UncSetConstraint(terms::UAffExpr,lb::Number,ub::Number) =
-        UncSetConstraint(terms,float(lb),float(ub))
-end
-
-function addConstraint(m::Model, c::UncSetConstraint)
-    push!(getRobust(m).uncertaintyset, c)
-end
-
-function sense(c::UncSetConstraint)
-    if c.lb != -Inf
-        if c.ub != Inf
-            if c.ub == c.lb
-                return :(==)
-            else
-                return :range
-            end
-        else
-                return :>=
-        end
-    else
-        @assert c.ub != Inf
-        return :<=
-    end
-end
-
-function rhs(c::UncSetConstraint)
-    s = sense(c)
-    @assert s != :range
-    if s == :<=
-        return c.ub
-    else
-        return c.lb
-    end
-end
-
-print(io::IO, c::UncSetConstraint) = print(io, conToStr(c))
-show( io::IO, c::UncSetConstraint) = print(io, conToStr(c))
-function conToStr(c::UncSetConstraint)
-    s = sense(c)
-    if s == :range
-        return string(c.lb," <= ",affToStr(c.terms,false)," <= ",c.ub)
-    else
-        return string(affToStr(c.terms,false)," ",s," ",rhs(c))
-    end
-end
+typealias UncSetConstraint GenericRangeConstraint{UAffExpr}
+addConstraint(m::Model, c::UncSetConstraint) = push!(getRobust(m).uncertaintyset, c)
 
 #############################################################################
 # UncConstraint class
 # A mix of variables and uncertains
-type UncConstraint <: JuMPConstraint
-    terms::FullAffExpr
-    lb::Float64
-    ub::Float64
-    wrangler #::AbstractWrangler
-end
-
-UncConstraint(terms,lb,ub) = UncConstraint(terms,lb,ub,nothing)
-if VERSION.major == 0 && VERSION.minor < 3
-    UncConstraint(terms::FullAffExpr,lb::Number,ub::Number) =
-        UncConstraint(terms,float(lb),float(ub),nothing)
-end
-
-function addConstraint(m::Model, c::UncConstraint)
+typealias UncConstraint GenericRangeConstraint{FullAffExpr}
+function addConstraint(m::Model, c::UncConstraint, w=nothing)
     push!(getRobust(m).uncertainconstr,c)
-end
-
-function addConstraint(m::Model, c::UncConstraint, w) #::AbstractWrangler)
-    c.wrangler = w
-    addConstraint(m, c)
-end
-
-
-print(io::IO, c::UncConstraint) = print(io, conToStr(c))
-show( io::IO, c::UncConstraint) = print(io, conToStr(c))
-
-function sense(c::UncConstraint)
-    if c.lb != -Inf
-        if c.ub != Inf
-            if c.ub == c.lb
-                return :(==)
-            else
-                return :range
-            end
-        else
-                return :>=
-        end
-    else
-        @assert c.ub != Inf
-        return :<=
-    end
-end
-
-function rhs(c::UncConstraint)
-    s = sense(c)
-    @assert s != :range
-    if s == :<=
-        return c.ub
-    else
-        return c.lb
-    end
-end
-
-function conToStr(c::UncConstraint)
-    s = sense(c)
-    if s == :range
-        return string(c.lb," <= ",affToStr(c.terms)," <= ",c.ub)
-    else
-        return string(affToStr(c.terms)," ",s," ",rhs(c))
-    end
+    push!(getRobust(m).wranglers, w)
 end
 
 #############################################################################
