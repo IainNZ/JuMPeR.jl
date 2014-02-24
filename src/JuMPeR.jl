@@ -39,8 +39,8 @@ export
 type RobustData
     # Variable-Uncertain mixed constraints
     uncertainconstr
-    # Wranglers associated with each uncertainconstr
-    wranglers
+    # Oracles associated with each uncertainconstr
+    oracles
     # Uncertain-only constraints
     uncertaintyset
     
@@ -194,7 +194,7 @@ addConstraint(m::Model, c::UncSetConstraint) = push!(getRobust(m).uncertaintyset
 typealias UncConstraint GenericRangeConstraint{FullAffExpr}
 function addConstraint(m::Model, c::UncConstraint, w=nothing)
     push!(getRobust(m).uncertainconstr,c)
-    push!(getRobust(m).wranglers, w)
+    push!(getRobust(m).oracles, w)
 end
 
 #############################################################################
@@ -202,10 +202,10 @@ end
 include("robustops.jl")
 
 # All functions related to actual solution
-include("robustsolve.jl")
+include("solve.jl")
 
-# Wranglers... to be name changed
-include("wrangler.jl")
+# Oracles... to be name changed
+include("oracle.jl")
 
 # Macros for more efficient generation
 include("robustmacro.jl")

@@ -13,7 +13,7 @@ function BSTest1(cuts)
 
     @setObjective(m, Max, sum{ values[i] * x[i], i=1:n})
 
-    addConstraint(m, sum([u[i]*x[i] for i=1:n]) <= 21, BertSimWrangler(1))
+    addConstraint(m, sum([u[i]*x[i] for i=1:n]) <= 21, BertSimOracle(1))
     
     status = solveRobust(m, prefer_cuts=cuts)
     @test_approx_eq getValue(x[1]) 0.0
@@ -35,7 +35,7 @@ function BSTest2(cuts)
 
     @setObjective(m, Max, sum{ values[i] * x[i], i=1:n})
 
-    addConstraint(m, sum([u[i]*x[i] for i=1:n]) >= -21, BertSimWrangler(1))
+    addConstraint(m, sum([u[i]*x[i] for i=1:n]) >= -21, BertSimOracle(1))
     
     status = solveRobust(m, prefer_cuts=cuts)
     @test_approx_eq getValue(x[1]) 0.0
@@ -57,7 +57,7 @@ function BSTest3(cuts)
 
     @setObjective(m, Max, sum{ values[i] * x[i], i=1:n})
 
-    addConstraint(m, sum([u[i]*x[i] for i=1:n]) >= -21, BertSimWrangler(1))
+    addConstraint(m, sum([u[i]*x[i] for i=1:n]) >= -21, BertSimOracle(1))
     
     status = solveRobust(m, prefer_cuts=cuts)
     @test_approx_eq getValue(x[1]) 0.0
@@ -80,7 +80,7 @@ function BSTest4(cuts)
 
     @setObjective(m, Max, sum{ values[i] * x[i], i=1:n})
 
-    addConstraint(m, sum([u[i]*x[i] for i=1:n]) <= 21, BertSimWrangler(1))
+    addConstraint(m, sum([u[i]*x[i] for i=1:n]) <= 21, BertSimOracle(1))
     
     status = solveRobust(m, prefer_cuts=cuts)
     @test_approx_eq getValue(x[1]) 0.0

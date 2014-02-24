@@ -1,18 +1,18 @@
 #############################################################################
-# JuMP
-# An algebraic modelling langauge for Julia
-# See http://github.com/JuliaOpt/JuMP.jl
+# JuMPeR
+# Julia for Mathematical Programming - extension for Robust Optimization
+# See http://github.com/IainNZ/JuMPeR.jl
 #############################################################################
-# BertSimWrangler
-# A wrangler for the uncertainty set described in Bertsimas and Sim '04
+# BertSimOracle
+# An oracle for the uncertainty set described in Bertsimas and Sim '04
 # Although the set is polyhedral, it has special structure that is both
 # tedious to manually construct but can also be exploited to efficiently
 # find cuts.
 #############################################################################
 
-export BertSimWrangler
-type BertSimWrangler <: AbstractWrangler
-    # The constraints associated with this wrangler and the selected mode(s)
+export BertSimOracle
+type BertSimOracle <: AbstractOracle
+    # The constraints associated with this oracle and the selected mode(s)
     # of operation for each constraint.
     cons::Vector{UncConstraint}
     con_modes::Vector{Dict{Symbol,Bool}}
@@ -29,18 +29,18 @@ type BertSimWrangler <: AbstractWrangler
     devs::Vector{Float64}
 end
 # Preferred constructor - just Gamma
-BertSimWrangler(Gamma::Int) = 
-    BertSimWrangler(UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(),
+BertSimOracle(Gamma::Int) =
+    BertSimOracle(  UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(),
                     false, false, false,
                     Gamma, Float64[], Float64[])
 # Default constructor - no uncertainty
-BertSimWrangler() = BertSimWrangler(0)
+BertSimOracle() = BertSimOracle(0)
 
 
 # registerConstraint
 # We must handle this constraint, and the users preferences have been
 # communicated through prefs
-function registerConstraint(w::BertSimWrangler, con, ind::Int, prefs)
+function registerConstraint(w::BertSimOracle, con, ind::Int, prefs)
     push!(w.cons, con)
     w.con_inds[ind] = length(w.cons)
     con_mode = Dict{Symbol,Bool}()
@@ -61,7 +61,7 @@ end
 
 # setup
 # Analyze box on uncertainties to determine means/dev values for each uncertainty
-function setup(w::BertSimWrangler, rm::Model)
+function setup(w::BertSimOracle, rm::Model)
     rd = getRobust(rm)
     w.means = zeros(rd.numUncs)
     w.devs  = zeros(rd.numUncs)
@@ -82,7 +82,7 @@ function setup(w::BertSimWrangler, rm::Model)
 end
 
 
-function generateCut(w::BertSimWrangler, rm::Model, ind::Int, m::Model)
+function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model)
 
     # If not doing cuts for this one, just skip
     con_ind = w.con_inds[ind]
@@ -113,7 +113,7 @@ function generateCut(w::BertSimWrangler, rm::Model, ind::Int, m::Model)
         if num_uncs > 1
             # More than one uncertain on this variable
             # Not supported
-            error("BSWrangler only supports one uncertain coefficient per variable")
+            error("BertSimOracle only supports one uncertain coefficient per variable")
         elseif num_uncs == 1
             unc = orig_lhs.coeffs[var_ind].uncs[1].unc
             push!(absx_devs, abs(master_sol[col]) * w.devs[unc])
@@ -124,7 +124,7 @@ function generateCut(w::BertSimWrangler, rm::Model, ind::Int, m::Model)
         nom_val += coeff_val * master_sol[col]
     end
     if length(orig_lhs.constant.uncs) >= 1
-        error("BSWrangler doesn't support uncertain not attached to variable yet")
+        error("BertSimOracle doesn't support uncertain not attached to variable yet")
     end
     nom_val += orig_lhs.constant.constant
 
@@ -192,7 +192,7 @@ function generateCut(w::BertSimWrangler, rm::Model, ind::Int, m::Model)
 end
 
 
-function generateReform(w::BertSimWrangler, rm::Model, ind::Int, m::Model)
+function generateReform(w::BertSimOracle, rm::Model, ind::Int, m::Model)
     # If not doing reform for this one, just skip
     con_ind = w.con_inds[ind]
     if !w.con_modes[con_ind][:Reform]
@@ -211,7 +211,7 @@ function generateReform(w::BertSimWrangler, rm::Model, ind::Int, m::Model)
             num_uncs = length(orig_lhs.coeffs[var_ind].uncs)
             if num_uncs > 1
                 # More than one uncertain on this variable - not supported
-                error("BSWrangler only supports one uncertain coefficient per variable")
+                error("BertSimOracle only supports one uncertain coefficient per variable")
             elseif num_uncs == 1
                 unc   = orig_lhs.coeffs[var_ind].uncs[1].unc
                 coeff = orig_lhs.coeffs[var_ind].coeffs[1]

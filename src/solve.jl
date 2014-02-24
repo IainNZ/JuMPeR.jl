@@ -3,19 +3,12 @@
 # Julia for Mathematical Programming - extension for Robust Optimization
 # See http://github.com/IainNZ/JuMPeR.jl
 #############################################################################
-# robustops.jl
-# All the overloads for the new robust types introduced by JuMPeR. We share
-# the same loose ordering as JuMP, just extended with the three new types:
-# 1. Number
-# 2. Variable
-# 3. AffExpr
-# 4. QuadExpr <- DISREGARD
-# 5. Uncertain
-# 6. UAffExpr
-# 7. FullAffExpr
+# solve.jl
+# All the logic for solving robust optimization problems. Communicates with
+# oracles to build and solve the robust counterpart.
 #############################################################################
 
-function solveRobust(rm::Model;report=false, args...)
+function solveRobust(rm::Model; report=false, args...)
     
     robdata = getRobust(rm)
 
@@ -34,7 +27,7 @@ function solveRobust(rm::Model;report=false, args...)
     master.colCat    = rm.colCat
     mastervars       = [Variable(master, i) for i = 1:rm.numCols]
     master_init_time = time() - start_time
-    num_wrangler     = length(robdata.uncertainconstr)
+    num_unccons      = length(robdata.uncertainconstr)
 
     # As a more general question, need to figure out a principled way of putting
     # box around original solution, or doing something when original solution is unbounded.
@@ -43,39 +36,39 @@ function solveRobust(rm::Model;report=false, args...)
         master.colUpper[j] = min(master.colUpper[j], +10000)
     end
 
-    # Some constraints may not have wranglers, so we will create a default
-    # PolyhedralWrangler that is shared amongst them.
-    # Register the constraints with their wranglers
-    wrangler_register_time = time()
+    # Some constraints may not have oracles, so we will create a default
+    # PolyhedralOracle that is shared amongst them.
+    # Register the constraints with their oracles
+    oracle_register_time = time()
     prefs = Dict()
     for (name,value) in args
         prefs[name] = value
     end
-    default_wrangler = PolyhedralWrangler()
-    for ind in 1:num_wrangler
+    default_oracle = PolyhedralOracle()
+    for ind in 1:num_unccons
         c = robdata.uncertainconstr[ind]
-        w = robdata.wranglers[ind]
+        w = robdata.oracles[ind]
         if w == nothing
-            w = default_wrangler
-            robdata.wranglers[ind] = default_wrangler
+            w = default_oracle
+            robdata.oracles[ind] = default_oracle
         end
         registerConstraint(w, c, ind, prefs)
     end
-    wrangler_register_time = time() - wrangler_register_time
+    oracle_register_time = time() - oracle_register_time
 
 
-    # Give wranglers time to do any setup
-    wrangler_setup_time = time()
-    for ind in 1:num_wrangler
-        setup(robdata.wranglers[ind], rm)
+    # Give oracles time to do any setup
+    oracle_setup_time = time()
+    for ind in 1:num_unccons
+        setup(robdata.oracles[ind], rm)
     end
-    wrangler_setup_time = time() - wrangler_setup_time
+    oracle_setup_time = time() - oracle_setup_time
 
-    # For wranglers that want/have to reformulate, process them now
+    # For oracles that want/have to reformulate, process them now
     reform_time = time()
     reformed_cons = 0
-    for ind = 1:num_wrangler
-        if generateReform(robdata.wranglers[ind], rm, ind, master)
+    for ind = 1:num_unccons
+        if generateReform(robdata.oracles[ind], rm, ind, master)
             reformed_cons += 1
         end
     end
@@ -97,8 +90,8 @@ function solveRobust(rm::Model;report=false, args...)
         # Generate cuts
         cut_added = false
         tic()
-        for ind = 1:num_wrangler
-            num_cuts_added = generateCut(robdata.wranglers[ind], rm, ind, master)
+        for ind = 1:num_unccons
+            num_cuts_added = generateCut(robdata.oracles[ind], rm, ind, master)
             if num_cuts_added > 0
                 cut_added = true
                 cuts_added += num_cuts_added
@@ -129,7 +122,7 @@ function solveRobust(rm::Model;report=false, args...)
         println("Total cuts:      $cuts_added")
         println("Overall time:    $total_time")
         println("  Master init      $master_init_time")
-        println("  Wrangler setup   $wrangler_setup_time")
+        println("  Oracle setup     $oracle_setup_time")
         println("  Reformulation    $reform_time")
         println("  Master solve     $master_time")
         println("  Cut solve&add    $cut_time")

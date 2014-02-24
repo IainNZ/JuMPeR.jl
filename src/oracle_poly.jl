@@ -1,16 +1,16 @@
 #############################################################################
-# JuMP
-# An algebraic modelling langauge for Julia
-# See http://github.com/JuliaOpt/JuMP.jl
+# JuMPeR
+# Julia for Mathematical Programming - extension for Robust Optimization
+# See http://github.com/IainNZ/JuMPeR.jl
 #############################################################################
-# PolyhedralWrangler
-# The default wrangler - uses uncertainty bounds and the uncertainty set
+# PolyhedralOracle
+# The default oracle - uses uncertainty bounds and the uncertainty set
 # built up with linear constraints to either cut, reformulate, sample or
 # some combination of the above.
 #############################################################################
 
-type PolyhedralWrangler <: AbstractWrangler
-    # The constraints associated with this wrangler and the selected mode(s)
+type PolyhedralOracle <: AbstractOracle
+    # The constraints associated with this oracle and the selected mode(s)
     # of operation for each constraint.
     cons::Vector{UncConstraint}
     con_modes::Vector{Dict{Symbol,Bool}}
@@ -33,17 +33,17 @@ type PolyhedralWrangler <: AbstractWrangler
     dual_contype::Vector{Symbol}            # Type of new constraint
 end
 # Default constructor
-PolyhedralWrangler() = 
-    PolyhedralWrangler(UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(),
-                       false, false, false,
-                       Model(), Variable[], Any[], Any[],  # Cutting plane
-                       0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[])
+PolyhedralOracle() = 
+    PolyhedralOracle(   UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(),
+                        false, false, false,
+                        Model(), Variable[], Any[], Any[],  # Cutting plane
+                        0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[])
 
 
 # registerConstraint
 # We must handle this constraint, and the users preferences have been
 # communicated through prefs
-function registerConstraint(w::PolyhedralWrangler, con, ind::Int, prefs)
+function registerConstraint(w::PolyhedralOracle, con, ind::Int, prefs)
     push!(w.cons, con)
     w.con_inds[ind] = length(w.cons)
     con_mode = Dict{Symbol,Bool}()
@@ -64,7 +64,7 @@ end
 # setup
 # Now that all modes of operation have been selected, generate the cutting
 # plane model and/or the reformulation
-function setup(w::PolyhedralWrangler, rm::Model)
+function setup(w::PolyhedralOracle, rm::Model)
     if w.setup_done
         return
     end
@@ -187,7 +187,7 @@ function setup(w::PolyhedralWrangler, rm::Model)
 end
 
 
-function generateCut(w::PolyhedralWrangler, rm::Model, ind::Int, m::Model)
+function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
     
     # If not doing cuts for this one, just skip
     con_ind = w.con_inds[ind]
@@ -279,7 +279,7 @@ function generateCut(w::PolyhedralWrangler, rm::Model, ind::Int, m::Model)
 end
 
 
-function generateReform(w::PolyhedralWrangler, rm::Model, ind::Int, m::Model)
+function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
     # If not doing reform for this one, just skip
     con_ind = w.con_inds[ind]
     if !w.con_modes[con_ind][:Reform]
