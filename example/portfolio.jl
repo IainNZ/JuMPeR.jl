@@ -46,33 +46,14 @@ function setup(w::SetMOracle, rm::Model)
     # Calculate s from Eq (28)
     N = size(w.data, 1)  # Number of samples
     d = size(w.data, 2)  # Dimension of vector
-    e = w.epsilon
-    s = -1
-    
-    for k = 1:N
-        sum = 0.0
-        for j = k:N
-            sum += binomial(BigInt(N),BigInt(j)) * ((e/d) ^ (N - j)) * ((1 - e/d) ^ j)
-            if sum > w.delta / (2*d)
-                # Bail out, will never meet the condition
-                break
-            end
-        end
-        if sum <= w.delta / (2*d)
-            s = k
-            break  # Trying to find minimum k
-        end
-    end
-    if s == -1
-        # Didn't find anything
-        s = N + 1
-    end
-    w.s = s
-    println("SetMOracle.s = $s for N = $N")
+    binom_dist = Distributions.Binomial(N, 1 - w.epsilon/d)
+    w.s = int(quantile(binom_dist, 1 - w.delta / (2*d)) + 1)
+            # Need +1 to be consistent with indexing in paper - could refactor
+    println("SetMOracle.s = $(w.s) for N = $N")
 
     # Sort marginals in ascending order (makes a copy... efficient
     # sort-in-place for data stored in matrix like this not possible in Julia
-    # v0.2 but will be maybe as soon as v0.3 using "views"
+    # v0.2 but will be maybe as soon as v0.3 using "views")
     for dim = 1:d
         w.data[1:end, dim] = sort(w.data[1:end, dim])
     end
@@ -93,12 +74,15 @@ function generateReform(w::SetMOracle, rm::Model, ind::Int, m::Model)
         println("Condition from paper not met for probabilistic guarantee! N=$N, s=$s")
     end
 
+    # We need need to build the new constraints
+    # We make a new "affine expression" for the left-hand-side that consists
+    # only of the certain part of the "original" left-hand-side
     orig_lhs = w.con.terms
     new_lhs = AffExpr(orig_lhs.vars,
                       [orig_lhs.coeffs[i].constant::Float64 
                                 for i in 1:length(orig_lhs.vars)],
                       orig_lhs.constant.constant)
-    
+
     for var_ind = 1:length(orig_lhs.vars)
         num_uncs = length(orig_lhs.coeffs[var_ind].uncs)
         if num_uncs == 0
@@ -120,7 +104,7 @@ function generateReform(w::SetMOracle, rm::Model, ind::Int, m::Model)
 end
 
 #############################################################################
-# End of oracle
+# End of SetMOracle
 #############################################################################
 
 #############################################################################
@@ -185,7 +169,9 @@ function solve_portfolio(past_returns)
     println(getValue(z))
 end
 
-past_returns = generate_data(120)
+past_returns = generate_data(1200)
 solve_portfolio(past_returns)
-println("Running again to see how long it 'really' takes")
+
+past_returns = generate_data(1200)
+println("\nRunning again to see how long it 'really' takes")
 solve_portfolio(past_returns)
