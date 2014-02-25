@@ -12,7 +12,7 @@ import JuMP.IndexedVector, JuMP.addelt, JuMP.isexpr
 importall JuMP  # What does this do exactly?
 
 export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
-export UncConstraint, UncSetConstraint
+export UncConstraint, UncSetConstraint, printRobust
 
 # JuMP rexports
 export
@@ -64,6 +64,23 @@ function getRobust(m::Model)
         return m.ext[:Robust]
     else
         error("This functionality is only available for RobustModels")
+    end
+end
+
+function printRobust(m::Model)
+    rd = getRobust(m)
+    # First, display normal model stuff
+    print(m)
+    println("Uncertain constraints:")
+    for c in rd.uncertainconstr
+        println(conToStr(c))
+    end
+    println("Uncertainty set:")
+    for uc in rd.uncertaintyset
+        println(conToStr(uc))
+    end
+    for unc in 1:rd.numUncs
+        println("$(rd.uncLower[unc]) <= $(rd.uncNames[unc]) <= $(rd.uncUpper[unc])")
     end
 end
 

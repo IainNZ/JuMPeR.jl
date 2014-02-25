@@ -110,6 +110,13 @@ function solveRobust(rm::Model; report=false, args...)
     rm.colVal = master.colVal
     rm.objVal = master.objVal
 
+    # DEBUG: If user wants it, print final model
+    if :debug_printfinal in keys(prefs) && prefs[:debug_printfinal]
+        println("BEGIN DEBUG :debug_printfinal")
+        print(master)
+        println("END DEBUG   :debug_printfinal")
+    end
+
     # Report if request
     if report
         println("Solution report")

@@ -31,13 +31,17 @@ type PolyhedralOracle <: AbstractOracle
     dual_objs::Vector{Float64}              # Coefficient in dual obj
     dual_vartype::Vector{Symbol}            # >=0, <=0, etc.
     dual_contype::Vector{Symbol}            # Type of new constraint
+
+    # Other options
+    _debug_printcut::Bool
 end
 # Default constructor
 PolyhedralOracle() = 
     PolyhedralOracle(   UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(),
                         false, false, false,
                         Model(), Variable[], Any[], Any[],  # Cutting plane
-                        0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[])
+                        0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[],
+                        false)
 
 
 # registerConstraint
@@ -57,6 +61,11 @@ function registerConstraint(w::PolyhedralOracle, con, ind::Int, prefs)
         w.any_reform = true
     end
     push!(w.con_modes, con_mode)
+
+    if :debug_printcut in keys(prefs)
+        w._debug_printcut = prefs[:debug_printcut]
+    end
+
     return con_mode
 end
 
@@ -125,6 +134,12 @@ function setup(w::PolyhedralOracle, rm::Model)
                 end
             push!(w.const_maps, const_map)
         end  # Next constraint
+
+        if w._debug_printcut
+            println("BEGIN DEBUG :debug_printcut  cut_model")
+            print(w.cut_model)
+            println("END DEBUG   :debug_printcut")
+        end
     end  # end cut preparation
 
     # Reformulation setup
@@ -216,6 +231,12 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
     @setObjective(w.cut_model, w.cut_model.objSense, sum{unc_coeffs[i]*w.cut_vars[i], i = 1:num_uncs})
 
     # Solve cutting plane problem
+    if w._debug_printcut
+        println("BEGIN DEBUG :debug_printcut  cut_model.obj and master_sol")
+        println(w.cut_model.obj)
+        println(master_sol)
+        println("END DEBUG   :debug_printcut")
+    end
     solve(w.cut_model)
 
     # Calculate cut LHS
@@ -324,23 +345,24 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
     dual_vars = Variable[]
     for dual_i = 1:num_dualvar
         # Constraint is less-than, so "maximize"
+        var_name = "_µ$(con_ind)_$(dual_i)"
         if sense(w.cons[con_ind]) == :<=
             if dual_vartype[dual_i] == :<=      # LE  ->  >= 0
-                push!(dual_vars, Variable(m,0,+Inf,0))
+                push!(dual_vars, Variable(m,0,+Inf,0,var_name))
             elseif dual_vartype[dual_i] == :>=  # GE  ->  <= 0
-                push!(dual_vars, Variable(m,-Inf,0,0))
+                push!(dual_vars, Variable(m,-Inf,0,0,var_name))
             elseif dual_vartype[dual_i] == :(==)  # EQ  ->  free
-                push!(dual_vars, Variable(m,-Inf,+Inf,0))
+                push!(dual_vars, Variable(m,-Inf,+Inf,0,var_name))
             end
         end
         # Constraint is gerater-than, so "minimize"
         if sense(w.cons[con_ind]) == :>=
             if dual_vartype[dual_i] == :>=      # GE  ->  >= 0
-                push!(dual_vars, Variable(m,0,+Inf,0))
+                push!(dual_vars, Variable(m,0,+Inf,0,var_name))
             elseif dual_vartype[dual_i] == :<=  # LE  ->  <= 0
-                push!(dual_vars, Variable(m,-Inf,0,0))
+                push!(dual_vars, Variable(m,-Inf,0,0,var_name))
             elseif dual_vartype[dual_i] == :(==)  # EQ  ->  free
-                push!(dual_vars, Variable(m,-Inf,+Inf,0))
+                push!(dual_vars, Variable(m,-Inf,+Inf,0,var_name))
             end
         end
 
@@ -360,12 +382,22 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
         for pair in dual_A[unc_i]
             new_lhs += pair[2] * dual_vars[pair[1]]
         end
-        if dual_contype[unc_i] == :(==)
-            addConstraint(m, new_lhs == dual_rhs[unc_i])
-        elseif dual_contype[unc_i] == :<=
-            addConstraint(m, new_lhs <= dual_rhs[unc_i])
-        elseif dual_contype[unc_i] == :>=
-            addConstraint(m, new_lhs >= dual_rhs[unc_i])
+        if sense(w.cons[con_ind]) == :<=
+            if dual_contype[unc_i] == :(==)
+                addConstraint(m, new_lhs == dual_rhs[unc_i])
+            elseif dual_contype[unc_i] == :<=
+                addConstraint(m, new_lhs <= dual_rhs[unc_i])
+            elseif dual_contype[unc_i] == :>=
+                addConstraint(m, new_lhs >= dual_rhs[unc_i])
+            end
+        else
+            if dual_contype[unc_i] == :(==)
+                addConstraint(m, new_lhs == dual_rhs[unc_i])
+            elseif dual_contype[unc_i] == :<=
+                addConstraint(m, new_lhs >= dual_rhs[unc_i])
+            elseif dual_contype[unc_i] == :>=
+                addConstraint(m, new_lhs <= dual_rhs[unc_i])
+            end
         end
     end
 

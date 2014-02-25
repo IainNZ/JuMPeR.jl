@@ -26,6 +26,20 @@ function Test2(pref)
   @test_approx_eq getValue(x[2]) (    2.0/3.0)
 end
 
+function Test2Flip(pref)
+  println("  Test2Flip")
+  m = RobustModel(solver=solver)
+  @defVar(m, x[1:2] >= 0)
+  @defUnc(m, 0.3 <= u1 <= 0.5)
+  @defUnc(m, 0.0 <= u2 <= 2.0)
+  setObjective(m, :Max, x[1] + x[2])
+  addConstraint(m, -1*u1*x[1] + -1*x[2] >= -2.)
+  addConstraint(m, -1*u2*x[1] + -1*x[2] >= -6.)
+  status = solveRobust(m, prefer_cuts=pref)
+  @test_approx_eq getValue(x[1]) (2.0+2.0/3.0)
+  @test_approx_eq getValue(x[2]) (    2.0/3.0)
+end
+
 function Test3(pref)
   println("  Test3")
   m = RobustModel(solver=solver)
@@ -53,10 +67,11 @@ function Test4(pref)
   @test_approx_eq getValue(x) 3.0
 end
 
-for pref in [false,true]
+for pref in [true,false]
   println(" prefer_cuts:", pref)
   Test1(pref)
   Test2(pref)
+  Test2Flip(pref)
   Test3(pref)
   Test4(pref)
 end
