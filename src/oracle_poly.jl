@@ -323,17 +323,20 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
     for term_i = 1:length(orig_lhs.vars)
         if orig_lhs.coeffs[term_i].constant != 0
             # Constant part
-            push!(new_lhs.vars, Variable(m, orig_lhs.vars[term_i].col))
-            push!(new_lhs.coeffs, orig_lhs.coeffs[term_i].constant)
+            push!(new_lhs, orig_lhs.coeffs[term_i].constant,
+                          Variable(m, orig_lhs.vars[term_i].col))
         end
     end
     
     # Collect coefficients for each uncertainty present
     for term_i = 1:length(orig_lhs.coeffs)
         for unc_j = 1:length(orig_lhs.coeffs[term_i].coeffs)
-            dual_rhs[orig_lhs.coeffs[term_i].uncs[unc_j].unc] +=
-                                Variable(m, orig_lhs.vars[term_i].col) *
-                                    orig_lhs.coeffs[term_i].coeffs[unc_j]
+            push!(dual_rhs[orig_lhs.coeffs[term_i].uncs[unc_j].unc],
+                    orig_lhs.coeffs[term_i].coeffs[unc_j],
+                    Variable(m, orig_lhs.vars[term_i].col))
+            #dual_rhs[orig_lhs.coeffs[term_i].uncs[unc_j].unc] +=
+                                #Variable(m, orig_lhs.vars[term_i].col) *
+                                    #orig_lhs.coeffs[term_i].coeffs[unc_j]
         end
     end
         for unc_j = 1:length(orig_lhs.constant.coeffs)
@@ -366,7 +369,7 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
             end
         end
 
-        new_lhs += dual_objs[dual_i]*dual_vars[dual_i]
+        push!(new_lhs, dual_objs[dual_i], dual_vars[dual_i])
     end
 
     # Add the new constraint which replaces the original constraint

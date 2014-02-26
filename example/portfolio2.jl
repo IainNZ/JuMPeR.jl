@@ -12,7 +12,7 @@ using JuMPeR
 using Distributions
 using Gurobi
 
-const NUM_ASSET = 100
+const NUM_ASSET = 10
 
 #############################################################################
 # Simulate the data
@@ -118,13 +118,32 @@ function solve_portfolio(past_returns, box, Gamma, pref_cuts, reporting)
         println(getValue(obj))
         println("")
     end
+
+    return getValue(x), getValue(obj)
 end
 
+# Take in box and Gamma from the commandline
+box = int(ARGS[1])
+Gamma = int(ARGS[2])
+
 # Generate the simulated data
-past_returns = generate_data(120)
+past_returns = generate_data(200)
 # Run once to warm start it
-solve_portfolio(past_returns, 1, 1, true,  false)
-solve_portfolio(past_returns, 1, 1, false, false)
+# solve_portfolio(past_returns, box, Gamma, true,  false)
+# x, obj = solve_portfolio(past_returns, box, Gamma, false, false)
 # Run again to see how fast it can go
-solve_portfolio(past_returns, 1, 1, true,  true)
-solve_portfolio(past_returns, 1, 1, false, true)
+# solve_portfolio(past_returns, box, Gamma, true,  true)
+x, obj = solve_portfolio(past_returns, box, Gamma, false, true)
+
+# Simulate some more data
+NUM_FUTURE = 100
+future_returns = generate_data(NUM_FUTURE)
+future_z = future_returns*x[:]
+sort!(future_z)
+println("Selected solution summary stats")
+println("Minimum: ", future_z[1])
+println("10%:     ", future_z[int(NUM_FUTURE*0.1)])
+println("20%:     ", future_z[int(NUM_FUTURE*0.2)])
+println("30%:     ", future_z[int(NUM_FUTURE*0.3)])
+println("Mean:    ", mean(future_z))
+println("Maximum: ", future_z[end])
