@@ -3,126 +3,47 @@
 # Julia for Mathematical Programming - extension for Robust Optimization
 # See http://github.com/IainNZ/JuMPeR.jl
 #############################################################################
-# portfolio.jl
-# Recreates the results from the paper "Data-Driven Robust Optimization" by
-# Bertsimas, Gupta, and Kallus, 2014.
+# portfolio2.jl
+# Builds a simple polyhedral uncertainty set using covariance information
+# and uses the inbuilt PolyhedralOracle to solve it
 #############################################################################
 
 using JuMPeR
-import JuMPeR: registerConstraint, setup, generateCut, generateReform
 using Distributions
+using Gurobi
+
+const NUM_ASSET = 10
+
+# Take in "box" and Gamma from the commandline. "Box" is how many standard
+# deviations the "standard normals" in the uncertainty set can move from
+# their means. Gamma is the total number of standard deviations away from
+# mean you can have, ala Bertsimas Sim '04. See model definition below for
+# more details.
+box   = int(ARGS[1])
+Gamma = int(ARGS[2])
+
+# Seed the RNG for reproducibilities sake
+srand(10)
+
 
 #############################################################################
-# SetMOracle
-# In text                   U^M
-# Structural assumptions    None
-# Hypothesis test           Marginal samples
-# Note that the oracle is setup very precisely for this problem, in that
-# trying to use it on multiple constraints isn't going to work. It wouldn't
-# be a big deal to change that, although presumably you'd have a different
-# data vector for each constraint so you'd probably want a different oracle
-# for each on anyway.
+# Simulate returns of the assets
+# - num_samples is number of samples to take
+# - Returns matrix, samples in rows, assets in columns
 #############################################################################
-type SetMOracle <: AbstractOracle
-    con
-    epsilon::Float64
-    delta::Float64
-    data
-    s::Int
-end
-SetMOracle(eps, delta, data) = SetMOracle(nothing, eps, delta, data, 0)
+function generate_data(num_samples)
+    data = zeros(N, NUM_ASSET)
 
-# We only do reformulations - could do cuts if wanted to support x being
-# nonnegative (because would have something to do - put at upper or lower
-# bound)
-function registerConstraint(w::SetMOracle, con, ind::Int, prefs)
-    w.con = con
-    return [:Cut => false, :Reform => true, :Sample => false]
-end
+    # Linking factors
+    beta = [(i-1.)/NUM_ASSET for i = 1:NUM_ASSET] 
 
-# This could be done in constructor too, since we don't use any properties
-# of the model. But we'll leave it here for now.
-function setup(w::SetMOracle, rm::Model)
-    # Calculate s from Eq (28)
-    N = size(w.data, 1)  # Number of samples
-    d = size(w.data, 2)  # Dimension of vector
-    binom_dist = Distributions.Binomial(N, 1 - w.epsilon/d)
-    w.s = int(quantile(binom_dist, 1 - w.delta / (2*d)) + 1)
-            # Need +1 to be consistent with indexing in paper - could refactor
-    println("SetMOracle.s = $(w.s) for N = $N")
-
-    # Sort marginals in ascending order (makes a copy... efficient
-    # sort-in-place for data stored in matrix like this not possible in Julia
-    # v0.2 but will be maybe as soon as v0.3 using "views")
-    for dim = 1:d
-        w.data[1:end, dim] = sort(w.data[1:end, dim])
-    end
-end
-
-# Not used - see registerConstraint
-generateCut(w::SetMOracle, rm::Model, ind::Int, m::Model) = return 0
-
-# Where we apply the set in Eq (31)
-# TODO: Make less brittle, assumes that sense of constraint is exactly as it
-#       is in this example code, so sets everything to lower bound.
-function generateReform(w::SetMOracle, rm::Model, ind::Int, m::Model)
-    N = size(w.data, 1)  # Number of samples
-    d = size(w.data, 2)  # Dimension of vector
-    s = w.s
-
-    if N - s + 1 >= d
-        println("Condition from paper not met for probabilistic guarantee! N=$N, s=$s")
-    end
-
-    # We need need to build the new constraints
-    # We make a new "affine expression" for the left-hand-side that consists
-    # only of the certain part of the "original" left-hand-side
-    orig_lhs = w.con.terms
-    new_lhs = AffExpr(orig_lhs.vars,
-                      [orig_lhs.coeffs[i].constant::Float64 
-                                for i in 1:length(orig_lhs.vars)],
-                      orig_lhs.constant.constant)
-
-    for var_ind = 1:length(orig_lhs.vars)
-        num_uncs = length(orig_lhs.coeffs[var_ind].uncs)
-        if num_uncs == 0
-            # Not one of the coefficients we are interested in
-            # That is, the variable is z
-            continue
-        elseif num_uncs > 1
-            # What is this?!
-            error("Only designed for one coefficient per x")
-        end
-        unc = orig_lhs.coeffs[var_ind].uncs[1].unc  # Use as asset index
-        new_lhs.coeffs[var_ind] += w.data[(N-s+1)+1, unc]  # Correct for 0-base
-    end
-
-    # Generate the "reformulation"
-    @addConstraint(m, new_lhs >= w.con.lb)
-
-    return true
-end
-
-#############################################################################
-# End of SetMOracle
-#############################################################################
-
-#############################################################################
-# Simulate the data
-#############################################################################
-function generate_data(N)
-    print("Generating data...")
-    d    = 10                       # Number of assets
-    beta = [(i-1.)/9. for i = 1:10] # Linking factors
-    data = zeros(N, d)
-
-    for sample_ind = 1:N
+    for sample_ind = 1:num_samples
         # Common market factor, mean 3%, sd 5%, truncate at +- 3 sd
         z = rand(Normal(0.03, 0.05))
         z = max(z, 0.03 - 3*0.05)
         z = min(z, 0.03 + 3*0.05)
 
-        for asset_ind = 1:d
+        for asset_ind = 1:NUM_ASSET
             # Idiosyncratic contribution, mean 0%, sd 5%, truncated at +- 3 sd
             asset = rand(Normal(0.00, 0.05))
             asset = max(asset, 0.00 - 3*0.05)
@@ -131,47 +52,118 @@ function generate_data(N)
         end
     end
 
-    println(" done")
-    for asset_ind = 1:d
-        println("Min value for asset $asset_ind is $(minimum(data[1:end,asset_ind]))")
-    end
     return data
 end
 
+
 #############################################################################
 # Solve the robust portfolio problem
+#
+# max   obj
+# s.t.  sum(x_i      for i in 1:n) == 1
+#       sum(r_i x_i  for i in 1:n) >= obj
+#       x_i >= 0
+# Uncertainty set:
+#       r = A z + mean
+#       y = |z| / box
+#       sum(y_i for i in 1:n) <= Gamma
+#       |z| <= box, 0 <= y <= 1
+# where A is such that A*A' = Covariance matrix
 #############################################################################
-function solve_portfolio(past_returns)
+function solve_portfolio(past_returns, box, Gamma, pref_cuts, reporting)
 
-    # Uncertainty set parameters
-    epsilon = 0.10
-    delta   = 0.20
-
-    # Create oracle
-    oracle = SetMOracle(epsilon, delta, past_returns)
+    # Create covariance matrix and mean vector
+    covar = cov(past_returns)
+    means = mean(past_returns, 1)
+    
+    # Idea: multivariate normals can be described as
+    # r = A * z + mu
+    # where A*A^T = covariance matrix
+    # So put a "standard" uncertainty set around z
+    A = round(chol(covar),2)
 
     # Setup the robust optimization model
-    m = RobustModel()
-    @defVar(m, z)
-    @defVar(m, x[1:10] >= 0)
-    @defUnc(m, r[1:10])
+    m = RobustModel(solver=GurobiSolver(OutputFlag=0))
 
-    @setObjective(m, Max, z)
-    addConstraint(m, sum([      x[i] for i=1:10 ])     == 1)
-    addConstraint(m, sum([ r[i]*x[i] for i=1:10 ]) - z >= 0, oracle)
+    # Variables
+    @defVar(m, obj)  # Put objective as constraint
+    @defVar(m, x[1:NUM_ASSET] >= 0)
+
+    # Uncertainties
+    @defUnc(m,         r[1:NUM_ASSET]       )  # The returns
+    @defUnc(m, -box <= z[1:NUM_ASSET] <= box)  # The "standard normals"
+    @defUnc(m,    0 <= y[1:NUM_ASSET] <= 1  )  # |z|/box
+
+    @setObjective(m, Max, obj)
+
+    # Portfolio constraint
+    addConstraint(m, sum([ x[i] for i=1:NUM_ASSET ]) == 1)
+
+    # The objective constraint - uncertain
+    addConstraint(m, sum([ r[i]*x[i] for i=1:NUM_ASSET ]) - obj >= 0)
+
+    # Build uncertainty set
+    # First, link returns to the standard normals
+    for asset_ind = 1:NUM_ASSET
+        addConstraint(m, r[asset_ind] == 
+            sum([ A[asset_ind, j] * z[j] for j=1:NUM_ASSET ]) + means[asset_ind] )
+    end
+    # Then link absolute values to standard normals
+    for asset_ind = 1:NUM_ASSET
+        addConstraint(m, y[asset_ind] >= -z[asset_ind] / box)
+        addConstraint(m, y[asset_ind] >=  z[asset_ind] / box)
+    end
+    # Finally, limit how much the standard normals can vary from means
+    addConstraint(m, sum([ y[j] for j=1:NUM_ASSET ]) <= Gamma)
 
     # Solve it, report statistics on number of cutting planes etc.
-    println("Solving model...")
-    solveRobust(m, report=true)
+    reporting && println("Solving model...")
+
+    # Uncomment the following lines to see model before printing
+    # HACK until import better printing from JuMP/src/print.jl
+    # for i in 1:NUM_ASSET
+        # setName(r[i], "r[$i]")
+        # setName(z[i], "z[$i]")
+        # setName(y[i], "y[$i]")
+    # end
+    # printRobust(m)
+    # println("")
+
+    solveRobust(m,  report=reporting, 
+                    prefer_cuts=pref_cuts,
+                    debug_printcut=false, #true,
+                    debug_printfinal=false) #true)
 
     # Solution
-    println(getValue(x))
-    println(getValue(z))
+    if reporting
+        println("Solved, cuts prefered = $pref_cuts")
+        println(getValue(x))
+        println(getValue(obj))
+        println("")
+    end
+
+    return getValue(x), getValue(obj)
 end
 
-past_returns = generate_data(1200)
-solve_portfolio(past_returns)
 
-past_returns = generate_data(1200)
-println("\nRunning again to see how long it 'really' takes")
-solve_portfolio(past_returns)
+# Generate the simulated data
+past_returns = generate_data(200)
+# Run once to warm start it
+# solve_portfolio(past_returns, box, Gamma, true,  false)
+# x, obj = solve_portfolio(past_returns, box, Gamma, false, false)
+# Run again to see how fast it can go
+# solve_portfolio(past_returns, box, Gamma, true,  true)
+x, obj = solve_portfolio(past_returns, box, Gamma, false, true)
+
+# Simulate some more data
+NUM_FUTURE = 100
+future_returns = generate_data(NUM_FUTURE)
+future_z = future_returns*x[:]
+sort!(future_z)
+println("Selected solution summary stats")
+println("Minimum: ", future_z[1])
+println("10%:     ", future_z[int(NUM_FUTURE*0.1)])
+println("20%:     ", future_z[int(NUM_FUTURE*0.2)])
+println("30%:     ", future_z[int(NUM_FUTURE*0.3)])
+println("Mean:    ", mean(future_z))
+println("Maximum: ", future_z[end])
