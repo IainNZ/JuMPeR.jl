@@ -32,7 +32,7 @@ srand(10)
 # - Returns matrix, samples in rows, assets in columns
 #############################################################################
 function generate_data(num_samples)
-    data = zeros(N, NUM_ASSET)
+    data = zeros(num_samples, NUM_ASSET)
 
     # Linking factors
     beta = [(i-1.)/NUM_ASSET for i = 1:NUM_ASSET] 
@@ -147,23 +147,23 @@ end
 
 
 # Generate the simulated data
-past_returns = generate_data(200)
+past_returns = generate_data(1000)
 # Run once to warm start it
 # solve_portfolio(past_returns, box, Gamma, true,  false)
 # x, obj = solve_portfolio(past_returns, box, Gamma, false, false)
 # Run again to see how fast it can go
 # solve_portfolio(past_returns, box, Gamma, true,  true)
-x, obj = solve_portfolio(past_returns, box, Gamma, false, true)
+x, obj = solve_portfolio(past_returns, box, Gamma, true, true)
 
 # Simulate some more data
-NUM_FUTURE = 100
+NUM_FUTURE = 1000
 future_returns = generate_data(NUM_FUTURE)
 future_z = future_returns*x[:]
 sort!(future_z)
 println("Selected solution summary stats")
-println("Minimum: ", future_z[1])
-println("10%:     ", future_z[int(NUM_FUTURE*0.1)])
-println("20%:     ", future_z[int(NUM_FUTURE*0.2)])
-println("30%:     ", future_z[int(NUM_FUTURE*0.3)])
-println("Mean:    ", mean(future_z))
-println("Maximum: ", future_z[end])
+println("Minimum: ", future_z[1]*100)
+println("10%:     ", future_z[int(NUM_FUTURE*0.1)]*100)
+println("20%:     ", future_z[int(NUM_FUTURE*0.2)]*100)
+println("30%:     ", future_z[int(NUM_FUTURE*0.3)]*100)
+println("Mean:    ", mean(future_z)*100)
+println("Maximum: ", future_z[end]*100)
