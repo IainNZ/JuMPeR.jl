@@ -44,13 +44,12 @@ function solveRobust(rm::Model; report=false, args...)
     for (name,value) in args
         prefs[name] = value
     end
-    default_oracle = PolyhedralOracle()
     for ind in 1:num_unccons
         c = robdata.uncertainconstr[ind]
         w = robdata.oracles[ind]
         if w == nothing
-            w = default_oracle
-            robdata.oracles[ind] = default_oracle
+            w = robdata.defaultOracle
+            robdata.oracles[ind] = w
         end
         registerConstraint(w, c, ind, prefs)
     end

@@ -42,7 +42,14 @@ generateCut(w::AbstractOracle, rm::Model, ind::Int, m::Model) = error("Not imple
 # Called before the main loop, adds anything it wants to the model
 generateReform(w::AbstractOracle, rm::Model, ind::Int, m::Model) = error("Not implemented")
 
-export AbstractOracle, registerConstraint, setup, generateCut, generateReform
+export AbstractOracle
+export registerConstraint, setup, generateCut, generateReform
+export setDefaultOracle
+
+function setDefaultOracle(m::Model, o::AbstractOracle)
+    rd = getRobust(m)
+    rd.defaultOracle = o
+end
 
 #############################################################################
 # Default included oracles

@@ -50,8 +50,10 @@ type RobustData
     uncNames::Vector{String}
     uncLower::Vector{Float64}
     uncUpper::Vector{Float64}
+
+    defaultOracle
 end
-RobustData() = RobustData(Any[],Any[],Any[],0,String[],Float64[],Float64[])
+RobustData() = RobustData(Any[],Any[],Any[],0,String[],Float64[],Float64[],PolyhedralOracle())
 
 function RobustModel(;solver=nothing)
     m = Model(solver=solver)
@@ -83,7 +85,6 @@ function printRobust(m::Model)
         println("$(rd.uncLower[unc]) <= $(rd.uncNames[unc]) <= $(rd.uncUpper[unc])")
     end
 end
-
 
 #############################################################################
 # Uncertain
