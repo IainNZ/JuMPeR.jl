@@ -11,6 +11,8 @@ import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt, JuMP.isexpr
 importall JuMP  # What does this do exactly?
 
+import Base.dot
+
 export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
 export UncConstraint, UncSetConstraint, printRobust
 

@@ -170,3 +170,35 @@ faff = FullAffExpr([x],[UAffExpr([a],[5.],1.)],UAffExpr([b],[2.],3.))
 @test affToStr(faff - faff) == "(5.0 a + 1.0) x + (-5.0 a + -1.0) x + 1.0e-50 b"
 @test_throws faff * faff
 @test_throws faff / faff
+
+# Higher level
+m2 = RobustModel()
+@defUnc(m2, udict[1:3])
+setName(udict[1], "a")
+setName(udict[2], "b")
+setName(udict[3], "c")
+@defUnc(m2, vdict[4:6])
+setName(vdict[4], "d")
+setName(vdict[5], "e")
+setName(vdict[6], "f")
+@defUnc(m2, matdict[1:3,1:3])
+for i = 1:3
+    for j = 1:3
+        setName(matdict[i,j], "U$(i)$(j)")
+    end
+end
+
+nums = [3.5, 4.0, 2.0]
+A = [3.0 4.0 5.0;
+     1.5 2.5 3.3;
+     5.5 6.2 1.2]
+
+@test affToStr(dot(nums,udict)) == "3.5 a + 4.0 b + 2.0 c"
+@test affToStr(dot(udict,nums)) == "3.5 a + 4.0 b + 2.0 c"
+@test affToStr(dot(nums,vdict)) == "3.5 d + 4.0 e + 2.0 f"
+@test affToStr(dot(vdict,nums)) == "3.5 d + 4.0 e + 2.0 f"
+@test affToStr(dot(A[1,:], udict)) == "3.0 a + 4.0 b + 5.0 c"
+@test affToStr(dot(A[1,:], vdict)) == "3.0 d + 4.0 e + 5.0 f"
+@test affToStr(dot(A, matdict)) == "3.0 U11 + 1.5 U21 + 5.5 U31 + 4.0 U12 + 2.5 U22 + 6.2 U32 + 5.0 U13 + 3.3 U23 + 1.2 U33"
+@test_throws dot(A, udict)
+@test_throws dot(nums, matdict)

@@ -100,13 +100,13 @@ function solve_portfolio(past_returns, box, Gamma, pref_cuts, reporting)
     addConstraint(m, sum([ x[i] for i=1:NUM_ASSET ]) == 1)
 
     # The objective constraint - uncertain
-    addConstraint(m, sum([ r[i]*x[i] for i=1:NUM_ASSET ]) - obj >= 0)
+    addConstraint(m, dot(r, x) - obj >= 0)
 
     # Build uncertainty set
     # First, link returns to the standard normals
     for asset_ind = 1:NUM_ASSET
-        addConstraint(m, r[asset_ind] == 
-            sum([ A[asset_ind, j] * z[j] for j=1:NUM_ASSET ]) + means[asset_ind] )
+        addConstraint(m, r[asset_ind] ==
+            dot(A[asset_ind, :], z) + means[asset_ind])
     end
     # Then link absolute values to standard normals
     for asset_ind = 1:NUM_ASSET

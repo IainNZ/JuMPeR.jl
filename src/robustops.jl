@@ -260,3 +260,29 @@
 (<=)(lhs::FullAffExpr, rhs::FullAffExpr) = (<=)(lhs - rhs, 0.0)
 (==)(lhs::FullAffExpr, rhs::FullAffExpr) = (==)(lhs - rhs, 0.0)
 (>=)(lhs::FullAffExpr, rhs::FullAffExpr) = (>=)(lhs - rhs, 0.0)
+
+
+# Higher level operators
+function dot{T<:Real}(lhs::Array{T,1}, rhs::JuMP.JuMPDict{Uncertain})
+    @assert length(rhs.indexsets) == 1
+    @assert length(rhs.indexsets[1]) == length(lhs)
+    return UAffExpr(rhs.innerArray, float(lhs), 0.0)
+end
+dot{T<:Real}(rhs::JuMP.JuMPDict{Uncertain}, lhs::Array{T,1}) = dot(lhs,rhs)
+
+function dot{T<:Real}(lhs::Array{T,2}, rhs::JuMP.JuMPDict{Uncertain})
+    sz = size(lhs)
+    if length(rhs.indexsets) == 1
+        # Single dimension version
+        @assert sz[1] == 1 || sz[2] == 1
+        @assert sz[1] == 1 && sz[2] == length(rhs.indexsets[1]) ||
+                sz[2] == 1 && sz[1] == length(rhs.indexsets[1])
+        return UAffExpr(rhs.innerArray, float(lhs[:]), 0.0)
+    end
+    # Needs to be 2D JuMPDict
+    @assert length(rhs.indexsets) == 2
+    @assert length(rhs.indexsets[1]) == sz[1]
+    @assert length(rhs.indexsets[2]) == sz[2]
+    return UAffExpr(vec(rhs.innerArray), vec(lhs), 0.0)
+end
+dot{T<:Real}(lhs::JuMP.JuMPDict{Uncertain}, rhs::Array{T,2}) = dot(rhs,lhs)
