@@ -36,7 +36,10 @@ setup(w::AbstractOracle, rm::Model) = error("Not implemented")
 # Called in the main loop every iteration. m is the actual current model, aka
 # the master model, that will have the current solution and to which 
 # constraints should be added. Returns number of cuts added.
-generateCut(w::AbstractOracle, rm::Model, ind::Int, m::Model) = error("Not implemented")
+# cb is nothing iff problem contains no integer variables, will be the
+# callback handle otherwise. If provided, should be used to add lazy 
+# constraints instead of normal constraints.
+generateCut(w::AbstractOracle, rm::Model, ind::Int, m::Model, cb) = error("Not implemented")
 
 # generateReform
 # Called before the main loop, adds anything it wants to the model

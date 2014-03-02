@@ -40,6 +40,20 @@ function Test2Flip(pref)
   @test_approx_eq getValue(x[2]) (    2.0/3.0)
 end
 
+function Test2IP(pref)
+  println("  Test2IP")
+  m = RobustModel(solver=solver)
+  @defVar(m, x[1:2] >= 0, Int)
+  @defUnc(m, 0.3 <= u1 <= 0.5)
+  @defUnc(m, 0.0 <= u2 <= 2.0)
+  setObjective(m, :Max, x[1] + x[2])
+  addConstraint(m, u1*x[1] + 1*x[2] <= 2.)
+  addConstraint(m, u2*x[1] + 1*x[2] <= 6.)
+  status = solveRobust(m, prefer_cuts=true)
+  @test_approx_eq getValue(x[1]) 3.0
+  @test_approx_eq getValue(x[2]) 0.0
+end
+
 function Test3(pref)
   println("  Test3")
   m = RobustModel(solver=solver)
@@ -47,13 +61,29 @@ function Test3(pref)
   @defUnc(m, 0.3 <= u1 <= 1.5)
   @defUnc(m, 0.5 <= u2 <= 1.5)
   setObjective(m, :Max, x[1] + x[2])
-  addConstraint(m, u1*x[1] <= 1)
+  addConstraint(m, u1*x[1] <= 3)
   addConstraint(m, u2*x[2] <= 1)
   addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) <= +1)
   addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) >= -1)
 	status = solveRobust(m, prefer_cuts=pref)
-  @test_approx_eq getValue(x[1]) (2.0/3.0)
+  @test_approx_eq getValue(x[1]) (2.0)
   @test_approx_eq getValue(x[2]) (10.0/11.0)
+end
+
+function Test3IP(pref)
+  println("  Test3IP")
+  m = RobustModel(solver=solver)
+  @defVar(m, x[1:2] >= 0, Int)
+  @defUnc(m, 0.3 <= u1 <= 1.5)
+  @defUnc(m, 0.5 <= u2 <= 1.5)
+  setObjective(m, :Max, x[1] + x[2])
+  addConstraint(m, u1*x[1] <= 3)
+  addConstraint(m, u2*x[2] <= 1)
+  addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) <= +1)
+  addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) >= -1)
+  status = solveRobust(m, prefer_cuts=pref)
+  @test_approx_eq getValue(x[1]) 2.0
+  @test_approx_eq getValue(x[2]) 0.0
 end
 
 function Test4(pref)
@@ -72,6 +102,8 @@ for pref in [true,false]
   Test1(pref)
   Test2(pref)
   Test2Flip(pref)
+  Test2IP(pref)
   Test3(pref)
+  Test3IP(pref)
   Test4(pref)
 end

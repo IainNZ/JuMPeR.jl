@@ -25,9 +25,19 @@ function solveRobust(rm::Model; report=false, args...)
     master.colLower  = rm.colLower
     master.colUpper  = rm.colUpper
     master.colCat    = rm.colCat
+    master.colVal    = zeros(rm.numCols)
     mastervars       = [Variable(master, i) for i = 1:rm.numCols]
     master_init_time = time() - start_time
     num_unccons      = length(robdata.uncertainconstr)
+
+    # If the problem is a MIP, we are going to have to do more work
+    isIP = false
+    for cat in master.colCat
+        if cat == JuMP.INTEGER
+            isIP = true
+            break
+        end
+    end
 
     # As a more general question, need to figure out a principled way of putting
     # box around original solution, or doing something when original solution is unbounded.
@@ -63,6 +73,7 @@ function solveRobust(rm::Model; report=false, args...)
     end
     oracle_setup_time = time() - oracle_setup_time
 
+
     # For oracles that want/have to reformulate, process them now
     reform_time = time()
     reformed_cons = 0
@@ -73,34 +84,71 @@ function solveRobust(rm::Model; report=false, args...)
     end
     reform_time = time() - reform_time
 
-    # Begin main solve loop
+    #########################################################################
+    # Main solve loop
     cutting_rounds  = 0
     cuts_added      = 0
     master_time     = 0
     cut_time        = 0
-    while true
-        cutting_rounds += 1
-        
-        # Solve master
+    ever_cut        = zeros(Bool, num_unccons)
+    # No integers: add cuts, use warm starting
+    # Intgers: user lazy constraints
+    if isIP
+        function lazyCallback(cb)
+            cutting_rounds += 1
+
+            # Master is solved
+
+            # Generate cuts
+            tic()
+            for ind = 1:num_unccons
+                num_cuts_added = generateCut(robdata.oracles[ind], rm, ind, master, cb)
+                if num_cuts_added > 0
+                    ever_cut[ind] = true
+                    cuts_added += num_cuts_added
+                end
+            end
+            cut_time += toq()
+
+            # Solve will automatically terminate when we finish solve
+            # and no lazy constraint are added
+        end
+        setLazyCallback(master, lazyCallback)
+
+        # Solve master (timing will be for whole solve time, but we'll subtract
+        # cut time to approximate)
         tic()
         master_status = solve(master)
         master_time += toq()
 
-        # Generate cuts
-        cut_added = false
-        tic()
-        for ind = 1:num_unccons
-            num_cuts_added = generateCut(robdata.oracles[ind], rm, ind, master)
-            if num_cuts_added > 0
-                cut_added = true
-                cuts_added += num_cuts_added
-            end
-        end
-        cut_time += toq()
+        master_time -= cut_time
 
-        # Terminate solve loop when no more cuts added
-        if !cut_added
-            break
+    else
+        # Begin main solve loop
+        while true
+            cutting_rounds += 1
+            
+            # Solve master
+            tic()
+            master_status = solve(master)
+            master_time += toq()
+
+            # Generate cuts
+            cut_added = false
+            tic()
+            for ind = 1:num_unccons
+                num_cuts_added = generateCut(robdata.oracles[ind], rm, ind, master)
+                if num_cuts_added > 0
+                    cut_added = true
+                    cuts_added += num_cuts_added
+                end
+            end
+            cut_time += toq()
+
+            # Terminate solve loop when no more cuts added
+            if !cut_added
+                break
+            end
         end
     end
 
@@ -121,16 +169,25 @@ function solveRobust(rm::Model; report=false, args...)
         println("Solution report")
         #println("Prefered method: $(preferred_mode==:Cut ? "Cuts" : "Reformulations")")
         println("Uncertain Constraints:")
+        println("  No. constraints  $num_unccons")
         println("  Reformulated     $reformed_cons")
-        println("  Cutting plane    $(length(robdata.uncertainconstr) - reformed_cons)")
-        println("  Total            $(length(robdata.uncertainconstr))")
-        println("Cutting rounds:  $cutting_rounds")
+        count_cut = sum([ever_cut[i] ? 1 : 0 for i in 1:num_unccons])
+        println("  Cutting plane    $count_cut")
+        if isIP
+            println("Lazy callbacks:  $cutting_rounds")
+        else
+            println("Cutting rounds:  $cutting_rounds")
+        end
         println("Total cuts:      $cuts_added")
         println("Overall time:    $total_time")
         println("  Master init      $master_init_time")
         println("  Oracle setup     $oracle_setup_time")
         println("  Reformulation    $reform_time")
-        println("  Master solve     $master_time")
+        if isIP
+            println("  Master solve     $master_time (** for IP, == TotalMIPTime - CutTime)")
+        else
+            println("  Master solve     $master_time")
+        end
         println("  Cut solve&add    $cut_time")
     end
 

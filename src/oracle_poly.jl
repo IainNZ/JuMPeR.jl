@@ -202,7 +202,7 @@ function setup(w::PolyhedralOracle, rm::Model)
 end
 
 
-function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
+function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=nothing)
     
     # If not doing cuts for this one, just skip
     con_ind = w.con_inds[ind]
@@ -292,10 +292,19 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
         end
 
     if sense(con) == :<=
-        @addConstraint(m, new_lhs <= con.ub)
+        if cb == nothing
+            @addConstraint(m, new_lhs <= con.ub)
+        else
+            @addLazyConstraint(cb, new_lhs <= con.ub)
+        end
     else
-        @addConstraint(m, new_lhs >= con.lb)
+        if cb == nothing
+            @addConstraint(m, new_lhs >= con.lb)
+        else
+            @addLazyConstraint(cb, new_lhs >= con.lb)
+        end
     end
+    
     return 1
 end
 

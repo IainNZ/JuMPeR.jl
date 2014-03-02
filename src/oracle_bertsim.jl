@@ -82,7 +82,7 @@ function setup(w::BertSimOracle, rm::Model)
 end
 
 
-function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model)
+function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model, cb=nothing)
 
     # If not doing cuts for this one, just skip
     con_ind = w.con_inds[ind]
@@ -180,14 +180,21 @@ function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model)
             end
         end
     end
-    #println(new_lhs)
+    
     if sense(con) == :<=
-        @addConstraint(m, new_lhs <= con.ub)
+        if cb == nothing
+            @addConstraint(m, new_lhs <= con.ub)
+        else
+            @addLazyConstraint(cb, new_lhs <= con.ub)
+        end
     else
-        @addConstraint(m, new_lhs >= con.lb)
+        if cb == nothing
+            @addConstraint(m, new_lhs >= con.lb)
+        else
+            @addLazyConstraint(cb, new_lhs >= con.lb)
+        end
     end
 
-    #readline(STDIN)
     return 1
 end
 
