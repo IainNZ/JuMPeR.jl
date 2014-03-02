@@ -9,6 +9,8 @@ commercial solvers ([COIN Clp], [COIN Cbc], [GNU GLPK], [Gurobi], [MOSEK], [CPLE
 
 **JuMPeR** extends JuMP by making it possible to easily model robust optimization problems in a way that decouples the statement of the problem from both the specific uncertainty sets used and the solution method.
 
+Documentation is available on [ReadTheDocs](http://jumper.readthedocs.org/en/latest/jumper.html)
+
 Build status: [![Build Status](https://travis-ci.org/IainNZ/JuMPeR.jl.png)](https://travis-ci.org/IainNZ/JuMPeR.jl)
 
 ### Installation Instructions
