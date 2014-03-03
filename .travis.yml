@@ -4,8 +4,8 @@ compiler:
 notifications:
     email: false
 env:
-    - PKGADD="Cbc;Clp" JULIAVERSION="juliareleases" 
-    - PKGADD="Cbc;Clp" JULIAVERSION="julianightlies" 
+    - PKGADD="GLPKMathProgInterface" JULIAVERSION="juliareleases" 
+    - PKGADD="GLPKMathProgInterface" JULIAVERSION="julianightlies" 
 before_install:
     - sudo add-apt-repository ppa:staticfloat/julia-deps -y
     - sudo add-apt-repository ppa:staticfloat/${JULIAVERSION} -y
