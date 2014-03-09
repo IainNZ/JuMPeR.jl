@@ -392,7 +392,7 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
     for unc_i = 1:rd.numUncs
         new_lhs = AffExpr()
         for pair in dual_A[unc_i]
-            new_lhs += pair[2] * dual_vars[pair[1]]
+            push!(new_lhs, pair[2], dual_vars[pair[1]])
         end
         if sense(w.cons[con_ind]) == :<=
             if dual_contype[unc_i] == :(==)
