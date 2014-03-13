@@ -22,9 +22,9 @@
 (*)(lhs::Number, rhs::Uncertain) = UAffExpr([rhs],[convert(Float64,lhs)], 0.)
 (/)(lhs::Number, rhs::Uncertain) = error("Cannot divide by an uncertain")
 # Number--UAffExpr
-(+)(lhs::Number, rhs::UAffExpr) = UAffExpr(copy(rhs.uncs),copy(rhs.coeffs),lhs+rhs.constant)
-(-)(lhs::Number, rhs::UAffExpr) = UAffExpr(copy(rhs.uncs),    -rhs.coeffs ,lhs-rhs.constant)
-(*)(lhs::Number, rhs::UAffExpr) = UAffExpr(copy(rhs.uncs), lhs*rhs.coeffs ,lhs*rhs.constant)
+(+)(lhs::Number, rhs::UAffExpr) = UAffExpr(copy(rhs.vars),copy(rhs.coeffs),lhs+rhs.constant)
+(-)(lhs::Number, rhs::UAffExpr) = UAffExpr(copy(rhs.vars),    -rhs.coeffs ,lhs-rhs.constant)
+(*)(lhs::Number, rhs::UAffExpr) = UAffExpr(copy(rhs.vars), lhs*rhs.coeffs ,lhs*rhs.constant)
 (/)(lhs::Number, rhs::UAffExpr) = error("Cannot divide number by an uncertain expression")
 # Number--FullAffExpr
 (+)(lhs::Number, rhs::FullAffExpr) = FullAffExpr(copy(rhs.vars),copy(rhs.coeffs),lhs+rhs.constant)
@@ -95,8 +95,8 @@
 (*)(lhs::Uncertain, rhs::Uncertain) = error("Cannot multiply two uncertains")
 (/)(lhs::Uncertain, rhs::Uncertain) = error("Cannot divide two uncertains")
 # Uncertain--UAffExpr
-(+)(lhs::Uncertain, rhs::UAffExpr) = UAffExpr([lhs,rhs.uncs],[1.0, rhs.coeffs], rhs.constant)
-(-)(lhs::Uncertain, rhs::UAffExpr) = UAffExpr([lhs,rhs.uncs],[1.0,-rhs.coeffs],-rhs.constant)
+(+)(lhs::Uncertain, rhs::UAffExpr) = UAffExpr([lhs,rhs.vars],[1.0, rhs.coeffs], rhs.constant)
+(-)(lhs::Uncertain, rhs::UAffExpr) = UAffExpr([lhs,rhs.vars],[1.0,-rhs.coeffs],-rhs.constant)
 (*)(lhs::Uncertain, rhs::UAffExpr) = error("Cannot multiply uncertain and expression")
 (/)(lhs::Uncertain, rhs::UAffExpr) = error("Cannot divide uncertain by expression")
 # Uncertain--FullAffExpr
@@ -123,12 +123,12 @@
 (/)(lhs::UAffExpr, rhs::AffExpr) = error("Cannot divide by affine expression")
 # UAffExpr--Uncertain
 (+)(lhs::UAffExpr, rhs::Uncertain) = (+)(rhs,lhs)
-(-)(lhs::UAffExpr, rhs::Uncertain) = UAffExpr([rhs,lhs.uncs],[-1.0,lhs.coeffs],lhs.constant)
+(-)(lhs::UAffExpr, rhs::Uncertain) = UAffExpr([rhs,lhs.vars],[-1.0,lhs.coeffs],lhs.constant)
 (*)(lhs::UAffExpr, rhs::Uncertain) = (*)(rhs,lhs)
 (/)(lhs::UAffExpr, rhs::Uncertain) = error("Cannot divide by uncertain")
 # UAffExpr--UAffExpr
-(+)(lhs::UAffExpr, rhs::UAffExpr) = UAffExpr([lhs.uncs,rhs.uncs],[lhs.coeffs,rhs.coeffs],lhs.constant+rhs.constant)
-(-)(lhs::UAffExpr, rhs::UAffExpr) = UAffExpr([lhs.uncs,rhs.uncs],[lhs.coeffs,-rhs.coeffs],lhs.constant-rhs.constant)
+(+)(lhs::UAffExpr, rhs::UAffExpr) = UAffExpr([lhs.vars,rhs.vars],[lhs.coeffs,rhs.coeffs],lhs.constant+rhs.constant)
+(-)(lhs::UAffExpr, rhs::UAffExpr) = UAffExpr([lhs.vars,rhs.vars],[lhs.coeffs,-rhs.coeffs],lhs.constant-rhs.constant)
 (*)(lhs::UAffExpr, rhs::UAffExpr) = error("Cannot multiply two expressions")
 (/)(lhs::UAffExpr, rhs::UAffExpr) = error("Cannot divide two expressions")
 # UAffExpr--FullAffExpr

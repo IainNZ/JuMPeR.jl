@@ -93,7 +93,7 @@ function setup(w::PolyhedralOracle, rm::Model)
         for c in rd.uncertaintyset
             newcon = LinearConstraint(AffExpr(), c.lb, c.ub)
             newcon.terms.coeffs = c.terms.coeffs
-            newcon.terms.vars   = [w.cut_vars[u.unc] for u in c.terms.uncs]
+            newcon.terms.vars   = [w.cut_vars[u.unc] for u in c.terms.vars]
             push!(w.cut_model.linconstr, newcon)
         end
 
@@ -115,10 +115,10 @@ function setup(w::PolyhedralOracle, rm::Model)
             for i = 1:num_var                               # For every (unc_aff, var) pair
                 col = con_lhs.vars[i].col                   # Extract column number [key]
                 var_map[col] = (Int,Float64)[]              # Init array of tuples
-                num_unc = length(con_lhs.coeffs[i].uncs)    # Num unc in unc_aff
+                num_unc = length(con_lhs.coeffs[i].vars)    # Num unc in unc_aff
                 sizehint(var_map[col], num_unc)
                 for j = 1:num_unc                           # For every unc in unc_aff
-                    unc   = con_lhs.coeffs[i].uncs[j].unc   # The index of this uncertain
+                    unc   = con_lhs.coeffs[i].vars[j].unc   # The index of this uncertain
                     coeff = con_lhs.coeffs[i].coeffs[j]     # The coeff on this uncertain
                     push!(var_map[col], (unc,coeff))        # Add to mapping
                 end
@@ -127,8 +127,8 @@ function setup(w::PolyhedralOracle, rm::Model)
             
             # Including the constant term of the constraint
             const_map = (Int,Float64)[]
-                for j = 1:length(con_lhs.constant.uncs)
-                    unc   = con_lhs.constant.uncs[j].unc
+                for j = 1:length(con_lhs.constant.vars)
+                    unc   = con_lhs.constant.vars[j].unc
                     coeff = con_lhs.constant.coeffs[j]
                     push!(const_map, (unc,coeff))
                 end
@@ -156,8 +156,8 @@ function setup(w::PolyhedralOracle, rm::Model)
         # Matrix transpose of uncertainty set
         for uncset_i = 1:length(rd.uncertaintyset)
             lhs = rd.uncertaintyset[uncset_i].terms
-            for unc_j = 1:length(lhs.uncs)
-                push!(dual_A[lhs.uncs[unc_j].unc], (uncset_i, lhs.coeffs[unc_j]))
+            for unc_j = 1:length(lhs.vars)
+                push!(dual_A[lhs.vars[unc_j].unc], (uncset_i, lhs.coeffs[unc_j]))
             end
             dual_objs[uncset_i] = rhs(rd.uncertaintyset[uncset_i])
             dual_vartype[uncset_i] = sense(rd.uncertaintyset[uncset_i])
@@ -248,8 +248,8 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
         coeff   = orig_lhs.coeffs[var_ind]                  # The unc expr in front of var
         col_val = master_sol[orig_lhs.vars[var_ind].col]    # The value of this x
         lhs    += coeff.constant * col_val                 # The constant part for this x
-        for unc_ind = 1:length(coeff.uncs)
-            coeff_unc   = coeff.uncs[unc_ind]
+        for unc_ind = 1:length(coeff.vars)
+            coeff_unc   = coeff.vars[unc_ind]
             coeff_coeff = coeff.coeffs[unc_ind]
             lhs += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff[unc_ind] * col_val
         end
@@ -257,8 +257,8 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
     # Non variable part
     coeff = orig_lhs.constant
     lhs  += coeff.constant
-        for unc_ind = 1:length(coeff.uncs)
-            coeff_unc   = coeff.uncs[unc_ind]
+        for unc_ind = 1:length(coeff.vars)
+            coeff_unc   = coeff.vars[unc_ind]
             coeff_coeff = coeff.coeffs[unc_ind]
             lhs += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff[unc_ind]
         end
@@ -277,16 +277,16 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
     # Variable part
     for var_ind = 1:num_vars
         coeff   = orig_lhs.coeffs[var_ind]
-        for unc_ind = 1:length(coeff.uncs)
-            coeff_unc   = coeff.uncs[unc_ind]
+        for unc_ind = 1:length(coeff.vars)
+            coeff_unc   = coeff.vars[unc_ind]
             coeff_coeff = coeff.coeffs[unc_ind]
             new_lhs.coeffs[var_ind] += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff[unc_ind]
         end
     end
     # Non variable part
         coeff = orig_lhs.constant
-        for unc_ind = 1:length(coeff.uncs)
-            coeff_unc = coeff.uncs[unc_ind]
+        for unc_ind = 1:length(coeff.vars)
+            coeff_unc = coeff.vars[unc_ind]
             coeff_coeff = coeff.coeffs[unc_ind]
             new_lhs.constant += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff[unc_ind]
         end
@@ -340,16 +340,16 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
     # Collect coefficients for each uncertainty present
     for term_i = 1:length(orig_lhs.coeffs)
         for unc_j = 1:length(orig_lhs.coeffs[term_i].coeffs)
-            push!(dual_rhs[orig_lhs.coeffs[term_i].uncs[unc_j].unc],
+            push!(dual_rhs[orig_lhs.coeffs[term_i].vars[unc_j].unc],
                     orig_lhs.coeffs[term_i].coeffs[unc_j],
                     Variable(m, orig_lhs.vars[term_i].col))
-            #dual_rhs[orig_lhs.coeffs[term_i].uncs[unc_j].unc] +=
+            #dual_rhs[orig_lhs.coeffs[term_i].vars[unc_j].unc] +=
                                 #Variable(m, orig_lhs.vars[term_i].col) *
                                     #orig_lhs.coeffs[term_i].coeffs[unc_j]
         end
     end
         for unc_j = 1:length(orig_lhs.constant.coeffs)
-            dual_rhs[orig_lhs.constant.uncs[unc_j].unc] +=
+            dual_rhs[orig_lhs.constant.vars[unc_j].unc] +=
                                 orig_lhs.constant.coeffs[unc_j]
         end
 
