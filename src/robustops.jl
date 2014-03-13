@@ -22,15 +22,11 @@
 (*)(lhs::Number, rhs::Uncertain) = UAffExpr([rhs],[convert(Float64,lhs)], 0.)
 (/)(lhs::Number, rhs::Uncertain) = error("Cannot divide by an uncertain")
 # Number--UAffExpr
-(+)(lhs::Number, rhs::UAffExpr) = UAffExpr(copy(rhs.vars),copy(rhs.coeffs),lhs+rhs.constant)
-(-)(lhs::Number, rhs::UAffExpr) = UAffExpr(copy(rhs.vars),    -rhs.coeffs ,lhs-rhs.constant)
-(*)(lhs::Number, rhs::UAffExpr) = UAffExpr(copy(rhs.vars), lhs*rhs.coeffs ,lhs*rhs.constant)
-(/)(lhs::Number, rhs::UAffExpr) = error("Cannot divide number by an uncertain expression")
 # Number--FullAffExpr
-(+)(lhs::Number, rhs::FullAffExpr) = FullAffExpr(copy(rhs.vars),copy(rhs.coeffs),lhs+rhs.constant)
+#(+)(lhs::Number, rhs::FullAffExpr) = FullAffExpr(copy(rhs.vars),copy(rhs.coeffs),lhs+rhs.constant)
 (-)(lhs::Number, rhs::FullAffExpr) = FullAffExpr(copy(rhs.vars),[0.0-rhs.coeffs[i] for i=1:length(rhs.coeffs)],lhs-rhs.constant)
-(*)(lhs::Number, rhs::FullAffExpr) = FullAffExpr(copy(rhs.vars),[lhs*rhs.coeffs[i] for i=1:length(rhs.coeffs)] ,lhs*rhs.constant)
-(/)(lhs::Number, rhs::FullAffExpr) = error("Cannot divide number by an expression")
+#(*)(lhs::Number, rhs::FullAffExpr) = FullAffExpr(copy(rhs.vars),[lhs*rhs.coeffs[i] for i=1:length(rhs.coeffs)] ,lhs*rhs.constant)
+#(/)(lhs::Number, rhs::FullAffExpr) = error("Cannot divide number by an expression")
 
 # Variable
 # Variable--Uncertain
