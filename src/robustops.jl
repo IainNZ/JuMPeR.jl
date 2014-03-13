@@ -21,12 +21,8 @@
 (-)(lhs::Number, rhs::Uncertain) = UAffExpr([rhs],[-1.],convert(Float64,lhs))
 (*)(lhs::Number, rhs::Uncertain) = UAffExpr([rhs],[convert(Float64,lhs)], 0.)
 (/)(lhs::Number, rhs::Uncertain) = error("Cannot divide by an uncertain")
-# Number--UAffExpr
-# Number--FullAffExpr
-#(+)(lhs::Number, rhs::FullAffExpr) = FullAffExpr(copy(rhs.vars),copy(rhs.coeffs),lhs+rhs.constant)
-(-)(lhs::Number, rhs::FullAffExpr) = FullAffExpr(copy(rhs.vars),[0.0-rhs.coeffs[i] for i=1:length(rhs.coeffs)],lhs-rhs.constant)
-#(*)(lhs::Number, rhs::FullAffExpr) = FullAffExpr(copy(rhs.vars),[lhs*rhs.coeffs[i] for i=1:length(rhs.coeffs)] ,lhs*rhs.constant)
-#(/)(lhs::Number, rhs::FullAffExpr) = error("Cannot divide number by an expression")
+# Number--UAffExpr      (handled with JuMP generics)
+# Number--FullAffExpr   (handled with JuMP generics)
 
 # Variable
 # Variable--Uncertain
