@@ -108,14 +108,14 @@ function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model, cb=nothing
     nom_val  = 0.0
     for var_ind = 1:length(orig_lhs.vars)
         col      = orig_lhs.vars[var_ind].col
-        num_uncs = length(orig_lhs.coeffs[var_ind].uncs)
+        num_uncs = length(orig_lhs.coeffs[var_ind].vars)
         coeff_val = 0.0
         if num_uncs > 1
             # More than one uncertain on this variable
             # Not supported
             error("BertSimOracle only supports one uncertain coefficient per variable")
         elseif num_uncs == 1
-            unc = orig_lhs.coeffs[var_ind].uncs[1].unc
+            unc = orig_lhs.coeffs[var_ind].vars[1].unc
             push!(absx_devs, abs(master_sol[col]) * w.devs[unc])
             push!(uncx_inds, var_ind)
             coeff_val += orig_lhs.coeffs[var_ind].coeffs[1] * w.means[unc]
@@ -123,7 +123,7 @@ function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model, cb=nothing
         coeff_val += orig_lhs.coeffs[var_ind].constant
         nom_val += coeff_val * master_sol[col]
     end
-    if length(orig_lhs.constant.uncs) >= 1
+    if length(orig_lhs.constant.vars) >= 1
         error("BertSimOracle doesn't support uncertain not attached to variable yet")
     end
     nom_val += orig_lhs.constant.constant
@@ -158,7 +158,7 @@ function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model, cb=nothing
     #println(new_lhs)
     for p in 1:length(perm)
         var_ind = uncx_inds[p]
-        unc     = orig_lhs.coeffs[var_ind].uncs[1].unc
+        unc     = orig_lhs.coeffs[var_ind].vars[1].unc
         col     = orig_lhs.vars[var_ind].col
         if p <= length(perm) - w.Gamma
             # At nominal value
@@ -215,12 +215,12 @@ function generateReform(w::BertSimOracle, rm::Model, ind::Int, m::Model)
                           orig_lhs.constant.constant)
         for var_ind = 1:length(orig_lhs.vars)
             col      = orig_lhs.vars[var_ind].col
-            num_uncs = length(orig_lhs.coeffs[var_ind].uncs)
+            num_uncs = length(orig_lhs.coeffs[var_ind].vars)
             if num_uncs > 1
                 # More than one uncertain on this variable - not supported
                 error("BertSimOracle only supports one uncertain coefficient per variable")
             elseif num_uncs == 1
-                unc   = orig_lhs.coeffs[var_ind].uncs[1].unc
+                unc   = orig_lhs.coeffs[var_ind].vars[1].unc
                 coeff = orig_lhs.coeffs[var_ind].coeffs[1]
                 new_lhs.coeffs[var_ind] += coeff * w.means[unc]
             end

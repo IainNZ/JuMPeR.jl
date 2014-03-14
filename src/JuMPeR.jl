@@ -118,14 +118,7 @@ show( io::IO, u::Uncertain) = print(io, getName(u))
 
 #############################################################################
 # Uncertain Affine Expression class
-# Natural variant on GenericAffExpr, should probably use it but was created
-# before... only difference is really uncs instead of vars
-
-type UAffExpr
-    uncs::Array{Uncertain,1}
-    coeffs::Array{Float64,1}
-    constant::Float64
-end
+typealias UAffExpr GenericAffExpr{Float64,Uncertain}
 
 UAffExpr() = UAffExpr(Uncertain[],Float64[],0.)
 UAffExpr(c::Float64) = UAffExpr(Uncertain[],Float64[],c)
@@ -138,21 +131,21 @@ show( io::IO, a::UAffExpr) = print(io, affToStr(a))
 
 
 function affToStr(a::UAffExpr, showConstant=true)
-    if length(a.uncs) == 0
+    if length(a.vars) == 0
         return string(a.constant)
     end
 
     # Get reference to robust part of model
-    robdata = getRobust(a.uncs[1].m)
+    robdata = getRobust(a.vars[1].m)
 
     # Collect like terms
     indvec = IndexedVector(Float64, robdata.numUncs)
-    for ind in 1:length(a.uncs)
-        addelt(indvec, a.uncs[ind].unc, a.coeffs[ind])
+    for ind in 1:length(a.vars)
+        addelt(indvec, a.vars[ind].unc, a.coeffs[ind])
     end
 
     # Stringify the terms
-    termStrings = Array(ASCIIString, length(a.uncs))
+    termStrings = Array(ASCIIString, length(a.vars))
     numTerms = 0
     for i in 1:indvec.nnz
         idx = indvec.nzidx[i]
