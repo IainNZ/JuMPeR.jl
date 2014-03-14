@@ -21,12 +21,8 @@
 (-)(lhs::Number, rhs::Uncertain) = UAffExpr([rhs],[-1.],convert(Float64,lhs))
 (*)(lhs::Number, rhs::Uncertain) = UAffExpr([rhs],[convert(Float64,lhs)], 0.)
 (/)(lhs::Number, rhs::Uncertain) = error("Cannot divide by an uncertain")
-# Number--UAffExpr
-# Number--FullAffExpr
-#(+)(lhs::Number, rhs::FullAffExpr) = FullAffExpr(copy(rhs.vars),copy(rhs.coeffs),lhs+rhs.constant)
-(-)(lhs::Number, rhs::FullAffExpr) = FullAffExpr(copy(rhs.vars),[0.0-rhs.coeffs[i] for i=1:length(rhs.coeffs)],lhs-rhs.constant)
-#(*)(lhs::Number, rhs::FullAffExpr) = FullAffExpr(copy(rhs.vars),[lhs*rhs.coeffs[i] for i=1:length(rhs.coeffs)] ,lhs*rhs.constant)
-#(/)(lhs::Number, rhs::FullAffExpr) = error("Cannot divide number by an expression")
+# Number--UAffExpr        - handled by JuMP
+# Number--FullAffExpr     - handled by JuMP
 
 # Variable
 # Variable--Uncertain
@@ -102,11 +98,7 @@
 (/)(lhs::Uncertain, rhs::FullAffExpr) = error("Cannot divide uncertainty by uncertain expression")
 
 # UAffExpr
-# UAffExpr--Number
-(+)(lhs::UAffExpr, rhs::Number) = (+)(+rhs,lhs)
-(-)(lhs::UAffExpr, rhs::Number) = (+)(-rhs,lhs)
-(*)(lhs::UAffExpr, rhs::Number) = (*)( rhs,lhs)
-(/)(lhs::UAffExpr, rhs::Number) = (*)(1.0/rhs,lhs)
+# UAffExpr--Number        - handled by JuMP
 # UAffExpr--Variable
 (+)(lhs::UAffExpr, rhs::Variable) = (+)(rhs,lhs)
 (-)(lhs::UAffExpr, rhs::Variable) = FullAffExpr([rhs],[UAffExpr(-1.)],lhs)
@@ -134,11 +126,7 @@
 (/)(lhs::UAffExpr, rhs::FullAffExpr) = error("Cannot divide two expressions")
 
 # FullAffExpr
-# FullAffExpr--Number
-(+)(lhs::FullAffExpr, rhs::Number) = (+)(+rhs,lhs)
-(-)(lhs::FullAffExpr, rhs::Number) = (+)(-rhs,lhs)
-(*)(lhs::FullAffExpr, rhs::Number) = (*)(rhs,lhs)
-(/)(lhs::FullAffExpr, rhs::Number) = (*)(1.0/rhs,lhs)
+# FullAffExpr--Number     - handled by JuMP
 # FullAffExpr--Variable
 (+)(lhs::FullAffExpr, rhs::Variable) = (+)(rhs,lhs)
 (-)(lhs::FullAffExpr, rhs::Variable) = FullAffExpr(vcat(lhs.vars,rhs),vcat(lhs.coeffs,UAffExpr(-1.)), lhs.constant)
@@ -169,94 +157,32 @@
 (/)(lhs::FullAffExpr, rhs::FullAffExpr) = error("Cannot")
 
 # Constraints
-# Number
-(<=)(lhs::Number, rhs::Uncertain) = (>=)(rhs,lhs)
-(==)(lhs::Number, rhs::Uncertain) = (==)(rhs,lhs)
-(>=)(lhs::Number, rhs::Uncertain) = (<=)(rhs,lhs)
-(<=)(lhs::Number, rhs::UAffExpr) = (>=)(rhs,lhs)
-(==)(lhs::Number, rhs::UAffExpr) = (==)(rhs,lhs)
-(>=)(lhs::Number, rhs::UAffExpr) = (<=)(rhs,lhs)
-(<=)(lhs::Number, rhs::FullAffExpr) = (>=)(rhs,lhs)
-(==)(lhs::Number, rhs::FullAffExpr) = (==)(rhs,lhs)
-(>=)(lhs::Number, rhs::FullAffExpr) = (<=)(rhs,lhs)
-# Variable
-(<=)(lhs::Variable, rhs::Uncertain) = (>=)(rhs,lhs)
-(==)(lhs::Variable, rhs::Uncertain) = (==)(rhs,lhs)
-(>=)(lhs::Variable, rhs::Uncertain) = (<=)(rhs,lhs)
-(<=)(lhs::Variable, rhs::UAffExpr) = (>=)(rhs,lhs)
-(==)(lhs::Variable, rhs::UAffExpr) = (==)(rhs,lhs)
-(>=)(lhs::Variable, rhs::UAffExpr) = (<=)(rhs,lhs)
-(<=)(lhs::Variable, rhs::FullAffExpr) = (>=)(rhs,lhs)
-(==)(lhs::Variable, rhs::FullAffExpr) = (==)(rhs,lhs)
-(>=)(lhs::Variable, rhs::FullAffExpr) = (<=)(rhs,lhs)
-# AffExpr
-(<=)(lhs::AffExpr, rhs::Uncertain) = (>=)(rhs,lhs)
-(==)(lhs::AffExpr, rhs::Uncertain) = (==)(rhs,lhs)
-(>=)(lhs::AffExpr, rhs::Uncertain) = (<=)(rhs,lhs)
-(<=)(lhs::AffExpr, rhs::UAffExpr) = (>=)(rhs,lhs)
-(==)(lhs::AffExpr, rhs::UAffExpr) = (==)(rhs,lhs)
-(>=)(lhs::AffExpr, rhs::UAffExpr) = (<=)(rhs,lhs)
-(<=)(lhs::AffExpr, rhs::FullAffExpr) = (>=)(rhs,lhs)
-(==)(lhs::AffExpr, rhs::FullAffExpr) = (==)(rhs,lhs)
-(>=)(lhs::AffExpr, rhs::FullAffExpr) = (<=)(rhs,lhs)
-# Uncertain
-(<=)(lhs::Uncertain, rhs::Number) = UncSetConstraint(UAffExpr(lhs,1.0), -Inf,  rhs)
-(==)(lhs::Uncertain, rhs::Number) = UncSetConstraint(UAffExpr(lhs,1.0),  rhs,  rhs)
-(>=)(lhs::Uncertain, rhs::Number) = UncSetConstraint(UAffExpr(lhs,1.0),  rhs, +Inf)
-(<=)(lhs::Uncertain, rhs::Variable) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::Uncertain, rhs::Variable) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::Uncertain, rhs::Variable) = (>=)(lhs - rhs, 0.0)
-(<=)(lhs::Uncertain, rhs::AffExpr) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::Uncertain, rhs::AffExpr) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::Uncertain, rhs::AffExpr) = (>=)(lhs - rhs, 0.0)
-(<=)(lhs::Uncertain, rhs::Uncertain) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::Uncertain, rhs::Uncertain) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::Uncertain, rhs::Uncertain) = (>=)(lhs - rhs, 0.0)
-(<=)(lhs::Uncertain, rhs::UAffExpr) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::Uncertain, rhs::UAffExpr) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::Uncertain, rhs::UAffExpr) = (>=)(lhs - rhs, 0.0)
-(<=)(lhs::Uncertain, rhs::FullAffExpr) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::Uncertain, rhs::FullAffExpr) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::Uncertain, rhs::FullAffExpr) = (>=)(lhs - rhs, 0.0)
-# UAffExpr
-(<=)(lhs::UAffExpr, rhs::Number) = UncSetConstraint(lhs, -Inf, rhs - lhs.constant)
-(==)(lhs::UAffExpr, rhs::Number) = UncSetConstraint(lhs,  rhs - lhs.constant, rhs - lhs.constant)
-(>=)(lhs::UAffExpr, rhs::Number) = UncSetConstraint(lhs, rhs - lhs.constant, +Inf)
-(<=)(lhs::UAffExpr, rhs::Variable) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::UAffExpr, rhs::Variable) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::UAffExpr, rhs::Variable) = (>=)(lhs - rhs, 0.0)
-(<=)(lhs::UAffExpr, rhs::AffExpr) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::UAffExpr, rhs::AffExpr) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::UAffExpr, rhs::AffExpr) = (>=)(lhs - rhs, 0.0)
-(<=)(lhs::UAffExpr, rhs::Uncertain) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::UAffExpr, rhs::Uncertain) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::UAffExpr, rhs::Uncertain) = (>=)(lhs - rhs, 0.0)
-(<=)(lhs::UAffExpr, rhs::UAffExpr) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::UAffExpr, rhs::UAffExpr) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::UAffExpr, rhs::UAffExpr) = (>=)(lhs - rhs, 0.0)
-(<=)(lhs::UAffExpr, rhs::FullAffExpr) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::UAffExpr, rhs::FullAffExpr) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::UAffExpr, rhs::FullAffExpr) = (>=)(lhs - rhs, 0.0)
-# FullAffExpr
+# Number, Variable, AffExpr
+for (sgn, osgn) in ( (:<=,:>=), (:(==),:(==)), (:>=,:<=) )
+    for old_typ in (:Number, :Variable, :AffExpr)
+        for new_typ in (:Uncertain, :UAffExpr, :FullAffExpr)
+            @eval $(sgn)(lhs::$(old_typ), rhs::$(new_typ)) = $(osgn)(rhs, lhs)
+        end
+    end
+end
+# Uncertain, UAffExpr, FullAffExpr vs Number
+(<=)(lhs::Uncertain, rhs::Number)   = UncSetConstraint(UAffExpr(lhs,1.0), -Inf,  rhs)
+(==)(lhs::Uncertain, rhs::Number)   = UncSetConstraint(UAffExpr(lhs,1.0),  rhs,  rhs)
+(>=)(lhs::Uncertain, rhs::Number)   = UncSetConstraint(UAffExpr(lhs,1.0),  rhs, +Inf)
+(<=)(lhs::UAffExpr, rhs::Number)    = UncSetConstraint(lhs, -Inf, rhs - lhs.constant)
+(==)(lhs::UAffExpr, rhs::Number)    = UncSetConstraint(lhs,  rhs - lhs.constant, rhs - lhs.constant)
+(>=)(lhs::UAffExpr, rhs::Number)    = UncSetConstraint(lhs, rhs - lhs.constant, +Inf)
 (<=)(lhs::FullAffExpr, rhs::Number) = UncConstraint(lhs, -Inf,  rhs - lhs.constant.constant)
 (==)(lhs::FullAffExpr, rhs::Number) = UncConstraint(lhs,  rhs - lhs.constant.constant,  rhs - lhs.constant.constant)
 (>=)(lhs::FullAffExpr, rhs::Number) = UncConstraint(lhs,  rhs - lhs.constant.constant, +Inf)
-(<=)(lhs::FullAffExpr, rhs::Variable) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::FullAffExpr, rhs::Variable) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::FullAffExpr, rhs::Variable) = (>=)(lhs - rhs, 0.0)
-(<=)(lhs::FullAffExpr, rhs::AffExpr) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::FullAffExpr, rhs::AffExpr) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::FullAffExpr, rhs::AffExpr) = (>=)(lhs - rhs, 0.0)
-(<=)(lhs::FullAffExpr, rhs::Uncertain) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::FullAffExpr, rhs::Uncertain) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::FullAffExpr, rhs::Uncertain) = (>=)(lhs - rhs, 0.0)
-(<=)(lhs::FullAffExpr, rhs::UAffExpr) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::FullAffExpr, rhs::UAffExpr) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::FullAffExpr, rhs::UAffExpr) = (>=)(lhs - rhs, 0.0)
-(<=)(lhs::FullAffExpr, rhs::FullAffExpr) = (<=)(lhs - rhs, 0.0)
-(==)(lhs::FullAffExpr, rhs::FullAffExpr) = (==)(lhs - rhs, 0.0)
-(>=)(lhs::FullAffExpr, rhs::FullAffExpr) = (>=)(lhs - rhs, 0.0)
-
+# Uncertain, UAffExpr, FullAffExpr vs Other
+for sgn in ( :<=, :(==), :>= )
+    for new_typ in (:Uncertain, :UAffExpr, :FullAffExpr)
+        for other_typ in (:Variable, :AffExpr, :Uncertain, :UAffExpr, :FullAffExpr)
+            @eval $(sgn)(lhs::$(new_typ), rhs::$(other_typ)) = $(sgn)(lhs - rhs, 0.0)
+        end
+    end
+end
 
 # Higher level operators
 function dot{T<:Real}(lhs::Array{T,1}, rhs::JuMP.JuMPDict{Uncertain})

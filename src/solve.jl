@@ -8,6 +8,24 @@
 # oracles to build and solve the robust counterpart.
 #############################################################################
 
+function convert_model!(old_con::LinearConstraint, new_m::Model)
+    for v in old_con.terms.vars
+        v.m = new_m
+    end
+end
+function convert_model!(old_obj::QuadExpr, new_m::Model)
+    for v in old_obj.qvars1
+        v.m = new_m
+    end
+    for v in old_obj.qvars2
+        v.m = new_m
+    end
+    for v in old_obj.aff.vars
+        v.m = new_m
+    end
+end
+
+
 function solveRobust(rm::Model; report=false, args...)
     
     robdata = getRobust(rm)
@@ -29,6 +47,10 @@ function solveRobust(rm::Model; report=false, args...)
     mastervars       = [Variable(master, i) for i = 1:rm.numCols]
     master_init_time = time() - start_time
     num_unccons      = length(robdata.uncertainconstr)
+    convert_model!(master.obj, master)
+    for c in master.linconstr
+        convert_model!(c, master)
+    end
 
     # If the problem is a MIP, we are going to have to do more work
     isIP = false
