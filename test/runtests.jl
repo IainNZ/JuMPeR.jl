@@ -9,7 +9,8 @@ end
 
 tests = [   "operators.jl",
             "polyhedral.jl",
-            "bertsim.jl"]
+            "bertsim.jl",
+            "affine.jl"]
 
 println("Running tests...")
 for curtest in tests

@@ -8,27 +8,87 @@
 # oracles to build and solve the robust counterpart.
 #############################################################################
 
-function convert_model!(old_con::LinearConstraint, new_m::Model)
-    for v in old_con.terms.vars
-        v.m = new_m
-    end
-end
+
+convert_model!(old_con::LinearConstraint, new_m::Model) =
+    map((v)->(v.m = new_m), old_con.terms.vars)
 function convert_model!(old_obj::QuadExpr, new_m::Model)
-    for v in old_obj.qvars1
-        v.m = new_m
-    end
-    for v in old_obj.qvars2
-        v.m = new_m
-    end
-    for v in old_obj.aff.vars
-        v.m = new_m
-    end
+    map((v)->(v.m = new_m), old_obj.qvars1)
+    map((v)->(v.m = new_m), old_obj.qvars2)
+    map((v)->(v.m = new_m), old_obj.aff.vars)
 end
 
 
 function solveRobust(rm::Model; report=false, args...)
     
     robdata = getRobust(rm)
+    
+    ###########################################################################
+    # Expand adaptability in place
+    # First, create the auxiliary expressions
+    aux_expr = Dict{Int,FullAffExpr}()
+    for col in keys(robdata.adapt_type)
+        new_faff = FullAffExpr()
+        const_term = Variable(rm, -Inf, +Inf, 0, rm.colNames[col]*"_const")
+        new_faff += const_term
+        for unc in robdata.adapt_on[col]
+            unc_term = Variable(rm, -Inf, +Inf, 0, rm.colNames[col]*"_"*robdata.uncNames[unc.unc])
+            new_faff += unc * unc_term
+        end
+        aux_expr[col] = new_faff
+        rm.colLower[col] != -Inf  &&  addConstraint(rm, aux_expr[col] >= rm.colLower[col])
+        rm.colUpper[col] != +Inf  &&  addConstraint(rm, aux_expr[col] <= rm.colUpper[col])
+    end
+    # Make replacements in constraints that already have uncertainties
+    for unc_con in robdata.uncertainconstr
+        new_terms = FullAffExpr()
+        for ind in 1:length(unc_con.terms.vars)
+            col = unc_con.terms.vars[ind].col
+            if col in keys(aux_expr)
+                # Replace it
+                new_terms += unc_con.terms.coeffs[ind].constant * aux_expr[col]
+            else
+                # Leave it
+                new_terms += unc_con.terms.coeffs[ind] * unc_con.terms.vars[ind]
+            end
+        end
+        new_terms += unc_con.terms.constant
+        unc_con.terms = new_terms
+    end
+    # Make replacements in "certain" constraints
+    remove_cons = Int[]
+    for con_ind in 1:length(rm.linconstr)
+        cert_con = rm.linconstr[con_ind]
+        # Just check first - don't build replacement unless we need it
+        needs_replacements = false
+        for ind in 1:length(cert_con.terms.vars)
+            col = cert_con.terms.vars[ind].col
+            if col in keys(aux_expr)
+                needs_replacements = true
+                break
+            end
+        end
+        !needs_replacements && continue
+        # We need it
+        new_terms = FullAffExpr()
+        for ind in 1:length(cert_con.terms.vars)
+            col = cert_con.terms.vars[ind].col
+            if col in keys(aux_expr)
+                new_terms += cert_con.terms.coeffs[ind] * aux_expr[col]                
+            else
+                new_terms += cert_con.terms.coeffs[ind] * cert_con.terms.vars[ind]
+            end
+        end
+        new_terms += cert_con.terms.constant
+        push!(rm.ext[:Robust].uncertainconstr, UncConstraint(new_terms, cert_con.lb, cert_con.ub))
+        push!(rm.ext[:Robust].oracles, nothing)
+        push!(remove_cons, con_ind)
+    end
+    # Remove certain constraints which have been robustified
+    # TODO: deleteat! in Julia v0.3?
+    robdata = getRobust(rm)
+    for ind = length(remove_cons):-1:1
+        splice!(rm.linconstr, remove_cons[ind])
+    end
 
     # Create master problem, a normal JuMP model
     # TODO: make a copy of certain things
@@ -47,10 +107,10 @@ function solveRobust(rm::Model; report=false, args...)
     mastervars       = [Variable(master, i) for i = 1:rm.numCols]
     master_init_time = time() - start_time
     num_unccons      = length(robdata.uncertainconstr)
-    convert_model!(master.obj, master)
-    for c in master.linconstr
-        convert_model!(c, master)
-    end
+    #convert_model!(master.obj, master)
+    #for c in master.linconstr
+    #    convert_model!(c, master)
+    #end
 
     # If the problem is a MIP, we are going to have to do more work
     isIP = false
@@ -149,6 +209,9 @@ function solveRobust(rm::Model; report=false, args...)
         # Begin main solve loop
         while true
             cutting_rounds += 1
+            if get(prefs, :debug_printcut, false)
+                println("CUTTING ROUND $cutting_rounds")
+            end
             
             # Solve master
             tic()
@@ -180,7 +243,7 @@ function solveRobust(rm::Model; report=false, args...)
     rm.objVal = master.objVal
 
     # DEBUG: If user wants it, print final model
-    if :debug_printfinal in keys(prefs) && prefs[:debug_printfinal]
+    if get(prefs, :debug_printfinal, false)
         println("BEGIN DEBUG :debug_printfinal")
         print(master)
         println("END DEBUG   :debug_printfinal")

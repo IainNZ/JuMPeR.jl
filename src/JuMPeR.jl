@@ -9,12 +9,14 @@ module JuMPeR
 import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
 import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt, JuMP.isexpr
+import JuMP.string_intclamp
 importall JuMP  # What does this do exactly?
 
 import Base.dot
 
 export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
 export UncConstraint, UncSetConstraint, printRobust
+export setAdapt!
 
 # JuMP rexports
 export
@@ -53,9 +55,16 @@ type RobustData
     uncLower::Vector{Float64}
     uncUpper::Vector{Float64}
 
+    # Adaptability
+    adapt_type::Dict{Int,Symbol}
+    adapt_on::Dict{Int,Vector}
+
     defaultOracle
 end
-RobustData() = RobustData(Any[],Any[],Any[],0,String[],Float64[],Float64[],PolyhedralOracle())
+RobustData() = RobustData(  Any[],Any[],Any[],
+                            0,String[],Float64[],Float64[],
+                            Dict{Int,Symbol}(), Dict{Int,Vector}(),
+                            PolyhedralOracle())
 
 function RobustModel(;solver=nothing)
     m = Model(solver=solver)
@@ -129,10 +138,12 @@ zero(::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
 print(io::IO, a::UAffExpr) = print(io, affToStr(a))
 show( io::IO, a::UAffExpr) = print(io, affToStr(a))
 
+#string_intclamp(f::Float64) =
+    #string(abs(f) >= 1e-10 && abs(f - iround(f))/abs(f) <= 1e-10 ? iround(f) : f)
 
 function affToStr(a::UAffExpr, showConstant=true)
     if length(a.vars) == 0
-        return string(a.constant)
+        return string_intclamp(a.constant)
     end
 
     # Get reference to robust part of model
@@ -147,17 +158,44 @@ function affToStr(a::UAffExpr, showConstant=true)
     # Stringify the terms
     termStrings = Array(ASCIIString, length(a.vars))
     numTerms = 0
+    first = true
     for i in 1:indvec.nnz
         idx = indvec.nzidx[i]
         numTerms += 1
-        termStrings[numTerms] = "$(indvec.elts[idx]) $(robdata.uncNames[idx])"
+        if abs(indvec.elts[idx] - 1) <= 1e-10
+            # +1
+            if first
+                termStrings[numTerms] = "$(robdata.uncNames[idx])"
+            else    
+                termStrings[numTerms] = " + $(robdata.uncNames[idx])"
+            end
+        elseif abs(indvec.elts[idx] + 1) <= 1e-10
+            # -1
+            if first
+                termStrings[numTerms] = "-$(robdata.uncNames[idx])"
+            else    
+                termStrings[numTerms] = " - $(robdata.uncNames[idx])"
+            end
+        else
+            # Number
+            if first
+                termStrings[numTerms] = "$(string_intclamp(indvec.elts[idx])) $(robdata.uncNames[idx])"
+            else
+                if indvec.elts[idx] < 0
+                    termStrings[numTerms] = " - $(string_intclamp(abs(indvec.elts[idx]))) $(robdata.uncNames[idx])"
+                else
+                    termStrings[numTerms] = " + $(string_intclamp(indvec.elts[idx])) $(robdata.uncNames[idx])"
+                end
+            end
+        end
+        first = false
     end
 
     # And then connect them up with +s
-    ret = join(termStrings[1:numTerms], " + ")
+    ret = join(termStrings[1:numTerms], "")
     
-    if abs(a.constant) >= 0.000001 && showConstant
-        ret = string(ret," + ",a.constant)
+    if abs(a.constant) >= 1e6 && showConstant
+        ret = string(ret," + ",string_intclamp(a.constant))
     end
     return ret
 end
@@ -175,24 +213,52 @@ FullAffExpr() = FullAffExpr(Variable[], UAffExpr[], UAffExpr())
 # Pretty cool that this is almost the same as normal affExpr
 function affToStr(a::FullAffExpr, showConstant=true)
     if length(a.vars) == 0
-        return string(a.constant)
+        return affToStr(a.constant)
     end
+
+    # Get reference to robust part of model
+    robdata = getRobust(a.vars[1].m)
 
     # Stringify the terms
     termStrings = Array(ASCIIString, length(a.vars))
     numTerms = 0
+    first = true
     for i in 1:length(a.vars)
         numTerms += 1
-        termStrings[numTerms] = "($(affToStr(a.coeffs[i]))) $(getName(a.vars[i]))"
+        uaff = a.coeffs[i]
+        varn = getName(a.vars[i])
+        if length(uaff.vars) == 0
+            if abs(uaff.constant) <= 1e-6
+                # Constant 0
+                termStrings[numTerms] = ""
+            elseif abs(uaff.constant - 1) <= 1e-6
+                # Constant +1
+                termStrings[numTerms] = first ? varn : " + $varn"
+            elseif abs(uaff.constant + 1) <= 1e-6
+                # Constant -1
+                termStrings[numTerms] = first ? "-$varn" : " - $varn"
+            else
+                sign = uaff.constant < 0 ? " -" : " +"
+                termStrings[numTerms] = "$sign $(string_intclamp(abs(uaff.constant))) $varn"
+            end
+        elseif length(uaff.vars) == 1
+            termStrings[numTerms] = " + $(affToStr(a.coeffs[i]))*$varn"
+        else
+            termStrings[numTerms] = " + ($(affToStr(a.coeffs[i])))*$varn"
+        end
+        first = false
     end
 
     # And then connect them up with +s
-    ret = join(termStrings[1:numTerms], " + ")
+    ret = join(termStrings[1:numTerms], "")
     
     # TODO(idunning): Think more carefully about this
-    if showConstant
-        ret = string(ret," + ",affToStr(a.constant))
-    end
+    #if showConstant
+        con_aff = affToStr(a.constant)
+        if con_aff != "" && con_aff != "0"
+            ret = string(ret," + ",affToStr(a.constant))
+        end
+    #end
     return ret
 end
 
@@ -207,6 +273,26 @@ function addConstraint(m::Model, c::UncConstraint, w=nothing)
     push!(getRobust(m).uncertainconstr,c)
     push!(getRobust(m).oracles, w)
 end
+
+#############################################################################
+# Adaptability
+function setAdapt!(x::Variable, atype::Symbol, uncs::Vector)
+    !(atype in [:Affine]) && error("Unrecognized adaptability type '$atype'")
+    all_uncs = Uncertain[]
+    add_to_list(u::Uncertain)           = (push!(all_uncs, u))
+    add_to_list(u::JuMP.JuMPDict{Uncertain}) = (all_uncs=vcat(all_uncs,u.innerArray))
+    add_to_list(u::Array{Uncertain})    = (all_uncs=vcat(all_uncs,vec(u)))
+    add_to_list{T}(u::T)                = error("Can only depend on Uncertains (tried to adapt on $T)")
+    map(add_to_list, uncs)
+    rd = getRobust(x.m)
+    rd.adapt_type[x.col] = atype
+    rd.adapt_on[x.col]   = all_uncs
+end
+setAdapt!(x::JuMP.JuMPDict{Variable}, atype::Symbol, uncs::Vector) =
+    map((v)->setAdapt!(v, atype, uncs), x.innerArray)
+setAdapt!(x::Array{Variable}, atype::Symbol, uncs::Vector) =
+    map((v)->setAdapt!(v, atype, uncs), x)
+
 
 #############################################################################
 # Operator overloads

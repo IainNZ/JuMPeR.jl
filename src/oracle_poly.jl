@@ -8,6 +8,8 @@
 # built up with linear constraints to either cut, reformulate, sample or
 # some combination of the above.
 #############################################################################
+using MathProgBase
+using Gurobi
 
 type PolyhedralOracle <: AbstractOracle
     # The constraints associated with this oracle and the selected mode(s)
@@ -232,12 +234,18 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
 
     # Solve cutting plane problem
     if w._debug_printcut
-        println("BEGIN DEBUG :debug_printcut  cut_model.obj and master_sol")
-        println(w.cut_model.obj)
-        println(master_sol)
-        println("END DEBUG   :debug_printcut")
+        println("BEGIN DEBUG :debug_printcut")
+        try
+            println("  Constraint:  ", con)
+        end
+        println("  Master sol:  ")
+        for j in 1:length(m.colNames)
+            println("    ", m.colNames[j], "  ", m.colVal[j])
+        end
+        #println("  Cut obj:     ", w.cut_model.objSense, "  ", w.cut_model.obj)
+        println(w.cut_model)
     end
-    solve(w.cut_model)
+    cut_solve_status = solve(w.cut_model)
 
     # Calculate cut LHS
     lhs = 0.0
@@ -264,8 +272,19 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
         end
 
     # Check violation
+    if w._debug_printcut
+        println("  Solved       ", cut_solve_status)
+        println("  Cut sol:     ")
+        for j in 1:length(w.cut_model.colNames)
+            println("    ", w.cut_model.colNames[j], "  ", w.cut_model.colVal[j])
+        end
+        println("  OrigLHS val: ", lhs)
+        println("  Sense:       ", sense(con))
+        println("  con.lb/ub:   ", con.lb, "  ", con.ub)
+    end
     if ((sense(con) == :<=) && (lhs <= con.ub + 1e-6)) ||
        ((sense(con) == :>=) && (lhs >= con.lb - 1e-6))
+        w._debug_printcut && println("  No new cut\nEND DEBUG   :debug_printcut")
         return 0  # No violation, no new cut
     end
     
@@ -274,6 +293,7 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
     new_lhs = AffExpr(orig_lhs.vars,
                       [orig_lhs.coeffs[i].constant for i in 1:num_vars],
                       orig_lhs.constant.constant)
+    
     # Variable part
     for var_ind = 1:num_vars
         coeff   = orig_lhs.coeffs[var_ind]
@@ -292,12 +312,20 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
         end
 
     if sense(con) == :<=
+        if w._debug_printcut
+            println("  new constr:  ", new_lhs <= con.ub)
+            println("END DEBUG   :debug_printcut")
+        end
         if cb == nothing
             @addConstraint(m, new_lhs <= con.ub)
         else
             @addLazyConstraint(cb, new_lhs <= con.ub)
         end
     else
+        if w._debug_printcut
+            println("  new constr:  ", new_lhs >= con.lb)
+            println("END DEBUG   :debug_printcut")
+        end
         if cb == nothing
             @addConstraint(m, new_lhs >= con.lb)
         else
