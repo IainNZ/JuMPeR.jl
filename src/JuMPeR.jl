@@ -139,8 +139,14 @@ print(io::IO, a::UAffExpr) = print(io, affToStr(a))
 show( io::IO, a::UAffExpr) = print(io, affToStr(a))
 
 function affToStr(a::UAffExpr, showConstant=true)
+    const ZEROTOL = 1e-20
+
     if length(a.vars) == 0
-        return string_intclamp(a.constant)
+        if showConstant
+            return string_intclamp(a.constant)
+        else
+            return "0"
+        end
     end
 
     # Get reference to robust part of model
@@ -153,46 +159,57 @@ function affToStr(a::UAffExpr, showConstant=true)
     end
 
     # Stringify the terms
-    termStrings = Array(ASCIIString, length(a.vars))
-    numTerms = 0
-    first = true
+    elm = 0
+    termStrings = Array(UTF8String, 2*length(a.vars))
     for i in 1:indvec.nnz
         idx = indvec.nzidx[i]
-        numTerms += 1
-        if abs(indvec.elts[idx] - 1) <= 1e-10
-            # +1
-            if first
-                termStrings[numTerms] = "$(robdata.uncNames[idx])"
-            else    
-                termStrings[numTerms] = " + $(robdata.uncNames[idx])"
-            end
-        elseif abs(indvec.elts[idx] + 1) <= 1e-10
-            # -1
-            if first
-                termStrings[numTerms] = "-$(robdata.uncNames[idx])"
-            else    
-                termStrings[numTerms] = " - $(robdata.uncNames[idx])"
-            end
-        else
-            # Number
-            if first
-                termStrings[numTerms] = "$(string_intclamp(indvec.elts[idx])) $(robdata.uncNames[idx])"
-            else
+        if abs(abs(indvec.elts[idx])-1) <= ZEROTOL
+            if elm == 0
+                elm += 1
                 if indvec.elts[idx] < 0
-                    termStrings[numTerms] = " - $(string_intclamp(abs(indvec.elts[idx]))) $(robdata.uncNames[idx])"
+                    termStrings[1] = "-$(robdata.uncNames[idx])"
                 else
-                    termStrings[numTerms] = " + $(string_intclamp(indvec.elts[idx])) $(robdata.uncNames[idx])"
+                    termStrings[1] = "$(robdata.uncNames[idx])"
                 end
+            else 
+                if indvec.elts[idx] < 0
+                    termStrings[2*elm] = " - "
+                else
+                    termStrings[2*elm] = " + "
+                end
+                termStrings[2*elm+1] = "$(robdata.uncNames[idx])"
+                elm += 1
+            end
+        elseif abs(indvec.elts[idx]) >= ZEROTOL
+            if elm == 0
+                elm += 1
+                termStrings[1] = "$(string_intclamp(indvec.elts[idx])) $(robdata.uncNames[idx])"
+            else 
+                if indvec.elts[idx] < 0
+                    termStrings[2*elm] = " - "
+                else
+                    termStrings[2*elm] = " + "
+                end
+                termStrings[2*elm+1] = "$(string_intclamp(abs(indvec.elts[idx]))) $(robdata.uncNames[idx])"
+                elm += 1
             end
         end
-        first = false
+    end
+    
+
+    if elm == 0
+        ret = "0"
+    else
+        # And then connect them up with +s
+        ret = join(termStrings[1:(2*elm-1)])
     end
 
-    # And then connect them up with +s
-    ret = join(termStrings[1:numTerms], "")
-    
-    if abs(a.constant) >= 1e6 && showConstant
-        ret = string(ret," + ",string_intclamp(a.constant))
+    if abs(a.constant) >= 0.000001 && showConstant
+        if a.constant < 0
+            ret = string(ret, " - ", string_intclamp(abs(a.constant)))
+        else
+            ret = string(ret, " + ", string_intclamp(a.constant))
+        end
     end
     return ret
 end
@@ -209,39 +226,58 @@ FullAffExpr() = FullAffExpr(Variable[], UAffExpr[], UAffExpr())
 
 # Pretty cool that this is almost the same as normal affExpr
 function affToStr(a::FullAffExpr, showConstant=true)
+    const ZEROTOL = 1e-20
+
+    # If no variables, hand off to the constant part
     if length(a.vars) == 0
-        return affToStr(a.constant)
+        return showConstant ? affToStr(a.constant) : "0"
     end
 
     # Get reference to robust part of model
     robdata = getRobust(a.vars[1].m)
 
-    # Stringify the terms
-    termStrings = Array(ASCIIString, length(a.vars))
+    # Stringify the terms - we don't collect like terms
+    termStrings = Array(UTF8String, length(a.vars))
     numTerms = 0
     first = true
     for i in 1:length(a.vars)
         numTerms += 1
         uaff = a.coeffs[i]
         varn = getName(a.vars[i])
+        prefix = first ? "" : " + "
+        # Coefficient expression is a constant
         if length(uaff.vars) == 0
-            if abs(uaff.constant) <= 1e-6
-                # Constant 0
+            if abs(uaff.constant) <= ZEROTOL
+                # Constant 0 - do not display this term at all
                 termStrings[numTerms] = ""
-            elseif abs(uaff.constant - 1) <= 1e-6
+            elseif abs(uaff.constant - 1) <= ZEROTOL
                 # Constant +1
                 termStrings[numTerms] = first ? varn : " + $varn"
-            elseif abs(uaff.constant + 1) <= 1e-6
+            elseif abs(uaff.constant + 1) <= ZEROTOL
                 # Constant -1
                 termStrings[numTerms] = first ? "-$varn" : " - $varn"
             else
-                sign = uaff.constant < 0 ? " -" : " +"
-                termStrings[numTerms] = "$sign $(string_intclamp(abs(uaff.constant))) $varn"
+                # Constant is other than 0, +1, -1 
+                if first
+                    sign = uaff.constant < 0 ? "-" : ""
+                    termStrings[numTerms] = "$sign$(string_intclamp(abs(uaff.constant))) $varn"
+                else
+                    sign = uaff.constant < 0 ? "-" : "+"
+                    termStrings[numTerms] = " $sign $(string_intclamp(abs(uaff.constant))) $varn"
+                end
             end
+        # Coefficient expression is a single uncertainty
         elseif length(uaff.vars) == 1
-            termStrings[numTerms] = " + $(affToStr(a.coeffs[i]))*$varn"
+            if abs(uaff.constant) <= ZEROTOL && abs(abs(uaff.coeffs[1]) - 1) <= ZEROTOL
+                # No constant, so no (...) needed
+                termStrings[numTerms] = string(prefix,affToStr(uaff)," ",varn)
+            else
+                # Constant - need (...)
+                termStrings[numTerms] = string(prefix,"(",affToStr(uaff),") ",varn)
+            end
+        # Coefficient is a more complicated expression
         else
-            termStrings[numTerms] = " + ($(affToStr(a.coeffs[i])))*$varn"
+            termStrings[numTerms] = string(prefix,"(",affToStr(uaff),") ",varn)
         end
         first = false
     end
@@ -249,13 +285,12 @@ function affToStr(a::FullAffExpr, showConstant=true)
     # And then connect them up with +s
     ret = join(termStrings[1:numTerms], "")
     
-    # TODO(idunning): Think more carefully about this
-    #if showConstant
+    if showConstant
         con_aff = affToStr(a.constant)
         if con_aff != "" && con_aff != "0"
             ret = string(ret," + ",affToStr(a.constant))
         end
-    #end
+    end
     return ret
 end
 
