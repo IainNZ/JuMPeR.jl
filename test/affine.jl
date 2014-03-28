@@ -1,13 +1,12 @@
 using JuMPeR
 using Base.Test
-using Gurobi
 
 function Test1(cuts, rule)
     println(" Test1 $cuts $rule")
     
     sale_price = 3.0
 
-    m = RobustModel(solver=GurobiSolver(OutputFlag=0))
+    m = RobustModel(solver=solver)
     @defVar(m, buy[1:2] >= 0)
     @defVar(m, sold[1:2] >= 0)
     @defVar(m, profit)
