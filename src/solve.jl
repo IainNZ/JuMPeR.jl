@@ -107,10 +107,10 @@ function solveRobust(rm::Model; report=false, args...)
     mastervars       = [Variable(master, i) for i = 1:rm.numCols]
     master_init_time = time() - start_time
     num_unccons      = length(robdata.uncertainconstr)
-    #convert_model!(master.obj, master)
-    #for c in master.linconstr
-    #    convert_model!(c, master)
-    #end
+    convert_model!(master.obj, master)
+    for c in master.linconstr
+        convert_model!(c, master)
+    end
 
     # If the problem is a MIP, we are going to have to do more work
     isIP = false

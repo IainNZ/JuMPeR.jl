@@ -10,7 +10,7 @@ import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
 import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt, JuMP.isexpr
 import JuMP.string_intclamp
-importall JuMP  # What does this do exactly?
+importall JuMP
 
 import Base.dot
 
@@ -137,9 +137,6 @@ zero(::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
 
 print(io::IO, a::UAffExpr) = print(io, affToStr(a))
 show( io::IO, a::UAffExpr) = print(io, affToStr(a))
-
-#string_intclamp(f::Float64) =
-    #string(abs(f) >= 1e-10 && abs(f - iround(f))/abs(f) <= 1e-10 ? iround(f) : f)
 
 function affToStr(a::UAffExpr, showConstant=true)
     if length(a.vars) == 0
