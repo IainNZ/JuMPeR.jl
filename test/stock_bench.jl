@@ -9,15 +9,15 @@ M = 30.0
 truck_cap = 5.0
 
 immutable Sample
-    D1::Float64
-    D2::Float64
+    D1
+    D2
 end
 
 function solve_master(samples; silent=false, cuts=false)
 
     num_samp = length(samples)
     
-    master = RobustModel(solver=GurobiSolver(OutputFlag=(silent?0:1)))
+    master = RobustModel(solver=GurobiSolver(OutputFlag=(silent?0:1), Threads=1))
     tic()
 
     @defVar(master, z)
@@ -92,8 +92,9 @@ for i = 1:(num_samples-1)
     push!(samples, Sample(D1,D2))
 end
 println(samples)
-solve_master(samples, silent=true,  cuts=true)
 
-solve_master(samples, silent=false, cuts=true)
+solve_master(samples, silent=true, cuts=false)
+for i = 1:5
+    @time solve_master(samples, silent=true, cuts=false)
+end
 
-solve_master(samples, silent=false, cuts=false)

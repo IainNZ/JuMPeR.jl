@@ -195,7 +195,9 @@ function solveRobust(rm::Model; report=false, args...)
             # Solve will automatically terminate when we finish solve
             # and no lazy constraint are added
         end
-        setLazyCallback(master, lazyCallback)
+        if reformed_cons < num_unccons
+            setLazyCallback(master, lazyCallback)
+        end
 
         # Solve master (timing will be for whole solve time, but we'll subtract
         # cut time to approximate)
