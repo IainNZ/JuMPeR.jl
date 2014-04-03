@@ -18,7 +18,7 @@ function convert_model!(old_obj::QuadExpr, new_m::Model)
 end
 
 
-function solveRobust(rm::Model; report=false, activecuts=false, args...)
+function solveRobust(rm::Model; report=false, active_cuts=false, args...)
     
     robdata = getRobust(rm)
     
@@ -251,15 +251,11 @@ function solveRobust(rm::Model; report=false, activecuts=false, args...)
         println("END DEBUG   :debug_printfinal")
     end
 
-    # OPTION: Get active cuts (1 per constraint) ("activecuts=true")
+    # OPTION: Get active cuts (1 per constraint) ("active_cuts=true")
     tic()
-    if activecuts
+    if active_cuts
         for ind = 1:num_unccons
-            num_cuts_added = generateCut(robdata.oracles[ind], rm, ind, master)
-            if num_cuts_added > 0
-                cut_added = true
-                cuts_added += num_cuts_added
-            end
+            generateCut(robdata.oracles[ind], rm, ind, master, nothing, true)
         end
     end
     activecut_time = toq()
@@ -289,7 +285,7 @@ function solveRobust(rm::Model; report=false, activecuts=false, args...)
             println("  Master solve     $master_time")
         end
         println("  Cut solve&add    $cut_time")
-        activecuts && println("Active cuts time:  $activecut_time")
+        active_cuts && println("Active cuts time:  $activecut_time")
     end
 
 end

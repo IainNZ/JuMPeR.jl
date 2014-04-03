@@ -281,6 +281,14 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
         println("  Sense:       ", sense(con))
         println("  con.lb/ub:   ", con.lb, "  ", con.ub)
     end
+
+    # TEMPORARY: active cut detection
+    if active && (
+       ((sense(con) == :<=) && (abs(lhs - con.ub) <= 1e-6)) ||
+       ((sense(con) == :>=) && (abs(lhs - con.lb) <= 1e-6)))
+        # Yup its active
+        push!(rd.activecuts, w.cut_model.colVal[:])
+    end
     if ((sense(con) == :<=) && (lhs <= con.ub + 1e-6)) ||
        ((sense(con) == :>=) && (lhs >= con.lb - 1e-6))
         w._debug_printcut && println("  No new cut\nEND DEBUG   :debug_printcut")
@@ -370,9 +378,6 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
             push!(dual_rhs[orig_lhs.coeffs[term_i].vars[unc_j].unc],
                     orig_lhs.coeffs[term_i].coeffs[unc_j],
                     Variable(m, orig_lhs.vars[term_i].col))
-            #dual_rhs[orig_lhs.coeffs[term_i].vars[unc_j].unc] +=
-                                #Variable(m, orig_lhs.vars[term_i].col) *
-                                    #orig_lhs.coeffs[term_i].coeffs[unc_j]
         end
     end
         for unc_j = 1:length(orig_lhs.constant.coeffs)
