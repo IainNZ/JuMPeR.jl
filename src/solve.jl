@@ -124,8 +124,8 @@ function solveRobust(rm::Model; report=false, args...)
     # As a more general question, need to figure out a principled way of putting
     # box around original solution, or doing something when original solution is unbounded.
     for j in 1:master.numCols
-        master.colLower[j] = max(master.colLower[j], -10000)
-        master.colUpper[j] = min(master.colUpper[j], +10000)
+        master.colLower[j] = max(master.colLower[j], -1e6)
+        master.colUpper[j] = min(master.colUpper[j], +1e6)
     end
 
     # Some constraints may not have oracles, so we will create a default
