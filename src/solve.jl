@@ -255,12 +255,12 @@ function solveRobust(rm::Model; report=false, activecuts=false, args...)
     tic()
     if activecuts
         for ind = 1:num_unccons
-                num_cuts_added = generateCut(robdata.oracles[ind], rm, ind, master)
-                if num_cuts_added > 0
-                    cut_added = true
-                    cuts_added += num_cuts_added
-                end
+            num_cuts_added = generateCut(robdata.oracles[ind], rm, ind, master)
+            if num_cuts_added > 0
+                cut_added = true
+                cuts_added += num_cuts_added
             end
+        end
     end
     activecut_time = toq()
 

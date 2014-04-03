@@ -67,7 +67,7 @@ end
 RobustData() = RobustData(  Any[],Any[],Any[],
                             0,String[],Float64[],Float64[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
-                            PolyhedralOracle(),[[0.0]])
+                            PolyhedralOracle(), Vector{Float64}[Float64[]])
 
 function RobustModel(;solver=nothing)
     m = Model(solver=solver)

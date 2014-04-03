@@ -203,7 +203,7 @@ function setup(w::PolyhedralOracle, rm::Model)
 end
 
 
-function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=nothing)
+function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=nothing, active=false)
     
     # If not doing cuts for this one, just skip
     con_ind = w.con_inds[ind]
