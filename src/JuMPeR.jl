@@ -60,11 +60,14 @@ type RobustData
     adapt_on::Dict{Int,Vector}
 
     defaultOracle
+
+    # Active cuts
+    activecuts::Vector{Vector{Float64}}
 end
 RobustData() = RobustData(  Any[],Any[],Any[],
                             0,String[],Float64[],Float64[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
-                            PolyhedralOracle())
+                            PolyhedralOracle(),[[0.0]])
 
 function RobustModel(;solver=nothing)
     m = Model(solver=solver)

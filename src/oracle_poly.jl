@@ -9,7 +9,6 @@
 # some combination of the above.
 #############################################################################
 using MathProgBase
-using Gurobi
 
 type PolyhedralOracle <: AbstractOracle
     # The constraints associated with this oracle and the selected mode(s)
