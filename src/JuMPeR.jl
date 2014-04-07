@@ -63,15 +63,19 @@ type RobustData
 
     # Active cuts
     activecuts::Vector{Vector{Float64}}
+
+    # Can have different solver for cutting planes
+    cutsolver
 end
-RobustData() = RobustData(  Any[],Any[],Any[],
+RobustData(cutsolver) = RobustData(Any[],Any[],Any[],
                             0,String[],Float64[],Float64[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
-                            PolyhedralOracle(), Vector{Float64}[Float64[]])
+                            PolyhedralOracle(), Vector{Float64}[Float64[]],
+                            cutsolver)
 
-function RobustModel(;solver=nothing)
+function RobustModel(;solver=nothing,cutsolver=nothing)
     m = Model(solver=solver)
-    m.ext[:Robust] = RobustData()
+    m.ext[:Robust] = RobustData(cutsolver)
     return m
 end
 

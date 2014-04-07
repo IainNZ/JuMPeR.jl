@@ -84,7 +84,7 @@ function setup(w::PolyhedralOracle, rm::Model)
     if w.any_cut
         # Create an LP that we'll use to solve the cut problem
         # Copy the uncertainty set from the original problem
-        w.cut_model.solver   = rm.solver
+        w.cut_model.solver   = rd.cutsolver == nothing ? rm.solver : rd.cutsolver
         w.cut_model.numCols  = rd.numUncs
         w.cut_model.colNames = rd.uncNames
         w.cut_model.colLower = rd.uncLower
