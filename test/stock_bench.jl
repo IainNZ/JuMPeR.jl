@@ -93,8 +93,14 @@ for i = 1:(num_samples-1)
 end
 println(samples)
 
-solve_master(samples, silent=true, cuts=false)
+cuts_flag = true
+
+solve_master(samples, silent=true, cuts=cuts_flag)
+using ProfileView
+@profile solve_master(samples, silent=true, cuts=cuts_flag)
+ProfileView.view()
+readline()
 for i = 1:5
-    @time solve_master(samples, silent=true, cuts=false)
+    @time solve_master(samples, silent=true, cuts=cuts_flag)
 end
 
