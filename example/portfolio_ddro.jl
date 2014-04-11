@@ -84,7 +84,7 @@ function generateReform(w::SetMOracle, rm::Model, ind::Int, m::Model)
                       orig_lhs.constant.constant)
 
     for var_ind = 1:length(orig_lhs.vars)
-        num_uncs = length(orig_lhs.coeffs[var_ind].uncs)
+        num_uncs = length(orig_lhs.coeffs[var_ind].vars)
         if num_uncs == 0
             # Not one of the coefficients we are interested in
             # That is, the variable is z
@@ -93,7 +93,7 @@ function generateReform(w::SetMOracle, rm::Model, ind::Int, m::Model)
             # What is this?!
             error("Only designed for one coefficient per x")
         end
-        unc = orig_lhs.coeffs[var_ind].uncs[1].unc  # Use as asset index
+        unc = orig_lhs.coeffs[var_ind].vars[1].unc  # Use as asset index
         new_lhs.coeffs[var_ind] += w.data[(N-s+1)+1, unc]  # Correct for 0-base
     end
 
