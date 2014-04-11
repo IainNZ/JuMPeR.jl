@@ -168,6 +168,7 @@ function solveRobust(rm::Model; report=false, activecuts=false, args...)
 
     #########################################################################
     # Main solve loop
+    master_status   = nothing
     cutting_rounds  = 0
     cuts_added      = 0
     master_time     = 0
@@ -290,4 +291,6 @@ function solveRobust(rm::Model; report=false, activecuts=false, args...)
         activecuts && println("Active cuts time:  $activecut_time")
     end
 
+    # Return solve status
+    return master_status
 end
