@@ -28,7 +28,8 @@ export
     # Model related
     getNumVars, getNumConstraints, getObjectiveValue, getObjective,
     getObjectiveSense, setObjectiveSense, writeLP, writeMPS, setObjective,
-    addConstraint, addVar, addVars, solve, copy,
+    addConstraint, addVar, addVars, addSOS1, addSOS2, solve, copy,
+    getInternalModel,
     # Variable
     setName, getName, setLower, setUpper, getLower, getUpper,
     getValue, setValue, getDual,
@@ -36,7 +37,8 @@ export
     affToStr, quadToStr, conToStr, chgConstrRHS,
     # Macros and support functions
     @addConstraint, @defVar, 
-    @defConstrRef, @setObjective, addToExpression
+    @defConstrRef, @setObjective, addToExpression,
+    @setNLObjective, @addNLConstraint
 
 
 #############################################################################
