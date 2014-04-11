@@ -4,7 +4,46 @@
 # See http://github.com/IainNZ/JuMPeR.jl
 #############################################################################
 
+#############################################################################
+#### Robust model-specific printing
+#############################################################################
+
+# checkNameStatus
+# [Not exported] Initially uncertains defined as indexed with @defUnc do not
+# have names because generating them is relatively slow compared to just
+# creating the uncertain. We lazily generate them only when someone requires
+# them. This function checks if we have done that already, and if not,
+# generates them
+function checkUncNameStatus(rm::Model)
+    rd = getRobust(rm)
+    for i in 1:rd.numUncs
+        if rd.uncNames[i] == ""
+            fillUncNames(rm)
+            return
+        end
+    end
+end
+
+# fillUncNames
+# Go through every unc JuMPDict and create names for the uncertainties
+# that go with every dictionary.
+function fillUncNames(rm::Model)
+    rd = getRobust(rm)
+    for dict in rd.dictList
+        idxsets = dict.indexsets
+        lengths = map(length, idxsets)
+        N = length(idxsets)
+        name = dict.name
+        cprod = cumprod([lengths...])
+        for (ind,unc) in enumerate(dict.innerArray)
+            setName(unc,string("$name[$(idxsets[1][mod1(ind,lengths[1])])", [ ",$(idxsets[i][int(ceil(mod1(ind,cprod[i]) / cprod[i-1]))])" for i=2:N ]..., "]"))
+        end
+    end
+end
+
+
 function printRobust(m::Model)
+    checkUncNameStatus(m)
     rd = getRobust(m)
     # First, display normal model stuff
     print(m)
@@ -20,6 +59,7 @@ function printRobust(m::Model)
         println("$(rd.uncLower[unc]) <= $(rd.uncNames[unc]) <= $(rd.uncUpper[unc])")
     end
 end
+
 
 #############################################################################
 #############################################################################
@@ -37,6 +77,7 @@ function affToStr(a::UAffExpr, showConstant=true)
 
     # Get reference to robust part of model
     robdata = getRobust(a.vars[1].m)
+    checkUncNameStatus(a.vars[1].m)
 
     # Collect like terms
     indvec = IndexedVector(Float64, robdata.numUncs)
@@ -113,6 +154,7 @@ function affToStr(a::FullAffExpr, showConstant=true)
 
     # Get reference to robust part of model
     robdata = getRobust(a.vars[1].m)
+    checkUncNameStatus(a.vars[1].m)
 
     # Stringify the terms - we don't collect like terms
     termStrings = Array(UTF8String, length(a.vars))

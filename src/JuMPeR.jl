@@ -10,6 +10,7 @@ import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
 import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt, JuMP.isexpr
 import JuMP.string_intclamp
+import JuMP.JuMPDict
 importall JuMP
 
 import Base.dot
@@ -68,12 +69,15 @@ type RobustData
 
     # Can have different solver for cutting planes
     cutsolver
+
+    # For pretty printing
+    dictList::Vector
 end
 RobustData(cutsolver) = RobustData(Any[],Any[],Any[],
                             0,String[],Float64[],Float64[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
                             PolyhedralOracle(), Vector{Float64}[Float64[]],
-                            cutsolver)
+                            cutsolver,JuMPDict[])
 
 function RobustModel(;solver=nothing,cutsolver=nothing)
     m = Model(solver=solver)
@@ -110,8 +114,8 @@ Uncertain(m::Model, lower::Number, upper::Number) = Uncertain(m,lower,upper,"")
 # Name setter/getters
 setName(u::Uncertain, n::String) = (getRobust(u.m).uncNames[u.unc] = n)
 function getName(u::Uncertain)
-    n = getRobust(u.m).uncNames[u.unc]
-    return n == "" ? string("_unc", u.unc) : n
+    checkUncNameStatus(u.m)
+    return getRobust(u.m).uncNames[u.unc]
 end
 print(io::IO, u::Uncertain) = print(io, getName(u))
 show( io::IO, u::Uncertain) = print(io, getName(u))
