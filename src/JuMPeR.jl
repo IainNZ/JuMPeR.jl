@@ -147,10 +147,18 @@ FullAffExpr() = FullAffExpr(Variable[], UAffExpr[], UAffExpr())
 #############################################################################
 # UncSetConstraint      Just uncertainties
 typealias UncSetConstraint GenericRangeConstraint{UAffExpr}
+# For 0.2
+UncSetConstraint(uaff::UAffExpr,x::Float64,y::Int) = UncSetConstraint(uaff,x,float(y))
+UncSetConstraint(uaff::UAffExpr,x::Int,y::Float64) = UncSetConstraint(uaff,float(x),x)
+UncSetConstraint(uaff::UAffExpr,x::Int,y::Int) = UncSetConstraint(uaff,float(x),float(y))
 addConstraint(m::Model, c::UncSetConstraint) = push!(getRobust(m).uncertaintyset, c)
 
 # UncConstraint         Mix of variables and uncertains
 typealias UncConstraint GenericRangeConstraint{FullAffExpr}
+# For 0.2
+UncConstraint(faff::FullAffExpr,x::Float64,y::Int) = UncConstraint(faff,x,float(y))
+UncConstraint(faff::FullAffExpr,x::Int,y::Float64) = UncConstraint(faff,float(x),x)
+UncConstraint(faff::FullAffExpr,x::Int,y::Int)     = UncConstraint(faff,float(x),float(y))
 function addConstraint(m::Model, c::UncConstraint, w=nothing)
     push!(getRobust(m).uncertainconstr,c)
     push!(getRobust(m).oracles, w)
