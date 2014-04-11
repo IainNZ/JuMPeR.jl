@@ -144,12 +144,16 @@ end
 #############################################################################
 #############################################################################
 
+# Now conToStr says showConstant = false, because if the constant term is
+# just a number for AffExpr. However in our case it might also contain
+# uncertains - which we ALWAYS want to show. So we "partially" respect it.
 function affToStr(a::FullAffExpr, showConstant=true)
     const ZEROTOL = 1e-20
 
     # If no variables, hand off to the constant part
     if length(a.vars) == 0
-        return showConstant ? affToStr(a.constant) : "0"
+        # Will do the right thing even with showContant=true or false
+        return affToStr(a.constant)
     end
 
     # Get reference to robust part of model
@@ -205,11 +209,11 @@ function affToStr(a::FullAffExpr, showConstant=true)
     # And then connect them up with +s
     ret = join(termStrings[1:numTerms], "")
     
-    if showConstant
-        con_aff = affToStr(a.constant)
-        if con_aff != "" && con_aff != "0"
-            ret = string(ret," + ",affToStr(a.constant))
-        end
+    # Now the constant term
+    con_aff = affToStr(a.constant,showConstant)
+    if con_aff != "" && con_aff != "0"
+        ret = string(ret, " + ", con_aff)
     end
+
     return ret
 end
