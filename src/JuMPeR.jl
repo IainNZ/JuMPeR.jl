@@ -13,7 +13,7 @@ import JuMP.string_intclamp
 import JuMP.JuMPDict
 importall JuMP
 
-import Base.dot
+import Base.dot, Base.sum
 
 export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
 export UncConstraint, UncSetConstraint, printRobust
@@ -127,6 +127,7 @@ typealias UAffExpr GenericAffExpr{Float64,Uncertain}
 
 UAffExpr() = UAffExpr(Uncertain[],Float64[],0.)
 UAffExpr(c::Float64) = UAffExpr(Uncertain[],Float64[],c)
+UAffExpr(u::Uncertain) = UAffExpr([u],[1.],0.)
 UAffExpr(u::Uncertain, c::Float64) = UAffExpr([u],[c],0.)
 UAffExpr(coeffs::Array{Float64,1}) = [UAffExpr(c) for c in coeffs]
 zero(::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)

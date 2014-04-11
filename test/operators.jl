@@ -187,12 +187,21 @@ for i = 1:3
         setName(matdict[i,j], "U$(i)$(j)")
     end
 end
+@defVar(m2, 0 <= x[1:3] <= 1)
 
 nums = [3.5, 4.0, 2.0]
 A = [3.0 4.0 5.0;
      1.5 2.5 3.3;
      5.5 6.2 1.2]
 
+# SUM
+@test affToStr(sum(udict)) == "a + b + c"
+@test affToStr(sum(matdict)) == "U11 + U21 + U31 + U12 + U22 + U32 + U13 + U23 + U33"
+@test affToStr(sum([2.0*a, 4.0*b])) == "2 a + 4 b"
+@test affToStr(sum([x[1] + 2.0*a, x[2] + 4.0*b])) == "x[1] + x[2] + 2 a + 4 b"
+
+# DOT
+@test affToStr(dot(x, udict)) == "a x[1] + b x[2] + c x[3]"
 @test affToStr(dot(nums,udict)) == "3.5 a + 4 b + 2 c"
 @test affToStr(dot(udict,nums)) == "3.5 a + 4 b + 2 c"
 @test affToStr(dot(nums,vdict)) == "3.5 d + 4 e + 2 f"

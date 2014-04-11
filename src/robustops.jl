@@ -184,27 +184,46 @@ for sgn in ( :<=, :(==), :>= )
     end
 end
 
-# Higher level operators
-function dot{T<:Real}(lhs::Array{T,1}, rhs::JuMP.JuMPDict{Uncertain})
-    @assert length(rhs.indexsets) == 1
-    @assert length(rhs.indexsets[1]) == length(lhs)
-    return UAffExpr(rhs.innerArray, float(lhs), 0.0)
-end
-dot{T<:Real}(rhs::JuMP.JuMPDict{Uncertain}, lhs::Array{T,1}) = dot(lhs,rhs)
+#############################################################################
+# High-level operators
+# Currently supported
+#  - sum
+#  - dot
+#############################################################################
 
-function dot{T<:Real}(lhs::Array{T,2}, rhs::JuMP.JuMPDict{Uncertain})
-    sz = size(lhs)
+# SUM
+sum(j::JuMPDict{Uncertain}) = UAffExpr(vec(j.innerArray), ones(length(j.innerArray)), 0.0)
+sum(j::Array{Uncertain}) = UAffExpr(vec(j), ones(length(j)), 0.0)
+# sum(j::Array{UAffExpr}) and sum(j::Array{FullAffExpr}) handled by 
+# GenericAffExpr code in JuMP
+
+# DOT
+function dot(lhs::JuMPDict{Variable}, rhs::JuMPDict{Uncertain})
     if length(rhs.indexsets) == 1
-        # Single dimension version
-        @assert sz[1] == 1 || sz[2] == 1
-        @assert sz[1] == 1 && sz[2] == length(rhs.indexsets[1]) ||
-                sz[2] == 1 && sz[1] == length(rhs.indexsets[1])
-        return UAffExpr(rhs.innerArray, float(lhs[:]), 0.0)
+        # 1D JuMPDicts
+        @assert length(lhs.indexsets) == 1
+        @assert length(lhs.indexsets[1]) == length(rhs.indexsets[1])
+    elseif length(rhs.indexsets) == 2
+        # 2D JuMPDicts
+        @assert length(lhs.indexsets) == 2
+        @assert length(lhs.indexsets[1]) == length(rhs.indexsets[1]) &&
+                length(lhs.indexsets[2]) == length(rhs.indexsets[2])
+    elseif length(rhs.indexsets) == 3
+        #3D JuMPDicts
+        @assert length(lhs.indexsets) == 3
+        @assert length(lhs.indexsets[1]) == length(rhs.indexsets[1]) &&
+                length(lhs.indexsets[2]) == length(rhs.indexsets[2]) &&
+                length(lhs.indexsets[3]) == length(rhs.indexsets[3])
+    else
+        error("Dot products of matrices higher than 3D not supported.")
     end
-    # Needs to be 2D JuMPDict
-    @assert length(rhs.indexsets) == 2
-    @assert length(rhs.indexsets[1]) == sz[1]
-    @assert length(rhs.indexsets[2]) == sz[2]
-    return UAffExpr(vec(rhs.innerArray), vec(lhs), 0.0)
+    dot(lhs.innerArray,rhs.innerArray)
 end
-dot{T<:Real}(lhs::JuMP.JuMPDict{Uncertain}, rhs::Array{T,2}) = dot(rhs,lhs)
+dot(lhs::JuMPDict{Uncertain},rhs::Array{Variable}) = dot(rhs,lhs)
+
+dot{T<:Real}(lhs::Array{T}, rhs::Array{Uncertain}) = UAffExpr(vec(rhs), vec(float(lhs)), 0.0)
+dot{T<:Real}(rhs::Array{Uncertain}, lhs::Array{T}) = UAffExpr(vec(rhs), vec(float(lhs)), 0.0)
+
+dot(lhs::Array{Variable}, rhs::Array{Uncertain}) = 
+  FullAffExpr(vec(lhs), [UAffExpr(r) for r in rhs], UAffExpr())
+dot(rhs::Array{Uncertain}, lhs::Array{Variable}) = dot(lhs,rhs)
