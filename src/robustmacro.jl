@@ -4,7 +4,7 @@ macro defUnc(m, x, extra...)
         # we have some bounds
         if x.args[2] == :>=
             if length(x.args) == 5
-                error("Use the form lb <= var <= ub instead of ub >= var >= lb")
+                error("Use the form lb <= unc <= ub instead of ub >= unc >= lb")
             end
             @assert length(x.args) == 3
             # lower bounds, no upper
@@ -69,9 +69,11 @@ macro defUnc(m, x, extra...)
         end
         
         mac = Expr(:macrocall,symbol("@gendict"),varname,:Uncertain,idxsets...)
+        addDict = :( push!($(m).ext[:Robust].dictList, $varname) )
         code = quote 
             $mac
             $code
+            $addDict
             nothing
         end
         return code

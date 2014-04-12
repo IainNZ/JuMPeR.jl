@@ -168,6 +168,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
 
     #########################################################################
     # Main solve loop
+    master_status   = nothing
     cutting_rounds  = 0
     cuts_added      = 0
     master_time     = 0
@@ -195,9 +196,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
             # Solve will automatically terminate when we finish solve
             # and no lazy constraint are added
         end
-        if reformed_cons < num_unccons
-            setLazyCallback(master, lazyCallback)
-        end
+        setLazyCallback(master, lazyCallback)
 
         # Solve master (timing will be for whole solve time, but we'll subtract
         # cut time to approximate)
@@ -288,4 +287,6 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
         active_cuts && println("Active cuts time:  $activecut_time")
     end
 
+    # Return solve status
+    return master_status
 end

@@ -10,9 +10,10 @@ import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
 import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt, JuMP.isexpr
 import JuMP.string_intclamp
+import JuMP.JuMPDict
 importall JuMP
 
-import Base.dot
+import Base.dot, Base.sum
 
 export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
 export UncConstraint, UncSetConstraint, printRobust
@@ -28,7 +29,8 @@ export
     # Model related
     getNumVars, getNumConstraints, getObjectiveValue, getObjective,
     getObjectiveSense, setObjectiveSense, writeLP, writeMPS, setObjective,
-    addConstraint, addVar, addVars, solve, copy,
+    addConstraint, addVar, addVars, addSOS1, addSOS2, solve, copy,
+    getInternalModel,
     # Variable
     setName, getName, setLower, setUpper, getLower, getUpper,
     getValue, setValue, getDual,
@@ -36,7 +38,8 @@ export
     affToStr, quadToStr, conToStr, chgConstrRHS,
     # Macros and support functions
     @addConstraint, @defVar, 
-    @defConstrRef, @setObjective, addToExpression
+    @defConstrRef, @setObjective, addToExpression,
+    @setNLObjective, @addNLConstraint
 
 
 #############################################################################
@@ -66,12 +69,15 @@ type RobustData
 
     # Can have different solver for cutting planes
     cutsolver
+
+    # For pretty printing
+    dictList::Vector
 end
 RobustData(cutsolver) = RobustData(Any[],Any[],Any[],
                             0,String[],Float64[],Float64[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
                             PolyhedralOracle(), Vector{Float64}[],
-                            cutsolver)
+                            cutsolver,JuMPDict[])
 
 function RobustModel(;solver=nothing,cutsolver=nothing)
     m = Model(solver=solver)
@@ -108,8 +114,8 @@ Uncertain(m::Model, lower::Number, upper::Number) = Uncertain(m,lower,upper,"")
 # Name setter/getters
 setName(u::Uncertain, n::String) = (getRobust(u.m).uncNames[u.unc] = n)
 function getName(u::Uncertain)
-    n = getRobust(u.m).uncNames[u.unc]
-    return n == "" ? string("_unc", u.unc) : n
+    checkUncNameStatus(u.m)
+    return getRobust(u.m).uncNames[u.unc]
 end
 print(io::IO, u::Uncertain) = print(io, getName(u))
 show( io::IO, u::Uncertain) = print(io, getName(u))
@@ -121,6 +127,7 @@ typealias UAffExpr GenericAffExpr{Float64,Uncertain}
 
 UAffExpr() = UAffExpr(Uncertain[],Float64[],0.)
 UAffExpr(c::Float64) = UAffExpr(Uncertain[],Float64[],c)
+UAffExpr(u::Uncertain) = UAffExpr([u],[1.],0.)
 UAffExpr(u::Uncertain, c::Float64) = UAffExpr([u],[c],0.)
 UAffExpr(coeffs::Array{Float64,1}) = [UAffExpr(c) for c in coeffs]
 zero(::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
@@ -141,10 +148,18 @@ FullAffExpr() = FullAffExpr(Variable[], UAffExpr[], UAffExpr())
 #############################################################################
 # UncSetConstraint      Just uncertainties
 typealias UncSetConstraint GenericRangeConstraint{UAffExpr}
+# For 0.2
+UncSetConstraint(uaff::UAffExpr,x::Float64,y::Int) = UncSetConstraint(uaff,x,float(y))
+UncSetConstraint(uaff::UAffExpr,x::Int,y::Float64) = UncSetConstraint(uaff,float(x),x)
+UncSetConstraint(uaff::UAffExpr,x::Int,y::Int) = UncSetConstraint(uaff,float(x),float(y))
 addConstraint(m::Model, c::UncSetConstraint) = push!(getRobust(m).uncertaintyset, c)
 
 # UncConstraint         Mix of variables and uncertains
 typealias UncConstraint GenericRangeConstraint{FullAffExpr}
+# For 0.2
+UncConstraint(faff::FullAffExpr,x::Float64,y::Int) = UncConstraint(faff,x,float(y))
+UncConstraint(faff::FullAffExpr,x::Int,y::Float64) = UncConstraint(faff,float(x),x)
+UncConstraint(faff::FullAffExpr,x::Int,y::Int)     = UncConstraint(faff,float(x),float(y))
 function addConstraint(m::Model, c::UncConstraint, w=nothing)
     push!(getRobust(m).uncertainconstr,c)
     push!(getRobust(m).oracles, w)
