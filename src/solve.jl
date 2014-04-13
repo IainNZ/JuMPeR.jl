@@ -9,7 +9,7 @@
 #############################################################################
 
 
-convert_model!(old_con::LinearConstraint, new_m::Model) =
+convert_model!(old_con::GenericRangeConstraint, new_m::Model) =
     map((v)->(v.m = new_m), old_con.terms.vars)
 function convert_model!(old_obj::QuadExpr, new_m::Model)
     map((v)->(v.m = new_m), old_obj.qvars1)
@@ -20,6 +20,17 @@ end
 
 function solveRobust(rm::Model; report=false, active_cuts=false, args...)
     
+    prefs = Dict()
+    for (name,value) in args
+        prefs[name] = value
+    end
+
+    if get(prefs, :debug_printfinal, false) ||
+       get(prefs, :debug_printcut, false)
+       JuMP.fillVarNames(rm)
+       JuMPeR.fillUncNames(rm)
+    end
+
     robdata = getRobust(rm)
     
     ###########################################################################
@@ -132,10 +143,6 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
     # PolyhedralOracle that is shared amongst them.
     # Register the constraints with their oracles
     oracle_register_time = time()
-    prefs = Dict()
-    for (name,value) in args
-        prefs[name] = value
-    end
     for ind in 1:num_unccons
         c = robdata.uncertainconstr[ind]
         w = robdata.oracles[ind]
