@@ -234,9 +234,9 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
     # Solve cutting plane problem
     if w._debug_printcut
         println("BEGIN DEBUG :debug_printcut")
-        try
-            println("  Constraint:  ", con)
-        end
+        convert_model!(con, rm)
+        println("  Constraint:  ", con)
+        convert_model!(con, m)
         println("  Master sol:  ")
         for j in 1:length(m.colNames)
             println("    ", m.colNames[j], "  ", m.colVal[j])
@@ -245,7 +245,7 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
         println(w.cut_model)
     end
     cut_solve_status = solve(w.cut_model)
-
+    
     # Calculate cut LHS
     lhs = 0.0
     orig_lhs = con.terms
@@ -261,13 +261,14 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
             lhs += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff[unc_ind] * col_val
         end
     end
+    
     # Non variable part
     coeff = orig_lhs.constant
     lhs  += coeff.constant
         for unc_ind = 1:length(coeff.vars)
             coeff_unc   = coeff.vars[unc_ind]
             coeff_coeff = coeff.coeffs[unc_ind]
-            lhs += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff[unc_ind]
+            lhs += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff
         end
 
     # Check violation
@@ -280,6 +281,14 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
         println("  OrigLHS val: ", lhs)
         println("  Sense:       ", sense(con))
         println("  con.lb/ub:   ", con.lb, "  ", con.ub)
+    end
+
+    # TEMPORARY: active cut detection
+    if active && (
+       ((sense(con) == :<=) && (abs(lhs - con.ub) <= 1e-6)) ||
+       ((sense(con) == :>=) && (abs(lhs - con.lb) <= 1e-6)))
+        # Yup its active
+        push!(rd.activecuts, w.cut_model.colVal[:])
     end
     if ((sense(con) == :<=) && (lhs <= con.ub + 1e-6)) ||
        ((sense(con) == :>=) && (lhs >= con.lb - 1e-6))
@@ -307,7 +316,7 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
         for unc_ind = 1:length(coeff.vars)
             coeff_unc = coeff.vars[unc_ind]
             coeff_coeff = coeff.coeffs[unc_ind]
-            new_lhs.constant += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff[unc_ind]
+            new_lhs.constant += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff
         end
 
     if sense(con) == :<=
@@ -370,9 +379,6 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
             push!(dual_rhs[orig_lhs.coeffs[term_i].vars[unc_j].unc],
                     orig_lhs.coeffs[term_i].coeffs[unc_j],
                     Variable(m, orig_lhs.vars[term_i].col))
-            #dual_rhs[orig_lhs.coeffs[term_i].vars[unc_j].unc] +=
-                                #Variable(m, orig_lhs.vars[term_i].col) *
-                                    #orig_lhs.coeffs[term_i].coeffs[unc_j]
         end
     end
         for unc_j = 1:length(orig_lhs.constant.coeffs)

@@ -9,7 +9,7 @@
 #############################################################################
 
 
-convert_model!(old_con::LinearConstraint, new_m::Model) =
+convert_model!(old_con::GenericRangeConstraint, new_m::Model) =
     map((v)->(v.m = new_m), old_con.terms.vars)
 function convert_model!(old_obj::QuadExpr, new_m::Model)
     map((v)->(v.m = new_m), old_obj.qvars1)
@@ -18,8 +18,19 @@ function convert_model!(old_obj::QuadExpr, new_m::Model)
 end
 
 
-function solveRobust(rm::Model; report=false, activecuts=false, args...)
+function solveRobust(rm::Model; report=false, active_cuts=false, args...)
     
+    prefs = Dict()
+    for (name,value) in args
+        prefs[name] = value
+    end
+
+    if get(prefs, :debug_printfinal, false) ||
+       get(prefs, :debug_printcut, false)
+       JuMP.fillVarNames(rm)
+       JuMPeR.fillUncNames(rm)
+    end
+
     robdata = getRobust(rm)
     
     ###########################################################################
@@ -132,10 +143,6 @@ function solveRobust(rm::Model; report=false, activecuts=false, args...)
     # PolyhedralOracle that is shared amongst them.
     # Register the constraints with their oracles
     oracle_register_time = time()
-    prefs = Dict()
-    for (name,value) in args
-        prefs[name] = value
-    end
     for ind in 1:num_unccons
         c = robdata.uncertainconstr[ind]
         w = robdata.oracles[ind]
@@ -250,15 +257,11 @@ function solveRobust(rm::Model; report=false, activecuts=false, args...)
         println("END DEBUG   :debug_printfinal")
     end
 
-    # OPTION: Get active cuts (1 per constraint) ("activecuts=true")
+    # OPTION: Get active cuts (1 per constraint) ("active_cuts=true")
     tic()
-    if activecuts
+    if active_cuts
         for ind = 1:num_unccons
-            num_cuts_added = generateCut(robdata.oracles[ind], rm, ind, master)
-            if num_cuts_added > 0
-                cut_added = true
-                cuts_added += num_cuts_added
-            end
+            generateCut(robdata.oracles[ind], rm, ind, master, nothing, true)
         end
     end
     activecut_time = toq()
@@ -288,7 +291,7 @@ function solveRobust(rm::Model; report=false, activecuts=false, args...)
             println("  Master solve     $master_time")
         end
         println("  Cut solve&add    $cut_time")
-        activecuts && println("Active cuts time:  $activecut_time")
+        active_cuts && println("Active cuts time:  $activecut_time")
     end
 
     # Return solve status
