@@ -204,13 +204,24 @@ A = [3.0 4.0 5.0;
 @test affToStr(sum([x[1] + 2.0*a, x[2] + 4.0*b])) == "x[1] + x[2] + 2 a + 4 b"
 
 # DOT
+# JuMPDict{Variable} :: JuMPDict{Uncertain}
 @test affToStr(dot(x, udict)) == "a x[1] + b x[2] + c x[3]"
+# Vector{Float64} :: JuMPDict{Uncertain}
 @test affToStr(dot(nums,udict)) == "3.5 a + 4 b + 2 c"
 @test affToStr(dot(udict,nums)) == "3.5 a + 4 b + 2 c"
+# Vector{Float64} :: JuMPDict{Uncertain} (different indices)
 @test affToStr(dot(nums,vdict)) == "3.5 d + 4 e + 2 f"
 @test affToStr(dot(vdict,nums)) == "3.5 d + 4 e + 2 f"
+# Array{Float64,2} (1D) :: JuMPDict{Uncertain} 
 @test affToStr(dot(A[1,:], udict)) == "3 a + 4 b + 5 c"
 @test affToStr(dot(A[1,:], vdict)) == "3 d + 4 e + 5 f"
+# Array{Float64,2} (2D) :: JuMPDict{Uncertain} (2D)
 @test affToStr(dot(A, matdict)) == "3 U11 + 1.5 U21 + 5.5 U31 + 4 U12 + 2.5 U22 + 6.2 U32 + 5 U13 + 3.3 U23 + 1.2 U33"
+# Vector{UAffExpr} :: JuMPDict{Variable}
+@test affToStr(dot(
+    [1*udict[1],2*udict[2],3*udict[3]],
+    x)) == "a x[1] + (2 b) x[2] + (3 c) x[3]"
+# Array{Float64,2} (2D) :: JuMPDict{Uncertain} (1D)
 @test_throws dot(A, udict)
+# Array{Float64,1} (1D) :: JuMPDict{Uncertain} (2D)
 @test_throws dot(nums, matdict)

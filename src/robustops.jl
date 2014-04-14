@@ -227,3 +227,6 @@ dot{T<:Real}(rhs::Array{Uncertain}, lhs::Array{T}) = UAffExpr(vec(rhs), vec(floa
 dot(lhs::Array{Variable}, rhs::Array{Uncertain}) = 
   FullAffExpr(vec(lhs), [UAffExpr(r) for r in rhs], UAffExpr())
 dot(rhs::Array{Uncertain}, lhs::Array{Variable}) = dot(lhs,rhs)
+
+dot(lhs::Array{Variable}, rhs::Array{UAffExpr}) = FullAffExpr(vec(lhs), vec(rhs), UAffExpr())
+dot(rhs::Array{UAffExpr}, lhs::Array{Variable}) = dot(lhs,rhs)
