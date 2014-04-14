@@ -13,7 +13,7 @@ import JuMP.string_intclamp
 import JuMP.JuMPDict
 importall JuMP
 
-import Base.dot, Base.sum
+import Base.dot, Base.sum, Base.push!
 
 export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
 export UncConstraint, UncSetConstraint, printRobust
@@ -126,9 +126,9 @@ show( io::IO, u::Uncertain) = print(io, getName(u))
 typealias UAffExpr GenericAffExpr{Float64,Uncertain}
 
 UAffExpr() = UAffExpr(Uncertain[],Float64[],0.)
-UAffExpr(c::Float64) = UAffExpr(Uncertain[],Float64[],c)
+UAffExpr(c::Real) = UAffExpr(Uncertain[],Float64[],float(c))
 UAffExpr(u::Uncertain) = UAffExpr([u],[1.],0.)
-UAffExpr(u::Uncertain, c::Float64) = UAffExpr([u],[c],0.)
+UAffExpr(u::Uncertain, c::Real) = UAffExpr([u],[float(c)],0.)
 UAffExpr(coeffs::Array{Float64,1}) = [UAffExpr(c) for c in coeffs]
 zero(::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
 
@@ -144,6 +144,10 @@ show( io::IO, a::UAffExpr) = print(io, affToStr(a))
 typealias FullAffExpr GenericAffExpr{UAffExpr,Variable}
 
 FullAffExpr() = FullAffExpr(Variable[], UAffExpr[], UAffExpr())
+function push!(faff::FullAffExpr, new_coeff::Real, new_var::Variable)
+    push!(faff.vars, new_var)
+    push!(faff.coeffs, UAffExpr(new_coeff))
+end
 
 #############################################################################
 # UncSetConstraint      Just uncertainties

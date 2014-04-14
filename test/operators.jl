@@ -171,6 +171,9 @@ faff = FullAffExpr([x],[UAffExpr([a],[5.],1.)],UAffExpr([b],[2.],3.))
 @test_throws faff * faff
 @test_throws faff / faff
 
+# Expression operations
+push!(faff, 1, z)
+
 # Higher level
 m2 = RobustModel()
 @defUnc(m2, udict[1:3])
