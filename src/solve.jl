@@ -114,7 +114,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
     master.colLower  = rm.colLower
     master.colUpper  = rm.colUpper
     master.colCat    = rm.colCat
-    master.colVal    = zeros(rm.numCols)
+    master.colVal    = copy(rm.colVal)
     mastervars       = [Variable(master, i) for i = 1:rm.numCols]
     master_init_time = time() - start_time
     num_unccons      = length(robdata.uncertainconstr)
@@ -247,7 +247,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
 
     # Return solution
     total_time = time() - start_time
-    rm.colVal = master.colVal
+    rm.colVal = master.colVal[1:rm.numCols]
     rm.objVal = master.objVal
 
     # DEBUG: If user wants it, print final model
