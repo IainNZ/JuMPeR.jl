@@ -112,6 +112,19 @@ function Test5(pref)
   @test_approx_eq getObjectiveValue(m) 5.0
 end
 
+function Test6(pref)
+  println("  Test6")
+  rm = RobustModel()
+  @defUnc(rm, u >=0)
+  addConstraint(rm, u <=0)
+  @defVar(rm, x >=0)
+  @defVar(rm, shed >=0)
+  @setObjective(rm, Min, x + shed)
+  addConstraint(rm, x - u  + 3.46 <= shed)
+  solveRobust(rm, prefer_cuts=pref)
+  @test_approx_eq getObjectiveValue(rm) 3.46
+end
+
 for pref in [true,false]
   println(" prefer_cuts:", pref)
   Test1(pref)
@@ -122,4 +135,5 @@ for pref in [true,false]
   Test3IP(pref)
   Test4(pref)
   Test5(pref)
+  Test6(pref)
 end

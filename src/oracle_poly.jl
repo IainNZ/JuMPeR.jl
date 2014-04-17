@@ -264,7 +264,6 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
     
     # Non variable part
     coeff = orig_lhs.constant
-    lhs  += coeff.constant
         for unc_ind = 1:length(coeff.vars)
             coeff_unc   = coeff.vars[unc_ind]
             coeff_coeff = coeff.coeffs[unc_ind]
@@ -300,7 +299,7 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
     # TODO: Build map for this too?
     new_lhs = AffExpr(orig_lhs.vars,
                       [orig_lhs.coeffs[i].constant for i in 1:num_vars],
-                      orig_lhs.constant.constant)
+                      0.0)
     
     # Variable part
     for var_ind = 1:num_vars
