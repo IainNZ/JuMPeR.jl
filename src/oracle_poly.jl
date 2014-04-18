@@ -307,7 +307,7 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
         for unc_ind = 1:length(coeff.vars)
             coeff_unc   = coeff.vars[unc_ind]
             coeff_coeff = coeff.coeffs[unc_ind]
-            new_lhs.coeffs[var_ind] += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff[unc_ind]
+            new_lhs.coeffs[var_ind] += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff
         end
     end
     # Non variable part
