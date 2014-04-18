@@ -49,9 +49,8 @@ export AbstractOracle
 export registerConstraint, setup, generateCut, generateReform
 export setDefaultOracle
 
-function setDefaultOracle(m::Model, o::AbstractOracle)
-    rd = getRobust(m)
-    rd.defaultOracle = o
+function setDefaultOracle!(rm, w::AbstractOracle)
+    getRobust(rm).defaultOracle = w
 end
 
 #############################################################################

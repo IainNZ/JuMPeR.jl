@@ -18,7 +18,9 @@ import Base.dot, Base.sum, Base.push!
 export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
 export UncConstraint, UncSetConstraint, printRobust
 export setAdapt!
+export setDefaultOracle!
 
+#############################################################################
 # JuMP rexports
 export
 # Objects

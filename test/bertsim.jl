@@ -7,13 +7,14 @@ function BSTest1(cuts)
     values      = [0.1, 9.9]
 
     m = RobustModel(solver=solver)
+    setDefaultOracle!(m, BertSimOracle(1))
     
     @defVar(m, x[1:n] >= 0)
     @defUnc(m, weight_low[i] <= u[i=1:n] <= weight_high[i])
 
     @setObjective(m, Max, sum{ values[i] * x[i], i=1:n})
 
-    addConstraint(m, sum([u[i]*x[i] for i=1:n]) <= 21, BertSimOracle(1))
+    addConstraint(m, sum([u[i]*x[i] for i=1:n]) <= 21)
     
     status = solveRobust(m, prefer_cuts=cuts)
     @test_approx_eq getValue(x[1]) 0.0
