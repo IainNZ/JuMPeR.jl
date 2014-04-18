@@ -139,6 +139,10 @@ Oracles can be associated with one or more constraints. By default all constrain
     addConstraint(m, c*x >= 2, shared_oracle)
     addConstraint(m, d*z >= 3, shared_oracle)
 
+and we can change the default oracle::
+    
+    setDefaultOracle!(m, MyNewOracle())
+
 Creating an Oracle
 ------------------
 
