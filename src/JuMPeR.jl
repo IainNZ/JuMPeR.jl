@@ -74,12 +74,15 @@ type RobustData
 
     # For pretty printing
     dictList::Vector
+
+    # Provided scenarios
+    scenarios::Vector
 end
 RobustData(cutsolver) = RobustData(Any[],Any[],Any[],
                             0,String[],Float64[],Float64[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
                             PolyhedralOracle(), Vector{Float64}[],
-                            cutsolver,JuMPDict[])
+                            cutsolver,JuMPDict[],Any[])
 
 function RobustModel(;solver=nothing,cutsolver=nothing)
     m = Model(solver=solver)
@@ -94,6 +97,12 @@ function getRobust(m::Model)
         error("This functionality is only available for RobustModels")
     end
 end
+
+function addScenario(m::Model, scen::Dict{Uncertain,Real})
+    robdata = getRobust(m)
+    push!(robdata.scenarios, scen)
+end
+
 
 #############################################################################
 # Uncertain
