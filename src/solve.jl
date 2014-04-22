@@ -208,7 +208,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
         # Solve master (timing will be for whole solve time, but we'll subtract
         # cut time to approximate)
         tic()
-        master_status = solve(master)
+        master_status = solve(master; args...)
         master_time += toq()
 
         master_time -= cut_time
@@ -223,7 +223,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
             
             # Solve master
             tic()
-            master_status = solve(master)
+            master_status = solve(master; args...)
             master_time += toq()
 
             # Generate cuts
