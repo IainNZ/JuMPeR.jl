@@ -317,20 +317,30 @@ end
 function add_scenario_master(master::Model, con::UncConstraint, scenario::Dict)
     new_lhs = AffExpr()
     for term_index in 1:length(con.terms.vars)
-        new_coeff = 0.0
-        for unc in con.terms.coeffs[term_index]
+        new_coeff = con.terms.coeffs[term_index].constant
+        for unc_index in 1:length(con.terms.coeffs[term_index].vars)
+            unc = con.terms.coeffs[term_index].vars[unc_index]
             if unc in scenario
-                new_coeff += scenario[unc]
+                new_coeff += scenario[unc]*con.terms.coeffs[term_index].coeffs[unc_index]
             else
                 return false
             end
         end
         push!(new_lhs, new_coeff, con.terms.vars[term_index])
     end
+        new_constant = 0.0
+        for unc_index in 1:length(con.terms.constant.vars)
+            unc = con.terms.constant.vars[unc_index]
+            if unc in scenario
+                new_coeff += scenario[unc]*con.terms.constant.coeffs[unc_index]
+            else
+                return false
+            end
+        end
     if sense(con) == :<=
-        @addConstraint(m, new_lhs <= con.ub)
+        @addConstraint(master, new_lhs + new_constant <= con.ub)
     else
-        @addConstraint(m, new_lhs >= con.lb)
+        @addConstraint(master, new_lhs + new_constant >= con.lb)
     end
     return true
 end
