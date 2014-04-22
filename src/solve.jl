@@ -132,6 +132,15 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
         end
     end
 
+    # Add constraints based on the provided scenarios
+    for scen in robdata.scenarios
+        for ind in 1:num_unccons
+            add_scenario_master(master, 
+                                robdata.uncertainconstr[ind],
+                                scen)
+        end
+    end
+
     # As a more general question, need to figure out a principled way of putting
     # box around original solution, or doing something when original solution is unbounded.
     for j in 1:master.numCols
@@ -296,4 +305,28 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
 
     # Return solve status
     return master_status
+end
+
+
+#############################################################################
+
+function add_scenario_master(master::Model, con::UncConstraint, scenario::Dict)
+    new_lhs = AffExpr()
+    for term_index in 1:length(con.terms.vars)
+        new_coeff = 0.0
+        for unc in con.terms.coeffs[term_index]
+            if unc in scenario
+                new_coeff += scenario[unc]
+            else
+                return false
+            end
+        end
+        push!(new_lhs, new_coeff, con.terms.vars[term_index])
+    end
+    if sense(con) == :<=
+        @addConstraint(m, new_lhs <= con.ub)
+    else
+        @addConstraint(m, new_lhs >= con.lb)
+    end
+    return true
 end

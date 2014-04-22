@@ -98,7 +98,7 @@ function getRobust(m::Model)
     end
 end
 
-function addScenario(m::Model, scen::Dict{Uncertain,Real})
+function addScenario(m::Model, scen::Dict)
     robdata = getRobust(m)
     push!(robdata.scenarios, scen)
 end
