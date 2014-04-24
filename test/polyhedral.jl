@@ -137,13 +137,14 @@ function TestProvided(pref)
   rm = RobustModel(solver=solver)
   @defVar(rm, x >= 0)
   @defUnc(rm, 3 <= u <= 5)
+  @defUnc(rm, 1 <= v <= 1)
   @setObjective(rm, Max, x)
-  addConstraint(rm, x <= u)
+  addConstraint(rm, v*x <= u)
   # Now we get tricky and add a scenario that is actually
   # outside the uncertainty set - but we don't check that
-  addScenario(rm, [u => 1.0])
+  addScenario(rm, [u => 1.5, v => 3.0])
   solveRobust(rm)
-  @test_approx_eq getValue(x) 1.0
+  @test_approx_eq getValue(x) 0.5
 end
 
 for pref in [true,false]
