@@ -149,51 +149,22 @@ function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model, cb=nothing
        ((sense(con) == :>=) && (cut_val >= con.lb - 1e-6))
         return 0  # No violation, no new cut
     end
-    #println("Adding constraint")
 
-    # Add the new constraint
-    new_lhs = AffExpr(orig_lhs.vars,
-                      [orig_lhs.coeffs[i].constant for i in 1:length(orig_lhs.vars)],
-                      orig_lhs.constant.constant)
-    #println(new_lhs)
+    # Add new constraint
+    unc_val = w.means[:]
     for p in 1:length(perm)
         var_ind = uncx_inds[p]
         unc     = orig_lhs.coeffs[var_ind].vars[1].unc
         col     = orig_lhs.vars[var_ind].col
-        if p <= length(perm) - w.Gamma
-            # At nominal value
-            new_lhs.coeffs[var_ind] += w.means[unc]
-        else
-            # At bound
-            if sense(con) == :<=
-                if master_sol[col] >= 0
-                    new_lhs.coeffs[var_ind] += (w.means[unc] + w.devs[unc])
-                else  # < 0
-                    new_lhs.coeffs[var_ind] += (w.means[unc] - w.devs[unc])
-                end
-            else  #  >=
-                if master_sol[col] >= 0
-                    new_lhs.coeffs[var_ind] += (w.means[unc] - w.devs[unc])
-                else  # < 0
-                    new_lhs.coeffs[var_ind] += (w.means[unc] + w.devs[unc])
-                end
-            end
-        end
+        # Whether we add or remove a deviation depends on both the 
+        # constraint sense and the sign of x
+        sign    = sense(con) == :(<=) ? (master_sol[col] >= 0 ? +1.0 : -1.0) :
+                                        (master_sol[col] >= 0 ? -1.0 : +1.0)
+        unc_val[unc] += sign * w.devs[unc]
     end
-    
-    if sense(con) == :<=
-        if cb == nothing
-            @addConstraint(m, new_lhs <= con.ub)
-        else
-            @addLazyConstraint(cb, new_lhs <= con.ub)
-        end
-    else
-        if cb == nothing
-            @addConstraint(m, new_lhs >= con.lb)
-        else
-            @addLazyConstraint(cb, new_lhs >= con.lb)
-        end
-    end
+    new_con = JuMPeR.build_certain_constraint(con, unc_val)
+    cb == nothing ? addConstraint(m, new_con) :
+                    addLazyConstraint(cb, new_con)
 
     return 1
 end

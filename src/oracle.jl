@@ -54,6 +54,40 @@ function setDefaultOracle!(rm, w::AbstractOracle)
 end
 
 #############################################################################
+# Helper functions that can be shared by all oracles
+
+# build_certain_constraint                              [not exported, pure]
+# Takes an uncertain constraint (unc_con) that we are making certain by
+# replacing uncertainties with actual numbers (unc_val) - the values of all
+# uncertainties in the robust optimization problem
+function build_certain_constraint(  unc_con::UncConstraint, 
+                                    unc_val::Vector{Float64} )
+    unc_lhs = unc_con.terms   
+    num_var = length(unc_lhs.vars)
+    new_lhs = AffExpr(unc_lhs.vars,
+                      [unc_lhs.coeffs[i].constant for i in 1:num_var],
+                      0.0)
+    
+    # Variable part
+    for var_ind = 1:num_var
+        coeff = unc_lhs.coeffs[var_ind]
+        for unc_ind = 1:length(coeff.vars)
+            new_lhs.coeffs[var_ind] += unc_val[coeff.vars[unc_ind].unc] *
+                                               coeff.coeffs[unc_ind]
+        end
+    end
+    # Non variable part
+        coeff = unc_lhs.constant
+        for unc_ind = 1:length(coeff.vars)
+            new_lhs.constant += unc_val[coeff.vars[unc_ind].unc] *
+                                        coeff.coeffs[unc_ind]
+        end
+
+    return sense(unc_con) == :(<=) ? new_lhs <= unc_con.ub :
+                                     new_lhs >= unc_con.lb
+end
+
+#############################################################################
 # Default included oracles
 include("oracle_poly.jl")         # PolyhedralOracle
 include("oracle_bertsim.jl")      # BertSimOracle

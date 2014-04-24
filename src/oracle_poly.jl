@@ -295,51 +295,15 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
         return 0  # No violation, no new cut
     end
     
-    # Now add that solution back in
-    # TODO: Build map for this too?
-    new_lhs = AffExpr(orig_lhs.vars,
-                      [orig_lhs.coeffs[i].constant for i in 1:num_vars],
-                      0.0)
-    
-    # Variable part
-    for var_ind = 1:num_vars
-        coeff   = orig_lhs.coeffs[var_ind]
-        for unc_ind = 1:length(coeff.vars)
-            coeff_unc   = coeff.vars[unc_ind]
-            coeff_coeff = coeff.coeffs[unc_ind]
-            new_lhs.coeffs[var_ind] += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff
-        end
+    # Create and add the new constraint
+    new_con = JuMPeR.build_certain_constraint(con, w.cut_model.colVal)
+    if w._debug_printcut
+        println("  new con:  ", new_con)
+        println("END DEBUG   :debug_printcut")
     end
-    # Non variable part
-        coeff = orig_lhs.constant
-        for unc_ind = 1:length(coeff.vars)
-            coeff_unc = coeff.vars[unc_ind]
-            coeff_coeff = coeff.coeffs[unc_ind]
-            new_lhs.constant += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff
-        end
+    cb == nothing ? addConstraint(m, new_con) :
+                    addLazyConstraint(cb, new_con)
 
-    if sense(con) == :<=
-        if w._debug_printcut
-            println("  new constr:  ", new_lhs <= con.ub)
-            println("END DEBUG   :debug_printcut")
-        end
-        if cb == nothing
-            @addConstraint(m, new_lhs <= con.ub)
-        else
-            @addLazyConstraint(cb, new_lhs <= con.ub)
-        end
-    else
-        if w._debug_printcut
-            println("  new constr:  ", new_lhs >= con.lb)
-            println("END DEBUG   :debug_printcut")
-        end
-        if cb == nothing
-            @addConstraint(m, new_lhs >= con.lb)
-        else
-            @addLazyConstraint(cb, new_lhs >= con.lb)
-        end
-    end
-    
     return 1
 end
 
