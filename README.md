@@ -24,9 +24,8 @@ Pkg.checkout("JuMP")        # For now we are using cutting edge JuMP, but
 Pkg.clone("https://github.com/IainNZ/JuMPeR.jl.git")
                             # Installs JuMPeR straight from the repository -
                             # now you can get updates using Pkg.update()
-# If you don't have a solver, get a free one.
-Pkg.add("Cbc")
-Pkg.add("Clp")
+# If you don't have a solver, get a free one that supports callbacks
+Pkg.add("GLPKMathProgInterface")
 # Optional other packages
 Pkg.add("Distributions")    # Used by the portfolio example to generate data.
 ```
