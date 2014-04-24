@@ -99,7 +99,7 @@ end
 
 function Test5(pref)
   println("  Test5")
-  m = RobustModel()
+  m = RobustModel(solver=solver)
   @defUnc(m, u[1:5] >= 0)
   for ix = 1:5
       addConstraint(m, u[ix] <= float(ix))
@@ -114,7 +114,7 @@ end
 
 function Test6(pref, variant)
   println("  Test6 variant $variant")
-  rm = RobustModel()
+  rm = RobustModel(solver=solver)
   @defUnc(rm, u >=0)
   addConstraint(rm, u <=0)
   @defVar(rm, x >=0)
@@ -132,6 +132,21 @@ function Test6(pref, variant)
   @test_approx_eq getObjectiveValue(rm) 3.46
 end
 
+function TestProvided(pref)
+  println("  TestProvided")
+  rm = RobustModel(solver=solver)
+  @defVar(rm, x >= 0)
+  @defUnc(rm, 3 <= u <= 5)
+  @defUnc(rm, 1 <= v <= 1)
+  @setObjective(rm, Max, x)
+  addConstraint(rm, v*x <= u)
+  # Now we get tricky and add a scenario that is actually
+  # outside the uncertainty set - but we don't check that
+  addScenario(rm, [u => 1.5, v => 3.0])
+  solveRobust(rm)
+  @test_approx_eq getValue(x) 0.5
+end
+
 for pref in [true,false]
   println(" prefer_cuts:", pref)
   Test1(pref)
@@ -145,4 +160,5 @@ for pref in [true,false]
   for variant = 0:7
     Test6(pref,variant)
   end
+  TestProvided(pref)
 end
