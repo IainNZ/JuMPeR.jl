@@ -135,22 +135,12 @@ function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model, cb=nothing
     # Now we have the lists, we can sort them in order
     perm = sortperm(absx_devs)  # Ascending
     max_inds = uncx_inds[perm[(end-w.Gamma+1):end]]
-    #println(master_sol)
-    #println(absx_devs)
-    #println(uncx_inds)
-    #println(perm)
-    #println(max_inds)
     
     # Check violation
-    cut_val = nom_val
-    for i in max_inds
-        cut_val += (sense(con) == :<=) ? absx_devs[i] : -absx_devs[i]
-    end
-    #println(nom_val)
-    #println(cut_val)
+    cut_val = nom_val + 
+                ((sense(con) == :<=) ? +1.0 : -1.0) * sum(absx_devs[max_inds])
     
-    if ((sense(con) == :<=) && (cut_val <= con.ub + w.cut_tol)) ||
-       ((sense(con) == :>=) && (cut_val >= con.lb - w.cut_tol))
+    if !is_constraint_violated(con, cut_val, w.cut_tol)
         return 0  # No violation, no new cut
     end
 

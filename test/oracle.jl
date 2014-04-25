@@ -1,17 +1,42 @@
 using JuMPeR
 using Base.Test
 
+# build_cut_objective
 # build_certain_constraint
+# is_constraint_violated
 let
     rm = RobustModel()
-    @defVar(rm, x[1:5] >= 0)
+    @defVar(rm, x[1:4] >= 0)
     @defUnc(rm, u[1:5])
     unc_con = (3*u[1] + 2.0) * x[1] +
               (  u[2] - 1.0) * x[2] +
-                               x[3] +
-              (u[3] + 2*u[4])* x[4] <=
+              (u[1] +  u[3]) * x[3] +
+              (u[3] +2*u[4]) * x[4] <=
               5.0 + u[5]
+    col_val = [2.0, 3.0, 4.0, 5.0]
+
+    # -------------------
+    sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective(unc_con, col_val)
+    sort!(unc_coeffs)
+    
+    @test sense == :Max
+    for i = 1:5
+        @test unc_coeffs[i][1] == i
+    end
+    @test_approx_eq  unc_coeffs[1][2]  3.0*2.0+4.0
+    @test_approx_eq  unc_coeffs[2][2]  3.0
+    @test_approx_eq  unc_coeffs[3][2]  4.0+5.0
+    @test_approx_eq  unc_coeffs[4][2]  2*5.0
+    @test_approx_eq  unc_coeffs[5][2]  -1.0
+    @test_approx_eq  lhs_const         2.0*2.0-1.0*3.0
+
+    # -------------------
     unc_val = [1.0, 2.0, 3.0, 4.0, 5.0]
     new_con = JuMPeR.build_certain_constraint(unc_con, unc_val)
-    @test conToStr(new_con) == "5 x[1] + x[2] + x[3] + 11 x[4] <= 10"
+    @test conToStr(new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] <= 10"
+
+    # -------------------
+    lhs_val = dot([5,1,4,11],[2,3,4,5])
+    @test  JuMPeR.is_constraint_violated(new_con, lhs_val, 1e-6)
+    @test !JuMPeR.is_constraint_violated(new_con, lhs_val, 1e+6)
 end
