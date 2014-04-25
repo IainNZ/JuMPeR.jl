@@ -27,12 +27,14 @@ type BertSimOracle <: AbstractOracle
                 # but is possible.
     means::Vector{Float64}
     devs::Vector{Float64}
+
+    cut_tol
 end
 # Preferred constructor - just Gamma
 BertSimOracle(Gamma::Int) =
     BertSimOracle(  UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(),
                     false, false, false,
-                    Gamma, Float64[], Float64[])
+                    Gamma, Float64[], Float64[], 0.0)
 # Default constructor - no uncertainty
 BertSimOracle() = BertSimOracle(0)
 
@@ -41,6 +43,8 @@ BertSimOracle() = BertSimOracle(0)
 # We must handle this constraint, and the users preferences have been
 # communicated through prefs
 function registerConstraint(w::BertSimOracle, con, ind::Int, prefs)
+    w.cut_tol = get(prefs, :cut_tol, 1e-6)
+
     push!(w.cons, con)
     w.con_inds[ind] = length(w.cons)
     con_mode = Dict{Symbol,Bool}()
@@ -145,8 +149,8 @@ function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model, cb=nothing
     #println(nom_val)
     #println(cut_val)
     
-    if ((sense(con) == :<=) && (cut_val <= con.ub + 1e-6)) ||
-       ((sense(con) == :>=) && (cut_val >= con.lb - 1e-6))
+    if ((sense(con) == :<=) && (cut_val <= con.ub + w.cut_tol)) ||
+       ((sense(con) == :>=) && (cut_val >= con.lb - w.cut_tol))
         return 0  # No violation, no new cut
     end
     #println("Adding constraint")

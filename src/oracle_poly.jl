@@ -25,6 +25,7 @@ type PolyhedralOracle <: AbstractOracle
     cut_vars::Vector{Variable}
     var_maps    # Mappings from master variable values to cutting objective
     const_maps  # The constant parts (not affected by uncertainty)
+    cut_tol
 
     # Reformulation
     num_dualvar::Int
@@ -40,7 +41,7 @@ end
 PolyhedralOracle() = 
     PolyhedralOracle(   UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(),
                         false, false, false,
-                        Model(), Variable[], Any[], Any[],  # Cutting plane
+                        Model(), Variable[], Any[], Any[], 0.0, # Cutting plane
                         0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[],
                         false)
 
@@ -63,9 +64,10 @@ function registerConstraint(w::PolyhedralOracle, con, ind::Int, prefs)
     end
     push!(w.con_modes, con_mode)
 
-    if :debug_printcut in keys(prefs)
-        w._debug_printcut = prefs[:debug_printcut]
-    end
+    
+    w._debug_printcut = get(prefs, :debug_printcut, false)
+    w.cut_tol = get(prefs, :cut_tol, 1e-6)
+
 
     return con_mode
 end
@@ -284,13 +286,13 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
 
     # TEMPORARY: active cut detection
     if active && (
-       ((sense(con) == :<=) && (abs(lhs - con.ub) <= 1e-6)) ||
-       ((sense(con) == :>=) && (abs(lhs - con.lb) <= 1e-6)))
+       ((sense(con) == :<=) && (abs(lhs - con.ub) <= w.cut_tol)) ||
+       ((sense(con) == :>=) && (abs(lhs - con.lb) <= w.cut_tol)))
         # Yup its active
         push!(rd.activecuts, w.cut_model.colVal[:])
     end
-    if ((sense(con) == :<=) && (lhs <= con.ub + 1e-6)) ||
-       ((sense(con) == :>=) && (lhs >= con.lb - 1e-6))
+    if ((sense(con) == :<=) && (lhs <= con.ub + w.cut_tol)) ||
+       ((sense(con) == :>=) && (lhs >= con.lb - w.cut_tol))
         w._debug_printcut && println("  No new cut\nEND DEBUG   :debug_printcut")
         return 0  # No violation, no new cut
     end
