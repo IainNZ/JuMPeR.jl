@@ -17,8 +17,6 @@ type BertSimOracle <: AbstractOracle
     cons::Vector{UncConstraint}
     con_modes::Vector{Dict{Symbol,Bool}}
     con_inds::Dict{Int,Int}
-    any_reform::Bool
-    any_cut::Bool
     setup_done::Bool
 
 
@@ -28,13 +26,12 @@ type BertSimOracle <: AbstractOracle
     means::Vector{Float64}
     devs::Vector{Float64}
 
-    cut_tol
+    cut_tol::Float64
 end
 # Preferred constructor - just Gamma
 BertSimOracle(Gamma::Int) =
     BertSimOracle(  UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(),
-                    false, false, false,
-                    Gamma, Float64[], Float64[], 0.0)
+                    false, Gamma, Float64[], Float64[], 0.0)
 # Default constructor - no uncertainty
 BertSimOracle() = BertSimOracle(0)
 
@@ -43,22 +40,13 @@ BertSimOracle() = BertSimOracle(0)
 # We must handle this constraint, and the users preferences have been
 # communicated through prefs
 function registerConstraint(w::BertSimOracle, con, ind::Int, prefs)
-    w.cut_tol = get(prefs, :cut_tol, 1e-6)
-
+    con_mode = [:Cut => true, :Reform => true]
+    push!(w.con_modes, con_mode)
     push!(w.cons, con)
     w.con_inds[ind] = length(w.cons)
-    con_mode = Dict{Symbol,Bool}()
-    #if :prefer_cuts in keys(prefs) && prefs[:prefer_cuts]
-    #    con_mode = [:Cut => true, :Reform => false,
-    #                :Sample => (:samples in keys(prefs)) ? 
-    #                            prefs[:samples] > 0 : false  ]
-        w.any_cut = true
-    #else  # Default to reformulation
-        #con_mode = [:Cut => false, :Reform => true, :Sample => false]
-    #    w.any_reform = true
-    #end
-    con_mode = [:Cut => true, :Reform => true, :Sample => false]
-    push!(w.con_modes, con_mode)
+
+    # Extract preferences we care about
+    w.cut_tol = get(prefs, :cut_tol, 1e-6)
     return con_mode
 end
 

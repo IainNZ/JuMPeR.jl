@@ -8,7 +8,6 @@
 # built up with linear constraints to either cut, reformulate, sample or
 # some combination of the above.
 #############################################################################
-using MathProgBase
 
 type PolyhedralOracle <: AbstractOracle
     # The constraints associated with this oracle and the selected mode(s)
