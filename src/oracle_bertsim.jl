@@ -17,8 +17,6 @@ type BertSimOracle <: AbstractOracle
     cons::Vector{UncConstraint}
     con_modes::Vector{Dict{Symbol,Bool}}
     con_inds::Dict{Int,Int}
-    any_reform::Bool
-    any_cut::Bool
     setup_done::Bool
 
 
@@ -28,13 +26,12 @@ type BertSimOracle <: AbstractOracle
     means::Vector{Float64}
     devs::Vector{Float64}
 
-    cut_tol
+    cut_tol::Float64
 end
 # Preferred constructor - just Gamma
 BertSimOracle(Gamma::Int) =
     BertSimOracle(  UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(),
-                    false, false, false,
-                    Gamma, Float64[], Float64[], 0.0)
+                    false, Gamma, Float64[], Float64[], 0.0)
 # Default constructor - no uncertainty
 BertSimOracle() = BertSimOracle(0)
 
@@ -43,22 +40,13 @@ BertSimOracle() = BertSimOracle(0)
 # We must handle this constraint, and the users preferences have been
 # communicated through prefs
 function registerConstraint(w::BertSimOracle, con, ind::Int, prefs)
-    w.cut_tol = get(prefs, :cut_tol, 1e-6)
-
+    con_mode = [:Cut => true, :Reform => true]
+    push!(w.con_modes, con_mode)
     push!(w.cons, con)
     w.con_inds[ind] = length(w.cons)
-    con_mode = Dict{Symbol,Bool}()
-    #if :prefer_cuts in keys(prefs) && prefs[:prefer_cuts]
-    #    con_mode = [:Cut => true, :Reform => false,
-    #                :Sample => (:samples in keys(prefs)) ? 
-    #                            prefs[:samples] > 0 : false  ]
-        w.any_cut = true
-    #else  # Default to reformulation
-        #con_mode = [:Cut => false, :Reform => true, :Sample => false]
-    #    w.any_reform = true
-    #end
-    con_mode = [:Cut => true, :Reform => true, :Sample => false]
-    push!(w.con_modes, con_mode)
+
+    # Extract preferences we care about
+    w.cut_tol = get(prefs, :cut_tol, 1e-6)
     return con_mode
 end
 
@@ -135,69 +123,30 @@ function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model, cb=nothing
     # Now we have the lists, we can sort them in order
     perm = sortperm(absx_devs)  # Ascending
     max_inds = uncx_inds[perm[(end-w.Gamma+1):end]]
-    #println(master_sol)
-    #println(absx_devs)
-    #println(uncx_inds)
-    #println(perm)
-    #println(max_inds)
     
     # Check violation
-    cut_val = nom_val
-    for i in max_inds
-        cut_val += (sense(con) == :<=) ? absx_devs[i] : -absx_devs[i]
-    end
-    #println(nom_val)
-    #println(cut_val)
+    cut_val = nom_val + 
+                ((sense(con) == :<=) ? +1.0 : -1.0) * sum(absx_devs[max_inds])
     
-    if ((sense(con) == :<=) && (cut_val <= con.ub + w.cut_tol)) ||
-       ((sense(con) == :>=) && (cut_val >= con.lb - w.cut_tol))
+    if !is_constraint_violated(con, cut_val, w.cut_tol)
         return 0  # No violation, no new cut
     end
-    #println("Adding constraint")
 
-    # Add the new constraint
-    new_lhs = AffExpr(orig_lhs.vars,
-                      [orig_lhs.coeffs[i].constant for i in 1:length(orig_lhs.vars)],
-                      orig_lhs.constant.constant)
-    #println(new_lhs)
+    # Add new constraint
+    unc_val = w.means[:]
     for p in 1:length(perm)
         var_ind = uncx_inds[p]
         unc     = orig_lhs.coeffs[var_ind].vars[1].unc
         col     = orig_lhs.vars[var_ind].col
-        if p <= length(perm) - w.Gamma
-            # At nominal value
-            new_lhs.coeffs[var_ind] += w.means[unc]
-        else
-            # At bound
-            if sense(con) == :<=
-                if master_sol[col] >= 0
-                    new_lhs.coeffs[var_ind] += (w.means[unc] + w.devs[unc])
-                else  # < 0
-                    new_lhs.coeffs[var_ind] += (w.means[unc] - w.devs[unc])
-                end
-            else  #  >=
-                if master_sol[col] >= 0
-                    new_lhs.coeffs[var_ind] += (w.means[unc] - w.devs[unc])
-                else  # < 0
-                    new_lhs.coeffs[var_ind] += (w.means[unc] + w.devs[unc])
-                end
-            end
-        end
+        # Whether we add or remove a deviation depends on both the 
+        # constraint sense and the sign of x
+        sign    = sense(con) == :(<=) ? (master_sol[col] >= 0 ? +1.0 : -1.0) :
+                                        (master_sol[col] >= 0 ? -1.0 : +1.0)
+        unc_val[unc] += sign * w.devs[unc]
     end
-    
-    if sense(con) == :<=
-        if cb == nothing
-            @addConstraint(m, new_lhs <= con.ub)
-        else
-            @addLazyConstraint(cb, new_lhs <= con.ub)
-        end
-    else
-        if cb == nothing
-            @addConstraint(m, new_lhs >= con.lb)
-        else
-            @addLazyConstraint(cb, new_lhs >= con.lb)
-        end
-    end
+    new_con = JuMPeR.build_certain_constraint(con, unc_val)
+    cb == nothing ? addConstraint(m, new_con) :
+                    addLazyConstraint(cb, new_con)
 
     return 1
 end

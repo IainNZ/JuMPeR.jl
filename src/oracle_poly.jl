@@ -8,7 +8,6 @@
 # built up with linear constraints to either cut, reformulate, sample or
 # some combination of the above.
 #############################################################################
-using MathProgBase
 
 type PolyhedralOracle <: AbstractOracle
     # The constraints associated with this oracle and the selected mode(s)
@@ -16,16 +15,12 @@ type PolyhedralOracle <: AbstractOracle
     cons::Vector{UncConstraint}
     con_modes::Vector{Dict{Symbol,Bool}}
     con_inds::Dict{Int,Int}
-    any_reform::Bool
-    any_cut::Bool
     setup_done::Bool
 
     # Cutting plane algorithm
     cut_model::Model
     cut_vars::Vector{Variable}
-    var_maps    # Mappings from master variable values to cutting objective
-    const_maps  # The constant parts (not affected by uncertainty)
-    cut_tol
+    cut_tol::Float64
 
     # Reformulation
     num_dualvar::Int
@@ -35,13 +30,12 @@ type PolyhedralOracle <: AbstractOracle
     dual_contype::Vector{Symbol}            # Type of new constraint
 
     # Other options
-    _debug_printcut::Bool
+    debug_printcut::Bool
 end
 # Default constructor
 PolyhedralOracle() = 
-    PolyhedralOracle(   UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(),
-                        false, false, false,
-                        Model(), Variable[], Any[], Any[], 0.0, # Cutting plane
+    PolyhedralOracle(   UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(), false,
+                        Model(), Variable[], 0.0, # Cutting plane
                         0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[],
                         false)
 
@@ -50,24 +44,15 @@ PolyhedralOracle() =
 # We must handle this constraint, and the users preferences have been
 # communicated through prefs
 function registerConstraint(w::PolyhedralOracle, con, ind::Int, prefs)
+    con_mode = [:Cut    =>  get(prefs, :prefer_cuts, false), 
+                :Reform => !get(prefs, :prefer_cuts, false)]
+    push!(w.con_modes, con_mode)
     push!(w.cons, con)
     w.con_inds[ind] = length(w.cons)
-    con_mode = Dict{Symbol,Bool}()
-    if :prefer_cuts in keys(prefs) && prefs[:prefer_cuts]
-        con_mode = [:Cut => true, :Reform => false,
-                    :Sample => (:samples in keys(prefs)) ? 
-                                prefs[:samples] > 0 : false  ]
-        w.any_cut = true
-    else  # Default to reformulation
-        con_mode = [:Cut => false, :Reform => true, :Sample => false]
-        w.any_reform = true
-    end
-    push!(w.con_modes, con_mode)
 
-    
-    w._debug_printcut = get(prefs, :debug_printcut, false)
-    w.cut_tol = get(prefs, :cut_tol, 1e-6)
-
+    # Extract preferences we care about
+    w.debug_printcut = get(prefs, :debug_printcut, false)
+    w.cut_tol        = get(prefs, :cut_tol, 1e-6)
 
     return con_mode
 end
@@ -77,13 +62,16 @@ end
 # Now that all modes of operation have been selected, generate the cutting
 # plane model and/or the reformulation
 function setup(w::PolyhedralOracle, rm::Model)
-    if w.setup_done
-        return
-    end
+    w.setup_done && return
     rd = getRobust(rm)
+    any_cut = any_reform = false
+    for con_mode in w.con_modes
+        any_cut    |= con_mode[:Cut]
+        any_reform |= con_mode[:Reform]
+    end
 
     # Cutting plane setup
-    if w.any_cut
+    if any_cut
         # Create an LP that we'll use to solve the cut problem
         # Copy the uncertainty set from the original problem
         w.cut_model.solver   = rd.cutsolver == nothing ? rm.solver : rd.cutsolver
@@ -91,7 +79,7 @@ function setup(w::PolyhedralOracle, rm::Model)
         w.cut_model.colNames = rd.uncNames
         w.cut_model.colLower = rd.uncLower
         w.cut_model.colUpper = rd.uncUpper
-        w.cut_model.colCat   = zeros(rd.numUncs)  # TODO: Non-continuous?
+        w.cut_model.colCat   = zeros(Int,rd.numUncs)  # TODO: Non-continuous?
         w.cut_vars = [Variable(w.cut_model, i) for i = 1:rd.numUncs]
         for c in rd.uncertaintyset
             newcon = LinearConstraint(AffExpr(), c.lb, c.ub)
@@ -99,54 +87,10 @@ function setup(w::PolyhedralOracle, rm::Model)
             newcon.terms.vars   = [w.cut_vars[u.unc] for u in c.terms.vars]
             push!(w.cut_model.linconstr, newcon)
         end
-
-        # For each constraint we are doing cuts for, build up a mapping
-        # from the master solution to the cut objective
-        # w.var_map: key = column numbers, value = [(unc_ind, coeff)]
-        # w.constant_coeffs = [(unc_ind, coeff)]
-        for con_ind = 1:length(w.cons)
-            # Don't build a map if not doing cuts
-            if !w.con_modes[con_ind][:Cut]
-                push!(w.var_maps, nothing)
-                push!(w.const_maps, nothing)
-                continue
-            end
-            
-            con_lhs = w.cons[con_ind].terms
-            num_var = length(con_lhs.coeffs)  # Number of variables in constraint
-            var_map = Dict{Int,Vector{(Int,Float64)}}()
-            for i = 1:num_var                               # For every (unc_aff, var) pair
-                col = con_lhs.vars[i].col                   # Extract column number [key]
-                var_map[col] = (Int,Float64)[]              # Init array of tuples
-                num_unc = length(con_lhs.coeffs[i].vars)    # Num unc in unc_aff
-                sizehint(var_map[col], num_unc)
-                for j = 1:num_unc                           # For every unc in unc_aff
-                    unc   = con_lhs.coeffs[i].vars[j].unc   # The index of this uncertain
-                    coeff = con_lhs.coeffs[i].coeffs[j]     # The coeff on this uncertain
-                    push!(var_map[col], (unc,coeff))        # Add to mapping
-                end
-            end
-            push!(w.var_maps, var_map)
-            
-            # Including the constant term of the constraint
-            const_map = (Int,Float64)[]
-                for j = 1:length(con_lhs.constant.vars)
-                    unc   = con_lhs.constant.vars[j].unc
-                    coeff = con_lhs.constant.coeffs[j]
-                    push!(const_map, (unc,coeff))
-                end
-            push!(w.const_maps, const_map)
-        end  # Next constraint
-
-        if w._debug_printcut
-            println("BEGIN DEBUG :debug_printcut  cut_model")
-            print(w.cut_model)
-            println("END DEBUG   :debug_printcut")
-        end
-    end  # end cut preparation
+    end
 
     # Reformulation setup
-    if w.any_reform
+    if any_reform
         # We have one new variable for every constraint in the uncertainty set
         # We will have one constraint for every uncertainty
         num_dualvar = length(rd.uncertaintyset)
@@ -206,142 +150,41 @@ end
 
 
 function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=nothing, active=false)
-    
     # If not doing cuts for this one, just skip
     con_ind = w.con_inds[ind]
     if !w.con_modes[con_ind][:Cut]
         return 0
     end
+    con = w.cons[con_ind]
     rd = getRobust(rm)
-
+    
     master_sol = m.colVal
 
-    # Objective of cut problem depends on sense of constraint
-    con = w.cons[con_ind]
-    w.cut_model.objSense = sense(con) == :<= ? :Max : :Min
-
-    # Shove the master solution into the objective using our map
-    num_uncs = w.cut_model.numCols
-    unc_coeffs = zeros(num_uncs)
-    for key in keys(w.var_maps[con_ind])        # For every var in con
-        for pair in w.var_maps[con_ind][key]    # For every unc in front of that var
-            unc_coeffs[pair[1]] += pair[2]*master_sol[key]
-        end
-    end
-        for pair in w.const_maps[con_ind]
-            unc_coeffs[pair[1]] += pair[2]
-        end
-    @setObjective(w.cut_model, w.cut_model.objSense, sum{unc_coeffs[i]*w.cut_vars[i], i = 1:num_uncs})
-
-    # Solve cutting plane problem
-    if w._debug_printcut
-        println("BEGIN DEBUG :debug_printcut")
-        convert_model!(con, rm)
-        println("  Constraint:  ", con)
-        convert_model!(con, m)
-        println("  Master sol:  ")
-        for j in 1:length(m.colNames)
-            println("    ", m.colNames[j], "  ", m.colVal[j])
-        end
-        #println("  Cut obj:     ", w.cut_model.objSense, "  ", w.cut_model.obj)
-        println(w.cut_model)
-    end
+    # Update the cutting plane problem's objective, and solve
+    cut_sense, unc_obj_coeffs, lhs_const = JuMPeR.build_cut_objective(con, master_sol)
+    @setObjective(w.cut_model, cut_sense, sum{u[2]*w.cut_vars[u[1]], u=unc_obj_coeffs})
     cut_solve_status = solve(w.cut_model)
-    
-    # Calculate cut LHS
-    lhs = 0.0
-    orig_lhs = con.terms
-    # Variable part
-    num_vars = length(orig_lhs.vars)
-    for var_ind = 1:num_vars
-        coeff   = orig_lhs.coeffs[var_ind]                  # The unc expr in front of var
-        col_val = master_sol[orig_lhs.vars[var_ind].col]    # The value of this x
-        lhs    += coeff.constant * col_val                 # The constant part for this x
-        for unc_ind = 1:length(coeff.vars)
-            coeff_unc   = coeff.vars[unc_ind]
-            coeff_coeff = coeff.coeffs[unc_ind]
-            lhs += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff * col_val
-        end
-    end
-    
-    # Non variable part
-    coeff = orig_lhs.constant
-        for unc_ind = 1:length(coeff.vars)
-            coeff_unc   = coeff.vars[unc_ind]
-            coeff_coeff = coeff.coeffs[unc_ind]
-            lhs += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff
-        end
-
-    # Check violation
-    if w._debug_printcut
-        println("  Solved       ", cut_solve_status)
-        println("  Cut sol:     ")
-        for j in 1:length(w.cut_model.colNames)
-            println("    ", w.cut_model.colNames[j], "  ", w.cut_model.colVal[j])
-        end
-        println("  OrigLHS val: ", lhs)
-        println("  Sense:       ", sense(con))
-        println("  con.lb/ub:   ", con.lb, "  ", con.ub)
-    end
+    lhs_of_cut = getObjectiveValue(w.cut_model) + lhs_const
 
     # TEMPORARY: active cut detection
     if active && (
-       ((sense(con) == :<=) && (abs(lhs - con.ub) <= w.cut_tol)) ||
-       ((sense(con) == :>=) && (abs(lhs - con.lb) <= w.cut_tol)))
+       ((sense(con) == :<=) && (abs(lhs_of_cut - con.ub) <= w.cut_tol)) ||
+       ((sense(con) == :>=) && (abs(lhs_of_cut - con.lb) <= w.cut_tol)))
         # Yup its active
         push!(rd.activecuts, w.cut_model.colVal[:])
     end
-    if ((sense(con) == :<=) && (lhs <= con.ub + w.cut_tol)) ||
-       ((sense(con) == :>=) && (lhs >= con.lb - w.cut_tol))
-        w._debug_printcut && println("  No new cut\nEND DEBUG   :debug_printcut")
+    
+    # Check violation
+    if !is_constraint_violated(con, lhs_of_cut, w.cut_tol)
+        w.debug_printcut && debug_printcut(rm,m,w,lhs_of_cut,con,nothing)
         return 0  # No violation, no new cut
     end
     
-    # Now add that solution back in
-    # TODO: Build map for this too?
-    new_lhs = AffExpr(orig_lhs.vars,
-                      [orig_lhs.coeffs[i].constant for i in 1:num_vars],
-                      0.0)
-    
-    # Variable part
-    for var_ind = 1:num_vars
-        coeff   = orig_lhs.coeffs[var_ind]
-        for unc_ind = 1:length(coeff.vars)
-            coeff_unc   = coeff.vars[unc_ind]
-            coeff_coeff = coeff.coeffs[unc_ind]
-            new_lhs.coeffs[var_ind] += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff
-        end
-    end
-    # Non variable part
-        coeff = orig_lhs.constant
-        for unc_ind = 1:length(coeff.vars)
-            coeff_unc = coeff.vars[unc_ind]
-            coeff_coeff = coeff.coeffs[unc_ind]
-            new_lhs.constant += w.cut_model.colVal[coeff_unc.unc] * coeff_coeff
-        end
-
-    if sense(con) == :<=
-        if w._debug_printcut
-            println("  new constr:  ", new_lhs <= con.ub)
-            println("END DEBUG   :debug_printcut")
-        end
-        if cb == nothing
-            @addConstraint(m, new_lhs <= con.ub)
-        else
-            @addLazyConstraint(cb, new_lhs <= con.ub)
-        end
-    else
-        if w._debug_printcut
-            println("  new constr:  ", new_lhs >= con.lb)
-            println("END DEBUG   :debug_printcut")
-        end
-        if cb == nothing
-            @addConstraint(m, new_lhs >= con.lb)
-        else
-            @addLazyConstraint(cb, new_lhs >= con.lb)
-        end
-    end
-    
+    # Create and add the new constraint
+    new_con = JuMPeR.build_certain_constraint(con, w.cut_model.colVal)
+    w.debug_printcut && debug_printcut(rm,m,w,lhs_of_cut,con,new_con)
+    cb == nothing ? addConstraint(m, new_con) :
+                    addLazyConstraint(cb, new_con)
     return 1
 end
 
@@ -416,11 +259,8 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
     end
 
     # Add the new constraint which replaces the original constraint
-    if sense(w.cons[con_ind]) == :<=
-        addConstraint(m, new_lhs <= new_rhs)
-    elseif sense(w.cons[con_ind]) == :>=
-        addConstraint(m, new_lhs >= new_rhs)
-    end
+    sense(w.cons[con_ind]) == :(<=) && addConstraint(m, new_lhs <= new_rhs)
+    sense(w.cons[con_ind]) == :(>=) && addConstraint(m, new_lhs >= new_rhs)
 
     # Add the additional new constraints
     for unc_i = 1:rd.numUncs
@@ -428,25 +268,40 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
         for pair in dual_A[unc_i]
             push!(new_lhs, pair[2], dual_vars[pair[1]])
         end
-        if sense(w.cons[con_ind]) == :<=
-            if dual_contype[unc_i] == :(==)
-                addConstraint(m, new_lhs == dual_rhs[unc_i])
-            elseif dual_contype[unc_i] == :<=
-                addConstraint(m, new_lhs <= dual_rhs[unc_i])
-            elseif dual_contype[unc_i] == :>=
-                addConstraint(m, new_lhs >= dual_rhs[unc_i])
-            end
+        ucontype = sense(w.cons[con_ind])
+        dualtype = dual_contype[unc_i]
+        if      dualtype == :(==)
+            addConstraint(m, new_lhs == dual_rhs[unc_i])
+        elseif (dualtype == :(<=) && ucontype == :(<=)) ||
+               (dualtype == :(>=) && ucontype == :(>=))
+            addConstraint(m, new_lhs <= dual_rhs[unc_i])
         else
-            if dual_contype[unc_i] == :(==)
-                addConstraint(m, new_lhs == dual_rhs[unc_i])
-            elseif dual_contype[unc_i] == :<=
-                addConstraint(m, new_lhs >= dual_rhs[unc_i])
-            elseif dual_contype[unc_i] == :>=
-                addConstraint(m, new_lhs <= dual_rhs[unc_i])
-            end
+            addConstraint(m, new_lhs >= dual_rhs[unc_i])
         end
     end
 
     return true
 end
 
+
+function debug_printcut(rm,m,w,lhs,con,new_con)
+    println("BEGIN DEBUG :debug_printcut")
+    convert_model!(con, rm)
+    println("  Constraint:  ", con)
+    convert_model!(con, m)
+    println("  Master sol:  ")
+    for j in 1:length(m.colNames)
+        println("    ", m.colNames[j], "  ", m.colVal[j])
+    end
+    print(w.cut_model)
+    #println("  Solve status ", cut_solve_status)
+    println("  Cut sol:     ")
+    for j in 1:length(w.cut_model.colNames)
+        println("    ", w.cut_model.colNames[j], "  ", w.cut_model.colVal[j])
+    end
+    println("  OrigLHS val: ", lhs)
+    println("  Sense:       ", sense(con))
+    println("  con.lb/ub:   ", con.lb, "  ", con.ub)
+    println("  new con:  ", new_con)
+    println("END DEBUG   :debug_printcut")
+end
