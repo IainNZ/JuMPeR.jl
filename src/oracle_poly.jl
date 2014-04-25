@@ -16,8 +16,6 @@ type PolyhedralOracle <: AbstractOracle
     cons::Vector{UncConstraint}
     con_modes::Vector{Dict{Symbol,Bool}}
     con_inds::Dict{Int,Int}
-    any_reform::Bool
-    any_cut::Bool
     setup_done::Bool
 
     # Cutting plane algorithm
@@ -37,8 +35,7 @@ type PolyhedralOracle <: AbstractOracle
 end
 # Default constructor
 PolyhedralOracle() = 
-    PolyhedralOracle(   UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(),
-                        false, false, false,
+    PolyhedralOracle(   UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(), false,
                         Model(), Variable[], 0.0, # Cutting plane
                         0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[],
                         false)
@@ -48,19 +45,11 @@ PolyhedralOracle() =
 # We must handle this constraint, and the users preferences have been
 # communicated through prefs
 function registerConstraint(w::PolyhedralOracle, con, ind::Int, prefs)
+    con_mode = [:Cut    =>  get(prefs, :prefer_cuts, false), 
+                :Reform => !get(prefs, :prefer_cuts, false)]
+    push!(w.con_modes, con_mode)
     push!(w.cons, con)
     w.con_inds[ind] = length(w.cons)
-    con_mode = Dict{Symbol,Bool}()
-    if :prefer_cuts in keys(prefs) && prefs[:prefer_cuts]
-        con_mode = [:Cut => true, :Reform => false,
-                    :Sample => (:samples in keys(prefs)) ? 
-                                prefs[:samples] > 0 : false  ]
-        w.any_cut = true
-    else  # Default to reformulation
-        con_mode = [:Cut => false, :Reform => true, :Sample => false]
-        w.any_reform = true
-    end
-    push!(w.con_modes, con_mode)
 
     # Extract preferences we care about
     w.debug_printcut = get(prefs, :debug_printcut, false)
@@ -76,9 +65,14 @@ end
 function setup(w::PolyhedralOracle, rm::Model)
     w.setup_done && return
     rd = getRobust(rm)
+    any_cut = any_reform = false
+    for con_mode in w.con_modes
+        any_cut    |= con_mode[:Cut]
+        any_reform |= con_mode[:Reform]
+    end
 
     # Cutting plane setup
-    if w.any_cut
+    if any_cut
         # Create an LP that we'll use to solve the cut problem
         # Copy the uncertainty set from the original problem
         w.cut_model.solver   = rd.cutsolver == nothing ? rm.solver : rd.cutsolver
@@ -97,7 +91,7 @@ function setup(w::PolyhedralOracle, rm::Model)
     end
 
     # Reformulation setup
-    if w.any_reform
+    if any_reform
         # We have one new variable for every constraint in the uncertainty set
         # We will have one constraint for every uncertainty
         num_dualvar = length(rd.uncertaintyset)
@@ -266,11 +260,8 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
     end
 
     # Add the new constraint which replaces the original constraint
-    if sense(w.cons[con_ind]) == :<=
-        addConstraint(m, new_lhs <= new_rhs)
-    elseif sense(w.cons[con_ind]) == :>=
-        addConstraint(m, new_lhs >= new_rhs)
-    end
+    sense(w.cons[con_ind]) == :(<=) && addConstraint(m, new_lhs <= new_rhs)
+    sense(w.cons[con_ind]) == :(>=) && addConstraint(m, new_lhs >= new_rhs)
 
     # Add the additional new constraints
     for unc_i = 1:rd.numUncs
@@ -278,22 +269,15 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
         for pair in dual_A[unc_i]
             push!(new_lhs, pair[2], dual_vars[pair[1]])
         end
-        if sense(w.cons[con_ind]) == :<=
-            if dual_contype[unc_i] == :(==)
-                addConstraint(m, new_lhs == dual_rhs[unc_i])
-            elseif dual_contype[unc_i] == :<=
-                addConstraint(m, new_lhs <= dual_rhs[unc_i])
-            elseif dual_contype[unc_i] == :>=
-                addConstraint(m, new_lhs >= dual_rhs[unc_i])
-            end
+        ucontype = sense(w.cons[con_ind])
+        dualtype = dual_contype[unc_i]
+        if      dualtype == :(==)
+            addConstraint(m, new_lhs == dual_rhs[unc_i])
+        elseif (dualtype == :(<=) && ucontype == :(<=)) ||
+               (dualtype == :(>=) && ucontype == :(>=))
+            addConstraint(m, new_lhs <= dual_rhs[unc_i])
         else
-            if dual_contype[unc_i] == :(==)
-                addConstraint(m, new_lhs == dual_rhs[unc_i])
-            elseif dual_contype[unc_i] == :<=
-                addConstraint(m, new_lhs >= dual_rhs[unc_i])
-            elseif dual_contype[unc_i] == :>=
-                addConstraint(m, new_lhs <= dual_rhs[unc_i])
-            end
+            addConstraint(m, new_lhs >= dual_rhs[unc_i])
         end
     end
 
