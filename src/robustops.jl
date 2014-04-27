@@ -219,7 +219,7 @@ function dot(lhs::JuMPDict{Variable}, rhs::JuMPDict{Uncertain})
     end
     dot(lhs.innerArray,rhs.innerArray)
 end
-dot(lhs::JuMPDict{Uncertain},rhs::Array{Variable}) = dot(rhs,lhs)
+dot(lhs::JuMPDict{Uncertain},rhs::JuMPDict{Variable}) = dot(rhs,lhs)
 
 dot{T<:Real}(lhs::Array{T}, rhs::Array{Uncertain}) = UAffExpr(vec(rhs), vec(float(lhs)), 0.0)
 dot{T<:Real}(rhs::Array{Uncertain}, lhs::Array{T}) = UAffExpr(vec(rhs), vec(float(lhs)), 0.0)

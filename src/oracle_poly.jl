@@ -81,11 +81,31 @@ function setup(w::PolyhedralOracle, rm::Model)
         w.cut_model.colUpper = rd.uncUpper
         w.cut_model.colCat   = zeros(Int,rd.numUncs)  # TODO: Non-continuous?
         w.cut_vars = [Variable(w.cut_model, i) for i = 1:rd.numUncs]
+        # Polyhedral constraints
         for c in rd.uncertaintyset
             newcon = LinearConstraint(AffExpr(), c.lb, c.ub)
             newcon.terms.coeffs = c.terms.coeffs
             newcon.terms.vars   = [w.cut_vars[u.unc] for u in c.terms.vars]
             push!(w.cut_model.linconstr, newcon)
+        end
+        # Ellipse constraints
+        # Take || Fu + g || <= Gamma and rewrite as
+        # y = Fu+g, y^T y <= Gamma^2
+        for el_c in rd.normconstraints
+            yty = QuadExpr()
+            num_terms, num_uncs = size(el_c.F)
+            for term_ind = 1:num_terms
+                # Create new variable y_i
+                y   = Variable(w.cut_model,-Inf,Inf,JuMP.CONTINUOUS,"_el_$term_ind")
+                Fug = AffExpr([w.cut_vars[i] for i in el_c.u],
+                              [el_c.F[term_ind,i] for i in 1:num_uncs],
+                              el_c.g[term_ind])
+                addConstraint(w.cut_model, y == Fug)
+                push!(yty.qvars1, y)
+                push!(yty.qvars2, y)
+                push!(yty.qcoeffs, 1.0)
+            end
+            addConstraint(w.cut_model, yty <= el_c.Gamma^2)
         end
     end
 
@@ -128,13 +148,11 @@ function setup(w::PolyhedralOracle, rm::Model)
             end
             # Now we can handle the sense of the bound in the event
             # one of them is zero. Default is equality.
-            if rd.uncLower[unc_i] == 0.0 && rd.uncUpper[unc_i] != 0.0
+            if     rd.uncLower[unc_i] == 0.0 && rd.uncUpper[unc_i] != 0.0
                 dual_contype[unc_i] = :>=
-            end
-            if rd.uncLower[unc_i] != 0.0 && rd.uncUpper[unc_i] == 0.0
+            elseif rd.uncLower[unc_i] != 0.0 && rd.uncUpper[unc_i] == 0.0
                 dual_contype[unc_i] = :<=
-            end
-            if rd.uncLower[unc_i] != 0.0 && rd.uncUpper[unc_i] != 0.0
+            elseif rd.uncLower[unc_i] != 0.0 && rd.uncUpper[unc_i] != 0.0
                 dual_contype[unc_i] = :(==)
             end
         end
