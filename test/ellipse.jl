@@ -51,7 +51,7 @@ else
         @setObjective(m, Max, 10x)
         addConstraint(m, u*x <= 7)
         addEllipseConstraint(m, [1.0*u - 5], 2)  # 5 <= u <= 7
-        solveRobust(m, prefer_cuts=cuts)
+        solveRobust(m, prefer_cuts=cuts) #, debug_printreform=!cuts, debug_printfinal=!cuts)
         @test_approx_eq_eps getValue(x) 1.0 1e-6
     end
 
@@ -90,6 +90,9 @@ else
         @test_approx_eq_eps getValue(x[2]) 0.000 1e-3
     end
 
+    Test1(false)
+    Test2(false)
+    Test3(false)
     Test1(true)
     Test2(true)
     Test3(true)

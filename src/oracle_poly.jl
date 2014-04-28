@@ -22,22 +22,25 @@ type PolyhedralOracle <: AbstractOracle
     cut_vars::Vector{Variable}
     cut_tol::Float64
 
-    # Reformulation
+    # Reformulation (see setup for comments)
     num_dualvar::Int
-    dual_A::Vector{Vector{(Int,Float64)}}   # Transp. uncertainty matrix
-    dual_objs::Vector{Float64}              # Coefficient in dual obj
-    dual_vartype::Vector{Symbol}            # >=0, <=0, etc.
-    dual_contype::Vector{Symbol}            # Type of new constraint
+    dual_A::Vector{Vector{(Int,Float64)}}
+    dual_objs::Vector{Float64}
+    dual_vartype::Vector{Symbol}
+    dual_contype::Vector{Symbol}
+    dual_ell_lhs_idx::Int
+    dual_ell_rhs_idx::Vector{Int}
 
     # Other options
     debug_printcut::Bool
+    debug_printreform::Bool
 end
 # Default constructor
 PolyhedralOracle() = 
     PolyhedralOracle(   UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(), false,
                         Model(), Variable[], 0.0, # Cutting plane
-                        0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[],
-                        false)
+                        0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[], 
+                        0, Int[],       false, false)
 
 
 # registerConstraint
@@ -51,8 +54,9 @@ function registerConstraint(w::PolyhedralOracle, con, ind::Int, prefs)
     w.con_inds[ind] = length(w.cons)
 
     # Extract preferences we care about
-    w.debug_printcut = get(prefs, :debug_printcut, false)
-    w.cut_tol        = get(prefs, :cut_tol, 1e-6)
+    w.debug_printcut    = get(prefs, :debug_printcut, false)
+    w.debug_printreform = get(prefs, :debug_printreform, false)
+    w.cut_tol           = get(prefs, :cut_tol, 1e-6)
 
     return con_mode
 end
@@ -111,58 +115,119 @@ function setup(w::PolyhedralOracle, rm::Model)
 
     # Reformulation setup
     if any_reform
-        # We have one new variable for every constraint in the uncertainty set
-        # We will have one constraint for every uncertainty
+        # Temporary: we only support one ellipse
+        if length(rd.normconstraints) > 1
+            error("Reformulation only supports one ellipsoidal constraint at this time")
+        end
+        #####################################################################
+        # We have 
+        # - one new variable for every constraint in the uncertainty set
+        # - one new variable for every term in the ellipse
+        # - one new variable for the ellipse in general
+        # We have one constraint for every uncertainty.
+        #
+        # PRIMAL
+        # max  cx.x  + cy.y
+        #  st  Ax.x  + Ay.y   ==  b
+        #          ||Fy+g||2  <=  Gamma
+        #
+        # DUAL
+        # min   b.pi +  g.bz + Gamma*bt
+        #  st Ax'.pi          == cx
+        #     Ay'.pi - F'.bz  == cy
+        #         pi free
+        #             (bt,bz) in Q^n+1
+        #
+        # In this setup phase we build the structure of the dual but do not
+        # attach it to the model. Rather, for each constraint we will spawn
+        # a new set of variables and constraints according to the structure
+        # we determine here.
+        #####################################################################
         num_dualvar = length(rd.uncertaintyset)
+        for el_c in rd.normconstraints
+            num_dualvar += length(el_c.u) + 1
+        end
         num_dualcon = rd.numUncs
-        dual_A       = [(Int,Float64)[] for i = 1:rd.numUncs]    # Transp. uncertainty matrix
-        dual_objs    = zeros(num_dualvar)           # Coefficient in dual obj
-        dual_vartype = [:>= for i = 1:num_dualvar]  # >=0, <=0, etc.
-        dual_contype = [:>= for i = 1:num_dualcon]  # Type of new constraint
+        # Sparse representation of the transpose of the matrix defining
+        # the linear constraints
+        dual_A       = [(Int,Float64)[] for i = 1:rd.numUncs]
+        # Objective coefficient in dual obj
+        dual_objs    = zeros(num_dualvar)
+        # Primal constr. sense -> dual variable sense, >=0, <=0, free (:==)
+        # Initially it is just the primal constraint sense, but might need
+        # to be flipped later
+        dual_vartype = [:>= for i = 1:num_dualvar]
+        # Dual constr. sense
+        dual_contype = [:>= for i = 1:num_dualcon]
 
-        # Matrix transpose of uncertainty set
+        # First, use linear constraints to
+        # - form matrix transpose of linear constraints
+        # - set objective coefficients for linear constraint duals
+        # - set variable types for linear constraint duals
         for uncset_i = 1:length(rd.uncertaintyset)
             lhs = rd.uncertaintyset[uncset_i].terms
             for unc_j = 1:length(lhs.vars)
                 push!(dual_A[lhs.vars[unc_j].unc], (uncset_i, lhs.coeffs[unc_j]))
             end
-            dual_objs[uncset_i] = rhs(rd.uncertaintyset[uncset_i])
+            dual_objs[uncset_i]    = rhs(rd.uncertaintyset[uncset_i])
             dual_vartype[uncset_i] = sense(rd.uncertaintyset[uncset_i])
         end
 
-        # Add entries for the uncertain bounds
+        # Next, use the ellipsoid to set objective coefficients of the duals
+        # relating to the ellipse
+        start_index = length(rd.uncertaintyset)
+        for el_c in rd.normconstraints
+            for term_ind = 1:length(el_c.g)
+                dual_objs[start_index+term_ind] = el_c.g[term_ind]
+                dual_vartype[start_index+term_ind] = :Qrhs
+                push!(w.dual_ell_rhs_idx, start_index+term_ind)
+            end
+            dual_objs[start_index+length(el_c.g)+1] = el_c.Gamma
+            dual_vartype[start_index+length(el_c.g)+1] = :Qlhs
+            w.dual_ell_lhs_idx = start_index+length(el_c.g)+1
+            start_index += length(el_c.g) + 1
+        end
+
+        # We will handle bounds on the coefficients as linear constraints,
+        # which means adding to the matrix transpose and objective
         for unc_i = 1:rd.numUncs
-            # If it has a lower bound
+            # If it has a lower bound...
             if rd.uncLower[unc_i] != -Inf
                 num_dualvar += 1
                 push!(dual_A[unc_i], (num_dualvar, 1.0))
-                push!(dual_objs, rd.uncLower[unc_i])
-                push!(dual_vartype, :>=)
+                push!(dual_objs,     rd.uncLower[unc_i])
+                push!(dual_vartype,  :(>=))
             end
             # If it has an upper bound
             if rd.uncUpper[unc_i] != +Inf
                 num_dualvar += 1
                 push!(dual_A[unc_i], (num_dualvar, 1.0))
-                push!(dual_objs, rd.uncUpper[unc_i])
-                push!(dual_vartype, :<=)
+                push!(dual_objs,     rd.uncUpper[unc_i])
+                push!(dual_vartype,  :(<=))
             end
-            # Now we can handle the sense of the bound in the event
-            # one of them is zero. Default is equality.
-            if     rd.uncLower[unc_i] == 0.0 && rd.uncUpper[unc_i] != 0.0
-                dual_contype[unc_i] = :>=
-            elseif rd.uncLower[unc_i] != 0.0 && rd.uncUpper[unc_i] == 0.0
-                dual_contype[unc_i] = :<=
-            elseif rd.uncLower[unc_i] != 0.0 && rd.uncUpper[unc_i] != 0.0
-                dual_contype[unc_i] = :(==)
-            end
+            # Now we just treat the variable as being free
+            dual_contype[unc_i] = :(==)
         end
 
         w.num_dualvar   = num_dualvar
         w.dual_A        = dual_A
         w.dual_objs     = dual_objs
         w.dual_vartype  = dual_vartype
-        w.dual_contype  = dual_contype 
-    end  # end reform preparation
+        w.dual_contype  = dual_contype
+
+        if w.debug_printreform
+            println("BEGIN DEBUG :debug_printreform")
+            println("Num dual var ", num_dualvar)
+            println("Objective")
+            dump(dual_objs)
+            println("dual_A")
+            println(dual_A)
+            println("lhs,rhs idx")
+            dump(w.dual_ell_lhs_idx)
+            dump(w.dual_ell_rhs_idx)
+            println("END DEBUG   :debug_printreform")
+        end
+    end  # end reformulation preparation
     w.setup_done = true
 end
 
@@ -207,7 +272,7 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
 end
 
 
-function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
+function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, master::Model)
     # If not doing reform for this one, just skip
     con_ind = w.con_inds[ind]
     if !w.con_modes[con_ind][:Reform]
@@ -221,83 +286,133 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, m::Model)
     dual_objs   = w.dual_objs
     dual_vartype= w.dual_vartype
     dual_contype= w.dual_contype 
+    # These are the objective coefficients of the cutting plane problem
+    # that are the right-hand-side of the dual problem.
     dual_rhs    = [AffExpr() for i = 1:num_dualcon]
-    new_lhs     = AffExpr()  # This will be the new constraint
+    # This is the reformulated "main" constraint that will replace the
+    # existing uncertain constraint
+    new_lhs     = AffExpr()
+    # The right-hand-side of the new constraint
     new_rhs     = rhs(w.cons[con_ind])
+    # The uncertain constraint left-hand-side
     orig_lhs    = w.cons[con_ind].terms
+    # The sense of the original constraint
+    orig_sense  = sense(w.cons[con_ind])
 
-    # Collect certain terms
-    for term_i = 1:length(orig_lhs.vars)
-        if orig_lhs.coeffs[term_i].constant != 0
-            # Constant part
-            push!(new_lhs, orig_lhs.coeffs[term_i].constant,
-                          Variable(m, orig_lhs.vars[term_i].col))
+    # First collect the certain terms of the uncertain constraint - they
+    # won't take part in the reformulation, so we can append them to the
+    # new LHS directly
+    num_lhs_terms = length(orig_lhs.vars)
+    for term_i = 1:num_lhs_terms
+        var_col = orig_lhs.vars[term_i].col
+        if orig_lhs.coeffs[term_i].constant != 0.0
+            push!(new_lhs,  orig_lhs.coeffs[term_i].constant,
+                            Variable(master, var_col) )
         end
     end
     
-    # Collect coefficients for each uncertainty present
-    for term_i = 1:length(orig_lhs.coeffs)
-        for unc_j = 1:length(orig_lhs.coeffs[term_i].coeffs)
-            push!(dual_rhs[orig_lhs.coeffs[term_i].vars[unc_j].unc],
-                    orig_lhs.coeffs[term_i].coeffs[unc_j],
-                    Variable(m, orig_lhs.vars[term_i].col))
+    # We have terms (a^T u + b) x_i, we now need to get (c^T x) u_j
+    # The "c^T x" will form the new right-hand-side
+    for term_i = 1:num_lhs_terms
+        var_col = orig_lhs.vars[term_i].col
+        term_coeff = orig_lhs.coeffs[term_i]
+        for coeff_term_j = 1:length(term_coeff.coeffs)
+            coeff = term_coeff.coeffs[coeff_term_j]
+            unc   = term_coeff.vars[coeff_term_j].unc
+            push!(dual_rhs[unc], coeff, Variable(master, var_col) )
         end
     end
-        for unc_j = 1:length(orig_lhs.constant.coeffs)
-            dual_rhs[orig_lhs.constant.vars[unc_j].unc] +=
-                                orig_lhs.constant.coeffs[unc_j]
+    # We also need the standalone (a^T u) not related to any variable
+        for const_term_j = 1:length(orig_lhs.constant.coeffs)
+            coeff = orig_lhs.constant.coeffs[const_term_j]
+            unc   = orig_lhs.constant.vars[const_term_j].unc
+            dual_rhs[unc].constant += coeff
         end
 
-    # Create dual variables for this contraint, and add to new LHS
+    # The right-hand-side is the only thing unique to this particular
+    # constraint. We now need to create dual variables for this specific
+    # contraint and add them to the new constraint's LHS
+    # One thing we need to do: if its a >= constraint, we need to flip
+    # the sign in front of the cone LHS.
+    if orig_sense == :(>=)
+        dual_objs[w.dual_ell_lhs_idx] *= -1
+    end
     dual_vars = Variable[]
-    for dual_i = 1:num_dualvar
-        # Constraint is less-than, so "maximize"
-        var_name = "_µ$(con_ind)_$(dual_i)"
-        if sense(w.cons[con_ind]) == :<=
-            if dual_vartype[dual_i] == :<=      # LE  ->  >= 0
-                push!(dual_vars, Variable(m,0,+Inf,0,var_name))
-            elseif dual_vartype[dual_i] == :>=  # GE  ->  <= 0
-                push!(dual_vars, Variable(m,-Inf,0,0,var_name))
-            elseif dual_vartype[dual_i] == :(==)  # EQ  ->  free
-                push!(dual_vars, Variable(m,-Inf,+Inf,0,var_name))
-            end
+    for ind = 1:num_dualvar
+        # Determine bounds for case where contraint is <= (maximize)
+        # then flip if otherwise
+        var_name = "_µ$(con_ind)_$(ind)"
+        lbound = -Inf
+        ubound = +Inf
+        vt = dual_vartype[ind]
+        # Less-than and LHS of cone -->  v >= 0
+        if vt == :(<=) || vt == :Qlhs
+            lbound = 0
         end
-        # Constraint is gerater-than, so "minimize"
-        if sense(w.cons[con_ind]) == :>=
-            if dual_vartype[dual_i] == :>=      # GE  ->  >= 0
-                push!(dual_vars, Variable(m,0,+Inf,0,var_name))
-            elseif dual_vartype[dual_i] == :<=  # LE  ->  <= 0
-                push!(dual_vars, Variable(m,-Inf,0,0,var_name))
-            elseif dual_vartype[dual_i] == :(==)  # EQ  ->  free
-                push!(dual_vars, Variable(m,-Inf,+Inf,0,var_name))
-            end
+        # Greater-than -->  v <= 0
+        if vt == :(>=)
+            ubound = 0
         end
-
-        push!(new_lhs, dual_objs[dual_i], dual_vars[dual_i])
+        # Equality and RHS of cone -->  free
+        # Now flip if needed
+        if orig_sense != :(<=) && vt != :Qlhs
+            lbound, ubound = -ubound, -lbound
+        end
+        new_v = Variable(master,lbound,ubound,JuMP.CONTINUOUS,var_name)
+        push!(dual_vars, new_v)
+        push!(new_lhs, dual_objs[ind], new_v)
     end
 
-    # Add the new constraint which replaces the original constraint
-    sense(w.cons[con_ind]) == :(<=) && addConstraint(m, new_lhs <= new_rhs)
-    sense(w.cons[con_ind]) == :(>=) && addConstraint(m, new_lhs >= new_rhs)
+    w.debug_printreform && println("DEBUG new_lhs ", new_lhs)
+
+    # Add the new constraint which "replaces" the original constraint
+    orig_sense == :(<=) && addConstraint(master, new_lhs <= new_rhs)
+    orig_sense == :(>=) && addConstraint(master, new_lhs >= new_rhs)
 
     # Add the additional new constraints
-    for unc_i = 1:rd.numUncs
+    # - If the uncertainty wasn't involved in an ellipse, its just dual_A
+    # - If it was, we need to add in additional terms (from .F)
+    for unc = 1:rd.numUncs
         new_lhs = AffExpr()
-        for pair in dual_A[unc_i]
+        # Add the linear constraint segment
+        for pair in dual_A[unc]
             push!(new_lhs, pair[2], dual_vars[pair[1]])
         end
-        ucontype = sense(w.cons[con_ind])
-        dualtype = dual_contype[unc_i]
+        # Check if this is in an ellipse
+        for el_c in rd.normconstraints
+            el_matrix_col = 0
+            for el_term = 1:length(el_c.u)
+                if el_c.u[el_term] == unc
+                    el_matrix_col = el_term
+                end
+            end
+            el_matrix_col == 0 && continue
+            F_slice = el_c.F[:,el_matrix_col]
+            for el_matrix_row = 1:length(F_slice)
+                push!(new_lhs, -F_slice[el_matrix_row], 
+                      dual_vars[w.dual_ell_rhs_idx[el_matrix_row]] )
+            end
+        end
+
+        dualtype = dual_contype[unc]
         if      dualtype == :(==)
-            addConstraint(m, new_lhs == dual_rhs[unc_i])
-        elseif (dualtype == :(<=) && ucontype == :(<=)) ||
-               (dualtype == :(>=) && ucontype == :(>=))
-            addConstraint(m, new_lhs <= dual_rhs[unc_i])
+            addConstraint(master, new_lhs == dual_rhs[unc])
+        elseif (dualtype == :(<=) && orig_sense == :(<=)) ||
+               (dualtype == :(>=) && orig_sense == :(>=))
+            addConstraint(master, new_lhs <= dual_rhs[unc])
         else
-            addConstraint(m, new_lhs >= dual_rhs[unc_i])
+            addConstraint(master, new_lhs >= dual_rhs[unc])
         end
     end
 
+    # Finally we impose that the duals relating to the ellipse
+    # live in a cone
+    for el_c in rd.normconstraints
+        beta_t = dual_vars[w.dual_ell_lhs_idx]
+        beta_zs = dual_vars[w.dual_ell_rhs_idx]
+        addConstraint(master, beta_t^2 >= sum([beta_z^2 for beta_z in beta_zs]))
+    end
+    
     return true
 end
 
