@@ -334,7 +334,7 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, master::Model)
     # contraint and add them to the new constraint's LHS
     # One thing we need to do: if its a >= constraint, we need to flip
     # the sign in front of the cone LHS.
-    if orig_sense == :(>=)
+    if orig_sense == :(>=) && w.dual_ell_lhs_idx != 0
         dual_objs[w.dual_ell_lhs_idx] *= -1
     end
     dual_vars = Variable[]
