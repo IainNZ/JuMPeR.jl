@@ -82,7 +82,7 @@ function affToStr(a::UAffExpr, showConstant=true)
     # Collect like terms
     indvec = IndexedVector(Float64, robdata.numUncs)
     for ind in 1:length(a.vars)
-        addelt(indvec, a.vars[ind].unc, a.coeffs[ind])
+        addelt!(indvec, a.vars[ind].unc, a.coeffs[ind])
     end
 
     # Stringify the terms

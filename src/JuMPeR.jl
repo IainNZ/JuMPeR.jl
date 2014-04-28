@@ -8,7 +8,7 @@ module JuMPeR
 
 import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
 import JuMP.sense, JuMP.rhs
-import JuMP.IndexedVector, JuMP.addelt, JuMP.isexpr
+import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
 import JuMP.string_intclamp
 import JuMP.JuMPDict
 importall JuMP
