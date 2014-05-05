@@ -213,8 +213,8 @@ A = [3.0 4.0 5.0;
 @test affToStr(dot(nums,vdict)) == "3.5 d + 4 e + 2 f"
 @test affToStr(dot(vdict,nums)) == "3.5 d + 4 e + 2 f"
 # Array{Float64,2} (1D) :: JuMPDict{Uncertain} 
-@test affToStr(dot(A[1,:], udict)) == "3 a + 4 b + 5 c"
-@test affToStr(dot(A[1,:], vdict)) == "3 d + 4 e + 5 f"
+@test affToStr(dot(vec(A[1,:]), udict)) == "3 a + 4 b + 5 c"
+@test affToStr(dot(vec(A[1,:]), vdict)) == "3 d + 4 e + 5 f"
 # Array{Float64,2} (2D) :: JuMPDict{Uncertain} (2D)
 @test affToStr(dot(A, matdict)) == "3 U11 + 1.5 U21 + 5.5 U31 + 4 U12 + 2.5 U22 + 6.2 U32 + 5 U13 + 3.3 U23 + 1.2 U33"
 # Vector{UAffExpr} :: JuMPDict{Variable}
@@ -224,4 +224,4 @@ A = [3.0 4.0 5.0;
 # Array{Float64,2} (2D) :: JuMPDict{Uncertain} (1D)
 @test_throws ErrorException dot(A, udict)
 # Array{Float64,1} (1D) :: JuMPDict{Uncertain} (2D)
-@test_throws BoundsError dot(nums, matdict)
+@test_throws ErrorException dot(nums, matdict)
