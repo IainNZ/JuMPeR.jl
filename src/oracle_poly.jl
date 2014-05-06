@@ -28,8 +28,8 @@ type PolyhedralOracle <: AbstractOracle
     dual_objs::Vector{Float64}
     dual_vartype::Vector{Symbol}
     dual_contype::Vector{Symbol}
-    dual_ell_lhs_idx::Int
-    dual_ell_rhs_idx::Vector{Int}
+    dual_ell_rhs_idxs::Vector{Vector{Int}}
+    dual_ell_lhs_idxs::Vector{Int}
 
     # Other options
     debug_printcut::Bool
@@ -40,7 +40,8 @@ PolyhedralOracle() =
     PolyhedralOracle(   UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(), false,
                         Model(), Variable[], 0.0, # Cutting plane
                         0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[], 
-                        0, Int[],       false, false)
+                        Vector{Int}[], Int[],
+                        false, false)
 
 
 # registerConstraint
@@ -115,17 +116,14 @@ function setup(w::PolyhedralOracle, rm::Model)
 
     # Reformulation setup
     if any_reform
-        # Temporary: we only support one ellipse
-        if length(rd.normconstraints) > 1
-            error("Reformulation only supports one ellipsoidal constraint at this time")
-        end
         #####################################################################
         # We have 
         # - one new variable for every constraint in the uncertainty set
-        # - one new variable for every term in the ellipse
-        # - one new variable for the ellipse in general
+        # - one new variable for every term in each ellipse
+        # - one new variable for each ellipse in general
         # We have one constraint for every uncertainty.
         #
+        # Statement of primal-dual pair for the one ellipse case:
         # PRIMAL
         # max  cx.x  + cy.y
         #  st  Ax.x  + Ay.y   ==  b
@@ -173,18 +171,30 @@ function setup(w::PolyhedralOracle, rm::Model)
             dual_vartype[uncset_i] = sense(rd.uncertaintyset[uncset_i])
         end
 
-        # Next, use the ellipsoid to set objective coefficients of the duals
-        # relating to the ellipse
+        # Next, use the ellipses to set objective coefficients of the duals
+        # relating to the ellipses
         start_index = length(rd.uncertaintyset)
         for el_c in rd.normconstraints
+            # Duals corresponding to terms in ellipse
+            dual_ell_rhs_idx = Int[]
             for term_ind = 1:length(el_c.g)
-                dual_objs[start_index+term_ind] = el_c.g[term_ind]
-                dual_vartype[start_index+term_ind] = :Qrhs
-                push!(w.dual_ell_rhs_idx, start_index+term_ind)
+                # The index of this dual variable
+                dual_idx = start_index+term_ind
+                # Objective coefficient is constant part of this
+                # term in the ellipse
+                dual_objs[dual_idx]     = el_c.g[term_ind]
+                dual_vartype[dual_idx]  = :Qrhs
+                # Store the indices for this ellipse so we inject them
+                # into constraints later
+                push!(dual_ell_rhs_idx, dual_idx)
             end
-            dual_objs[start_index+length(el_c.g)+1] = el_c.Gamma
-            dual_vartype[start_index+length(el_c.g)+1] = :Qlhs
-            w.dual_ell_lhs_idx = start_index+length(el_c.g)+1
+            push!(w.dual_ell_rhs_idxs, dual_ell_rhs_idx)
+
+            # Dual corresponding to the RHS dual
+            lhs_idx = start_index+length(el_c.g)+1
+            dual_objs[lhs_idx]      = el_c.Gamma
+            dual_vartype[lhs_idx]   = :Qlhs
+            push!(w.dual_ell_lhs_idxs, lhs_idx)
             start_index += length(el_c.g) + 1
         end
 
@@ -223,8 +233,8 @@ function setup(w::PolyhedralOracle, rm::Model)
             println("dual_A")
             println(dual_A)
             println("lhs,rhs idx")
-            dump(w.dual_ell_lhs_idx)
-            dump(w.dual_ell_rhs_idx)
+            dump(w.dual_ell_lhs_idxs)
+            dump(w.dual_ell_rhs_idxs)
             println("END DEBUG   :debug_printreform")
         end
     end  # end reformulation preparation
@@ -314,12 +324,12 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, master::Model)
     # We have terms (a^T u + b) x_i, we now need to get (c^T x) u_j
     # The "c^T x" will form the new right-hand-side
     for term_i = 1:num_lhs_terms
-        var_col = orig_lhs.vars[term_i].col
-        term_coeff = orig_lhs.coeffs[term_i]
+        var_col     = orig_lhs.vars[term_i].col
+        term_coeff  = orig_lhs.coeffs[term_i]
         for coeff_term_j = 1:length(term_coeff.coeffs)
             coeff = term_coeff.coeffs[coeff_term_j]
             unc   = term_coeff.vars[coeff_term_j].unc
-            push!(dual_rhs[unc], coeff, Variable(master, var_col) )
+            push!(dual_rhs[unc], coeff, Variable(master, var_col))
         end
     end
     # We also need the standalone (a^T u) not related to any variable
@@ -334,8 +344,12 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, master::Model)
     # contraint and add them to the new constraint's LHS
     # One thing we need to do: if its a >= constraint, we need to flip
     # the sign in front of the cone LHS.
-    if orig_sense == :(>=) && w.dual_ell_lhs_idx != 0
-        dual_objs[w.dual_ell_lhs_idx] *= -1
+    if orig_sense == :(>=) 
+        for i = 1:length(w.dual_ell_lhs_idxs)
+            if w.dual_ell_lhs_idxs[i] != 0
+                dual_objs[w.dual_ell_lhs_idxs[i]] *= -1
+            end
+        end
     end
     dual_vars = Variable[]
     for ind = 1:num_dualvar
@@ -378,8 +392,11 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, master::Model)
         for pair in dual_A[unc]
             push!(new_lhs, pair[2], dual_vars[pair[1]])
         end
-        # Check if this is in an ellipse
+
+        # Check if this uncertain is in an ellipse
+        ell_idx = 0
         for el_c in rd.normconstraints
+            ell_idx += 1
             el_matrix_col = 0
             for el_term = 1:length(el_c.u)
                 if el_c.u[el_term] == unc
@@ -390,7 +407,7 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, master::Model)
             F_slice = el_c.F[:,el_matrix_col]
             for el_matrix_row = 1:length(F_slice)
                 push!(new_lhs, -F_slice[el_matrix_row], 
-                      dual_vars[w.dual_ell_rhs_idx[el_matrix_row]] )
+                      dual_vars[w.dual_ell_rhs_idxs[ell_idx][el_matrix_row]] )
             end
         end
 
@@ -407,9 +424,11 @@ function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, master::Model)
 
     # Finally we impose that the duals relating to the ellipse
     # live in a cone
+    ell_idx = 0
     for el_c in rd.normconstraints
-        beta_t = dual_vars[w.dual_ell_lhs_idx]
-        beta_zs = dual_vars[w.dual_ell_rhs_idx]
+        ell_idx += 1
+        beta_t = dual_vars[w.dual_ell_lhs_idxs[ell_idx]]
+        beta_zs = dual_vars[w.dual_ell_rhs_idxs[ell_idx]]
         addConstraint(master, beta_t^2 >= sum([beta_z^2 for beta_z in beta_zs]))
     end
     
