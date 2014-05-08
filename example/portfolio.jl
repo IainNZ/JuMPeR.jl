@@ -19,6 +19,9 @@ const NUM_ASSET = 10
 # their means. Gamma is the total number of standard deviations away from
 # mean you can have, ala Bertsimas Sim '04. See model definition below for
 # more details.
+if length(ARGS) != 2
+    error("Expected two arguments, see code. Try julia portfolio.jl 1 2")
+end
 box   = int(ARGS[1])
 Gamma = int(ARGS[2])
 
@@ -97,16 +100,16 @@ function solve_portfolio(past_returns, box, Gamma, pref_cuts, reporting)
     @setObjective(m, Max, obj)
 
     # Portfolio constraint
-    addConstraint(m, sum([ x[i] for i=1:NUM_ASSET ]) == 1)
+    addConstraint(m, sum(x) == 1)
 
     # The objective constraint - uncertain
-    addConstraint(m, dot(r, x) - obj >= 0)
+    addConstraint(m, dot(r, x) >= obj)
 
     # Build uncertainty set
     # First, link returns to the standard normals
     for asset_ind = 1:NUM_ASSET
         addConstraint(m, r[asset_ind] ==
-            dot(A[asset_ind, :], z) + means[asset_ind])
+            dot(A[asset_ind, :][:], z) + means[asset_ind])
     end
     # Then link absolute values to standard normals
     for asset_ind = 1:NUM_ASSET
@@ -114,20 +117,14 @@ function solve_portfolio(past_returns, box, Gamma, pref_cuts, reporting)
         addConstraint(m, y[asset_ind] >=  z[asset_ind] / box)
     end
     # Finally, limit how much the standard normals can vary from means
-    addConstraint(m, sum([ y[j] for j=1:NUM_ASSET ]) <= Gamma)
+    addConstraint(m, sum(y) <= Gamma)
 
     # Solve it, report statistics on number of cutting planes etc.
     reporting && println("Solving model...")
 
     # Uncomment the following lines to see model before printing
-    # HACK until import better printing from JuMP/src/print.jl
-    # for i in 1:NUM_ASSET
-        # setName(r[i], "r[$i]")
-        # setName(z[i], "z[$i]")
-        # setName(y[i], "y[$i]")
-    # end
-    # printRobust(m)
-    # println("")
+    #printRobust(m)
+    #println("")
 
     solveRobust(m,  report=reporting, 
                     prefer_cuts=pref_cuts,
@@ -138,7 +135,7 @@ function solve_portfolio(past_returns, box, Gamma, pref_cuts, reporting)
     if reporting
         println("Solved, cuts prefered = $pref_cuts")
         println(getValue(x))
-        println(getValue(obj))
+        println("Objective value: ", getValue(obj))
         println("")
     end
 
