@@ -29,51 +29,51 @@ faff = FullAffExpr([x],[UAffExpr([a],[5.],1.)],UAffExpr([b],[2.],3.))
 @test affToStr(4.13 + a) == "a + 4.13"
 @test affToStr(3.16 - a) == "-a + 3.16"
 @test affToStr(5.23 * a) == "5.23 a"
-@test_throws ErrorException   2.94 / a
+@test_throws    2.94 / a
 # Number--UAffExpr
 @test affToStr(2.3 + uaff) == "2.3 a + 7.8"
 @test affToStr(1.5 - uaff) == "-2.3 a - 4"
 @test affToStr(2.0 * uaff) == "4.6 a + 11"
-@test_throws ErrorException   2.94 / uaff
+@test_throws    2.94 / uaff
 # Number--FullAffExpr
 @test affToStr(2.3 + faff) == "(5 a + 1) x + 2 b + 5.3"
 @test affToStr(1.0 - faff) == "(-5 a - 1) x + -2 b - 2"
 @test affToStr(2.0 * faff) == "(10 a + 2) x + 4 b + 6"
-@test_throws ErrorException   2.94 / faff
+@test_throws    2.94 / faff
 
 # 2. Variable test
 # Variable--Uncertain
 @test affToStr(x + a) == "x + a"
 @test affToStr(x - a) == "x + -a"
 @test affToStr(x * a) == "a x"
-@test_throws ErrorException   affToStr(x / a)
+@test_throws    affToStr(x / a)
 # Variable--UAffExpr
 @test affToStr(x + uaff) == "x + 2.3 a + 5.5"
 @test affToStr(x - uaff) == "x + -2.3 a - 5.5"
 @test affToStr(x * uaff) == "(2.3 a + 5.5) x"
-@test_throws ErrorException   affToStr(x / uaff)
+@test_throws    affToStr(x / uaff)
 # Variable--FullAffExpr
 @test affToStr(x + faff) == "(5 a + 1) x + x + 2 b + 3"
 @test affToStr(x - faff) == "(-5 a - 1) x + x + -2 b - 3"
-@test_throws ErrorException   x * faff
-@test_throws ErrorException   x / faff
+@test_throws    x * faff
+@test_throws    x / faff
 
 # 3. AffExpr test
 # AffExpr--Uncertain
 @test affToStr(aff + a) == "7.1 x + a + 2.5"
 @test affToStr(aff - a) == "7.1 x + -a + 2.5"
 @test affToStr(aff * a) == "(7.1 a) x + 2.5 a"
-@test_throws ErrorException   aff / a
+@test_throws    aff / a
 # AffExpr--UAffExpr
 @test affToStr(aff + uaff) == "7.1 x + 2.3 a + 8"
 @test affToStr(aff - uaff) == "7.1 x + -2.3 a - 3"
 @test affToStr(aff * uaff) == "(16.33 a + 39.05) x + 5.75 a + 13.75"
-@test_throws ErrorException   aff / uaff
+@test_throws    aff / uaff
 # AffExpr--FullAffExpr
 @test affToStr(aff + faff) == "7.1 x + (5 a + 1) x + 2 b + 5.5"
 @test affToStr(aff - faff) == "7.1 x + (-5 a - 1) x + -2 b - 0.5"
-@test_throws ErrorException   aff * faff
-@test_throws ErrorException   aff / faff
+@test_throws    aff * faff
+@test_throws    aff / faff
 
 # 6. Uncertain test
 # Uncertain--Number
@@ -85,27 +85,27 @@ faff = FullAffExpr([x],[UAffExpr([a],[5.],1.)],UAffExpr([b],[2.],3.))
 @test affToStr(a + x) == "x + a"
 @test affToStr(a - x) == "-x + a"
 @test affToStr(a * x) == "a x"
-@test_throws ErrorException   affToStr(a / x)
+@test_throws    affToStr(a / x)
 # Uncertain--AffExpr
 @test affToStr(a + aff) == "7.1 x + a + 2.5"
 @test affToStr(a - aff) == "-7.1 x + a - 2.5"
 @test affToStr(a * aff) == "(7.1 a) x + 2.5 a"
-@test_throws ErrorException   a / aff
+@test_throws    a / aff
 # Uncertain--Uncertain
 @test affToStr(a + b) == "a + b"
 @test affToStr(a - b) == "a - b"
-@test_throws ErrorException   a * b
-@test_throws ErrorException   a / b
+@test_throws    a * b
+@test_throws    a / b
 # Uncertain--UAffExpr (uaff = 2.3 * a + 5.5)
 @test affToStr(b + uaff) == "b + 2.3 a + 5.5"
 @test affToStr(b - uaff) == "b - 2.3 a - 5.5"
-@test_throws ErrorException   b * uaff
-@test_throws ErrorException   b / uaff
+@test_throws    b * uaff
+@test_throws    b / uaff
 # Uncertain--FullAffExpr (faff = (5a + 1)x + 2b + 3)
 @test affToStr(a + faff) == "(5 a + 1) x + a + 2 b + 3"
 @test affToStr(a - faff) == "(-5 a - 1) x + a - 2 b - 3"
-@test_throws ErrorException   a * faff
-@test_throws ErrorException   b * faff
+@test_throws    a * faff
+@test_throws    b * faff
 
 # 7. UAffExpr test (uaff = 2.3 * a + 5.5)
 # UAffExpr--Number
@@ -117,27 +117,27 @@ faff = FullAffExpr([x],[UAffExpr([a],[5.],1.)],UAffExpr([b],[2.],3.))
 @test affToStr(uaff + x) == "x + 2.3 a + 5.5"
 @test affToStr(uaff - x) == "-x + 2.3 a + 5.5"
 @test affToStr(uaff * x) == "(2.3 a + 5.5) x"
-@test_throws ErrorException   uaff / x
+@test_throws    uaff / x
 # UAffExpr--AffExpr (aff = 7.1 x + 2.5)
 @test affToStr(uaff + aff) == "7.1 x + 2.3 a + 8"
 @test affToStr(uaff - aff) == "-7.1 x + 2.3 a + 3"
 @test affToStr(uaff * aff) == "(16.33 a + 39.05) x + 5.75 a + 13.75"
-@test_throws ErrorException   uaff / aff
+@test_throws    uaff / aff
 # UAffExpr--Uncertain
 @test affToStr(uaff + b) == "b + 2.3 a + 5.5"
 @test affToStr(uaff - b) == "-b + 2.3 a + 5.5"
-@test_throws ErrorException   uaff * b
-@test_throws ErrorException   uaff / b
+@test_throws    uaff * b
+@test_throws    uaff / b
 # UAffExpr--UAffExpr (uaff2 = 3.4 b + 1.1)
 @test affToStr(uaff + uaff2) == "2.3 a + 3.4 b + 6.6"
 @test affToStr(uaff - uaff2) == "2.3 a - 3.4 b + 4.4"
-@test_throws ErrorException   uaff * uaff2
-@test_throws ErrorException   uaff / uaff2
+@test_throws    uaff * uaff2
+@test_throws    uaff / uaff2
 # UAffExpr--FullAffExpr (faff = (5a + 1)x + 2b + 3)
 @test affToStr(uaff + faff) == "(5 a + 1) x + 2.3 a + 2 b + 8.5"
 @test affToStr(uaff - faff) == "(-5 a - 1) x + 2.3 a - 2 b + 2.5"
-@test_throws ErrorException   uaff * faff
-@test_throws ErrorException   uaff / faff
+@test_throws    uaff * faff
+@test_throws    uaff / faff
 
 # 8. FullAffExpr test (faff = (5a + 1)x + 2b + 3)
 # FullAffExpr--Number
@@ -148,28 +148,28 @@ faff = FullAffExpr([x],[UAffExpr([a],[5.],1.)],UAffExpr([b],[2.],3.))
 # FullAffExpr--Variable
 @test affToStr(faff + y) == "(5 a + 1) x + y + 2 b + 3"
 @test affToStr(faff - y) == "(5 a + 1) x - y + 2 b + 3"
-@test_throws ErrorException   faff * y
-@test_throws ErrorException   faff / y
+@test_throws    faff * y
+@test_throws    faff / y
 # FullAffExpr--AffExpr (aff2 = 1.2y + 1.2)
 @test affToStr(faff + aff2) == "1.2 y + (5 a + 1) x + 2 b + 4.2"
 @test affToStr(faff - aff2) == "(5 a + 1) x - 1.2 y + 2 b + 1.8"
-@test_throws ErrorException   faff * aff2
-@test_throws ErrorException   faff / aff2
+@test_throws    faff * aff2
+@test_throws    faff / aff2
 # FullAffExpr--Uncertain
 @test affToStr(faff + a) == "(5 a + 1) x + a + 2 b + 3"
 @test affToStr(faff - a) == "(5 a + 1) x + -a + 2 b + 3"
-@test_throws ErrorException   faff * a
-@test_throws ErrorException   faff / a
+@test_throws    faff * a
+@test_throws    faff / a
 # FullAffExpr--UAffExpr (uaff = 2.3 * a + 5.5)
 @test affToStr(faff + uaff) == "(5 a + 1) x + 2.3 a + 2 b + 8.5"
 @test affToStr(faff - uaff) == "(5 a + 1) x + 2 b - 2.3 a - 2.5"
-@test_throws ErrorException   faff * uaff
-@test_throws ErrorException   faff / uaff
+@test_throws    faff * uaff
+@test_throws    faff / uaff
 # FullAffExpr--FullAffExpr
 @test affToStr(faff + faff) == "(5 a + 1) x + (5 a + 1) x + 4 b + 6"
 @test affToStr(faff - faff) == "(5 a + 1) x + (-5 a - 1) x"
-@test_throws ErrorException   faff * faff
-@test_throws ErrorException   faff / faff
+@test_throws    faff * faff
+@test_throws    faff / faff
 
 # Expression operations
 push!(faff, 1, z)
@@ -222,6 +222,6 @@ A = [3.0 4.0 5.0;
     [1*udict[1],2*udict[2],3*udict[3]],
     x)) == "a x[1] + (2 b) x[2] + (3 c) x[3]"
 # Array{Float64,2} (2D) :: JuMPDict{Uncertain} (1D)
-@test_throws ErrorException dot(A, udict)
+@test_throws  dot(A, udict)
 # Array{Float64,1} (1D) :: JuMPDict{Uncertain} (2D)
-@test_throws ErrorException dot(nums, matdict)
+@test_throws  dot(nums, matdict)
