@@ -11,7 +11,7 @@ commercial solvers ([COIN Clp], [COIN Cbc], [GNU GLPK], [Gurobi], [MOSEK], [CPLE
 
 Documentation is available on [ReadTheDocs](http://jumper.readthedocs.org/en/latest/jumper.html)
 
-Build status: [![Build Status](https://travis-ci.org/IainNZ/JuMPeR.jl.png)](https://travis-ci.org/IainNZ/JuMPeR.jl)
+Build status: [![Build Status](https://travis-ci.org/IainNZ/JuMPeR.jl.png?branch=master)](https://travis-ci.org/IainNZ/JuMPeR.jl)
 
 ### Installation Instructions
 
@@ -19,12 +19,11 @@ JuMPeR isn't a listed package (yet). Heres what you're going to need to do to in
 
 ```
 Pkg.add("JuMP")             # JuMP is a dependency
-Pkg.checkout("JuMP")        # For now we are using cutting edge JuMP, but
-                            # will probably be fine using normal after JuMP 0.4
 Pkg.clone("https://github.com/IainNZ/JuMPeR.jl.git")
                             # Installs JuMPeR straight from the repository -
                             # now you can get updates using Pkg.update()
-# If you don't have a solver, get a free one that supports callbacks
+# You need a solver, preferably one that supports lazy constraints.
+# Gurobi is well tested, but if you need a free one get GLPK
 Pkg.add("GLPKMathProgInterface")
 # Optional other packages
 Pkg.add("Distributions")    # Used by the portfolio example to generate data.
