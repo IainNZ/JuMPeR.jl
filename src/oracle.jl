@@ -148,5 +148,5 @@ end
 
 #############################################################################
 # Default included oracles
-include("oracle_poly.jl")         # PolyhedralOracle
-include("oracle_bertsim.jl")      # BertSimOracle
+include("oracle_gen.jl")            # GeneralOracle
+include("oracle_bertsim.jl")        # BertSimOracle

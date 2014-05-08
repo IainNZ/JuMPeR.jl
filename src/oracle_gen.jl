@@ -3,13 +3,13 @@
 # Julia for Mathematical Programming - extension for Robust Optimization
 # See http://github.com/IainNZ/JuMPeR.jl
 #############################################################################
-# PolyhedralOracle
+# GeneralOracle
 # The default oracle - uses uncertainty bounds and the uncertainty set
-# built up with linear constraints to either cut, reformulate, sample or
-# some combination of the above.
+# built up with linear constraints and ellipses and either use cutting planes
+# or reformulate to obtain a deterministic problem.
 #############################################################################
 
-type PolyhedralOracle <: AbstractOracle
+type GeneralOracle <: AbstractOracle
     # The constraints associated with this oracle and the selected mode(s)
     # of operation for each constraint.
     cons::Vector{UncConstraint}
@@ -36,18 +36,18 @@ type PolyhedralOracle <: AbstractOracle
     debug_printreform::Bool
 end
 # Default constructor
-PolyhedralOracle() = 
-    PolyhedralOracle(   UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(), false,
-                        Model(), Variable[], 0.0, # Cutting plane
-                        0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[], 
-                        Vector{Int}[], Int[],
-                        false, false)
+GeneralOracle() = 
+    GeneralOracle(  UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(), false,
+                    Model(), Variable[], 0.0, # Cutting plane
+                    0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[], 
+                    Vector{Int}[], Int[],
+                    false, false)
 
 
 # registerConstraint
 # We must handle this constraint, and the users preferences have been
 # communicated through prefs
-function registerConstraint(w::PolyhedralOracle, con, ind::Int, prefs)
+function registerConstraint(w::GeneralOracle, con, ind::Int, prefs)
     con_mode = [:Cut    =>  get(prefs, :prefer_cuts, false), 
                 :Reform => !get(prefs, :prefer_cuts, false)]
     push!(w.con_modes, con_mode)
@@ -66,7 +66,7 @@ end
 # setup
 # Now that all modes of operation have been selected, generate the cutting
 # plane model and/or the reformulation
-function setup(w::PolyhedralOracle, rm::Model)
+function setup(w::GeneralOracle, rm::Model)
     w.setup_done && return
     rd = getRobust(rm)
     any_cut = any_reform = false
@@ -242,7 +242,7 @@ function setup(w::PolyhedralOracle, rm::Model)
 end
 
 
-function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=nothing, active=false)
+function generateCut(w::GeneralOracle, rm::Model, ind::Int, m::Model, cb=nothing, active=false)
     # If not doing cuts for this one, just skip
     con_ind = w.con_inds[ind]
     if !w.con_modes[con_ind][:Cut]
@@ -282,7 +282,7 @@ function generateCut(w::PolyhedralOracle, rm::Model, ind::Int, m::Model, cb=noth
 end
 
 
-function generateReform(w::PolyhedralOracle, rm::Model, ind::Int, master::Model)
+function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
     # If not doing reform for this one, just skip
     con_ind = w.con_inds[ind]
     if !w.con_modes[con_ind][:Reform]
