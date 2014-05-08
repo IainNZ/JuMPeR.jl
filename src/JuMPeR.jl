@@ -54,6 +54,7 @@ type RobustData
     oracles
     # Uncertain-only constraints
     uncertaintyset
+    normconstraints
     
     # Uncertainty data
     numUncs::Int
@@ -79,10 +80,10 @@ type RobustData
     # Provided scenarios
     scenarios::Vector
 end
-RobustData(cutsolver) = RobustData(Any[],Any[],Any[],
+RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
                             0,String[],Float64[],Float64[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
-                            PolyhedralOracle(), Vector{Float64}[],
+                            GeneralOracle(), Vector{Float64}[],
                             cutsolver,JuMPDict[],Any[])
 
 function RobustModel(;solver=nothing,cutsolver=nothing)
@@ -201,6 +202,9 @@ setAdapt!(x::Array{Variable}, atype::Symbol, uncs::Vector) =
     map((v)->setAdapt!(v, atype, uncs), x)
 
 #############################################################################
+# Ellipsoidal uncertainty set support
+include("ellipse.jl")
+
 # Operator overloads
 include("robustops.jl")
 

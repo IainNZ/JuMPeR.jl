@@ -132,7 +132,7 @@ Oracles
 
 JuMPeR seperates the reformulation and cutting-plane logic into *oracles*. Oracles can be thought of as "robustifying operators" that take an uncertain problem and ensure the solution will be robust. At various points during the solve, JuMPeR will interact with the oracles associated with the constraints to coordinate reformulations, cutting-planes, etc. JuMPeR comes with multiple oracles, and users of JuMPeR can make and share their own - allowing users to easily swap and try out new uncertainty sets with little fuss.
 
-Oracles can be associated with one or more constraints. By default all constraints use the inbuilt ``PolyhedralOracle`` that, as the name suggests, handles reformulations and cutting planes when the uncertainty set is polyhedral. We can alternatively specify a particular constraint by passing a third argument to ``addConstraint``, i.e. ::
+Oracles can be associated with one or more constraints. By default all constraints use the inbuilt ``GeneralOracle`` that, as the name suggests, handles reformulations and cutting planes when the uncertainty set is polyhedral. We can alternatively specify a particular constraint by passing a third argument to ``addConstraint``, i.e. ::
 
     addConstraint(m, a*x + b*y <= 4, MyNewOracle())
     shared_oracle = MyOtherOracle()
@@ -163,7 +163,7 @@ GO HERE
 Built-in Oracles
 ================
 
-PolyhedralOracle
+GeneralOracle
 ----------------
 
 ggg
@@ -251,7 +251,7 @@ The rest of the model structure follows naturally from the mathematical definiti
     # Finally, limit how much the standard normals can vary from means
     addConstraint(m, sum([ y[j] for j=1:NUM_ASSET ]) <= Gamma)
 
-We now have everything we need to solve the problem. We are using the default ``PolyhedralOracle``, and can choose whether we use cutting planes or reformulation. This can done with the ``prefer_cuts`` option for ``solveRobust``. Finally, we will return the portfolios allocation.::
+We now have everything we need to solve the problem. We are using the default ``GeneralOracle``, and can choose whether we use cutting planes or reformulation. This can done with the ``prefer_cuts`` option for ``solveRobust``. Finally, we will return the portfolios allocation.::
 
     solveRobust(m, prefer_cuts=pref_cuts)
 

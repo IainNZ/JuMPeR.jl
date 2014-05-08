@@ -149,7 +149,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
     end
 
     # Some constraints may not have oracles, so we will create a default
-    # PolyhedralOracle that is shared amongst them.
+    # GeneralOracle that is shared amongst them.
     # Register the constraints with their oracles
     oracle_register_time = time()
     for ind in 1:num_unccons
