@@ -33,10 +33,29 @@ macro defUnc(m, x, extra...)
         ub = Inf
     end
     
+    t = JuMP.CONTINUOUS
+    if length(extra) > 0
+        gottype = 0
+        if extra[1] == :Int || extra[1] == :Bin
+            gottype = 1
+            if extra[1] == :Int
+                t = JuMP.INTEGER
+            else
+                if lb != -Inf || ub != Inf
+                    error("Bounds may not be specified for binary variables. These are always taken to have a lower bound of 0 and upper bound of 1.")
+                end
+                t = JuMP.INTEGER
+                lb = 0.0
+                ub = 1.0
+            end
+        end
+    end
+
+
     if isa(var,Symbol)
         # easy case
         return quote
-            $(esc(var)) = Uncertain($m,$lb,$ub,$(string(var)))
+            $(esc(var)) = Uncertain($m,$lb,$ub,$t,$(string(var)))
             nothing
         end
     else
@@ -59,7 +78,7 @@ macro defUnc(m, x, extra...)
             push!(idxsets, idxset)
             push!(refcall.args, idxvar)
         end
-        code = :( $(refcall) = Uncertain($m, $lb, $ub) )
+        code = :( $(refcall) = Uncertain($m, $lb, $ub, $t) )
         for (idxvar, idxset) in zip(reverse(idxvars),reverse(idxsets))
             code = quote
                 for $idxvar in $idxset

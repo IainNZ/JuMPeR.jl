@@ -13,8 +13,8 @@ aff = 7.1 * x + 2.5
 aff2 = 1.2 * y + 1.2
 @test affToStr(aff2) == "1.2 y + 1.2"
 
-a = Uncertain(m, 2.0, 3.0, "a")
-b = Uncertain(m, 5.0, 6.0, "b")
+a = Uncertain(m, 2.0, 3.0, 0, "a")
+b = Uncertain(m, 5.0, 6.0, 0, "b")
 
 uaff = 2.3 * a + 5.5
 @test affToStr(uaff) == "2.3 a + 5.5"
