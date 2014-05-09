@@ -257,6 +257,7 @@ function generateCut(w::GeneralOracle, rm::Model, ind::Int, m::Model, cb=nothing
     cut_sense, unc_obj_coeffs, lhs_const = JuMPeR.build_cut_objective(con, master_sol)
     @setObjective(w.cut_model, cut_sense, sum{u[2]*w.cut_vars[u[1]], u=unc_obj_coeffs})
     cut_solve_status = solve(w.cut_model)
+    cut_solve_status != :Optimal && error("Cutting plane problem infeasible or unbounded!")
     lhs_of_cut = getObjectiveValue(w.cut_model) + lhs_const
 
     # TEMPORARY: active cut detection
