@@ -61,6 +61,7 @@ type RobustData
     uncNames::Vector{String}
     uncLower::Vector{Float64}
     uncUpper::Vector{Float64}
+    uncCat::Vector{Int}
 
     # Adaptability
     adapt_type::Dict{Int,Symbol}
@@ -81,7 +82,7 @@ type RobustData
     scenarios::Vector
 end
 RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
-                            0,String[],Float64[],Float64[],
+                            0,String[],Float64[],Float64[],Int[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
                             GeneralOracle(), Vector{Float64}[],
                             cutsolver,JuMPDict[],Any[])
@@ -114,15 +115,16 @@ type Uncertain
     unc::Int
 end
 
-function Uncertain(m::Model, lower::Number, upper::Number, name::String)
+function Uncertain(m::Model, lower::Number, upper::Number, cat::Int, name::String)
     robdata = getRobust(m)
     robdata.numUncs += 1
     push!(robdata.uncNames, name)
     push!(robdata.uncLower, convert(Float64, lower))
     push!(robdata.uncUpper, convert(Float64, upper))
+    push!(robdata.uncCat, cat)
     return Uncertain(m, robdata.numUncs)
 end
-Uncertain(m::Model, lower::Number, upper::Number) = Uncertain(m,lower,upper,"")
+Uncertain(m::Model, lower::Number, upper::Number, cat::Int) = Uncertain(m,lower,upper,cat,"")
 
 # Name setter/getters
 setName(u::Uncertain, n::String) = (getRobust(u.m).uncNames[u.unc] = n)

@@ -84,7 +84,7 @@ function setup(w::GeneralOracle, rm::Model)
         w.cut_model.colNames = rd.uncNames
         w.cut_model.colLower = rd.uncLower
         w.cut_model.colUpper = rd.uncUpper
-        w.cut_model.colCat   = zeros(Int,rd.numUncs)  # TODO: Non-continuous?
+        w.cut_model.colCat   = rd.uncCat
         w.cut_vars = [Variable(w.cut_model, i) for i = 1:rd.numUncs]
         # Polyhedral constraints
         for c in rd.uncertaintyset
@@ -323,12 +323,16 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
     
     # We have terms (a^T u + b) x_i, we now need to get (c^T x) u_j
     # The "c^T x" will form the new right-hand-side
+    # At same time, we'll check for integral uncertainties, which
+    # are a not allowed in the reformulation
     for term_i = 1:num_lhs_terms
         var_col     = orig_lhs.vars[term_i].col
         term_coeff  = orig_lhs.coeffs[term_i]
         for coeff_term_j = 1:length(term_coeff.coeffs)
             coeff = term_coeff.coeffs[coeff_term_j]
             unc   = term_coeff.vars[coeff_term_j].unc
+            rd.uncCat[unc] != JuMP.CONTINUOUS && 
+                error("No integer uncertainties allowed in reformulation!")
             push!(dual_rhs[unc], coeff, Variable(master, var_col))
         end
     end
@@ -336,6 +340,8 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
         for const_term_j = 1:length(orig_lhs.constant.coeffs)
             coeff = orig_lhs.constant.coeffs[const_term_j]
             unc   = orig_lhs.constant.vars[const_term_j].unc
+            rd.uncCat[unc] != JuMP.CONTINUOUS && 
+                error("No integer uncertainties allowed in reformulation!")
             dual_rhs[unc].constant += coeff
         end
 

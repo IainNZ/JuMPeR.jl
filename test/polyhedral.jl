@@ -147,6 +147,17 @@ function TestProvided(pref)
   @test_approx_eq getValue(x) 0.5
 end
 
+function TestIntSet()
+  println("  TestIntSet")
+  rm = RobustModel(solver=solver)
+  @defVar(rm, x >= 0)
+  @defUnc(rm, 0.5 <= u <= 1.5, Int)
+  @setObjective(rm, Max, x)
+  addConstraint(rm, x <= u)
+  solveRobust(rm, prefer_cuts=true)
+  @test_approx_eq getValue(x) 1.0
+end
+
 for pref in [true,false]
   println(" prefer_cuts:", pref)
   Test1(pref)
@@ -162,3 +173,5 @@ for pref in [true,false]
   end
   TestProvided(pref)
 end
+
+TestIntSet()
