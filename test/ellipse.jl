@@ -32,7 +32,7 @@ let
     @test con.Gamma == 3.0
 
     vec = [2.0, 0.0]
-    @test_throws ErrorException build_ellipse_constraint(vec, 0.0)
+    @test_throws build_ellipse_constraint(vec, 0.0)
 
     addEllipseConstraint(rm, [u[5], u[3], u[1] + 9.0], 1.0)
 end
