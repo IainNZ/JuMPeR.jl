@@ -13,7 +13,7 @@ import JuMP.string_intclamp
 import JuMP.JuMPDict
 importall JuMP
 
-import Base.dot, Base.sum, Base.push!
+import Base.dot, Base.sum, Base.push!, Base.isequal
 
 export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
 export UncConstraint, UncSetConstraint, printRobust
@@ -135,6 +135,7 @@ end
 print(io::IO, u::Uncertain) = print(io, getName(u))
 show( io::IO, u::Uncertain) = print(io, getName(u))
 
+isequal(u1::Uncertain, u2::Uncertain) = (u1.unc == u2.unc)
 
 #############################################################################
 # Uncertain Affine Expression class
