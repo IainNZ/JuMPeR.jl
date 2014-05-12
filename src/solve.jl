@@ -135,9 +135,10 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
     # Add constraints based on the provided scenarios
     for scen in robdata.scenarios
         for ind in 1:num_unccons
-            add_scenario_master(master, 
-                                robdata.uncertainconstr[ind],
-                                scen)
+            addConstraint(master, 
+                build_certain_constraint(
+                    robdata.uncertainconstr[ind],
+                    scen_to_vec(rm,scen)))
         end
     end
 
@@ -271,6 +272,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
     end
 
     # OPTION: Get active cuts (1 per constraint) ("active_cuts=true")
+    # VERY EXPERIMENTAL
     tic()
     if active_cuts
         for ind = 1:num_unccons
@@ -309,39 +311,4 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
 
     # Return solve status
     return master_status
-end
-
-
-#############################################################################
-
-function add_scenario_master(master::Model, con::UncConstraint, scenario::Dict)
-    new_lhs = AffExpr()
-    for term_index in 1:length(con.terms.vars)
-        new_coeff = con.terms.coeffs[term_index].constant
-        for unc_index in 1:length(con.terms.coeffs[term_index].vars)
-            unc = con.terms.coeffs[term_index].vars[unc_index]
-            if unc in keys(scenario)
-                new_coeff += scenario[unc]*con.terms.coeffs[term_index].coeffs[unc_index]
-            else
-                println("term ", unc)
-                return false
-            end
-        end
-        push!(new_lhs, new_coeff, con.terms.vars[term_index])
-    end
-        new_constant = 0.0
-        for unc_index in 1:length(con.terms.constant.vars)
-            unc = con.terms.constant.vars[unc_index]
-            if unc in keys(scenario)
-                new_constant += scenario[unc]*con.terms.constant.coeffs[unc_index]
-            else
-                return false
-            end
-        end
-    if sense(con) == :<=
-        addConstraint(master, new_lhs + new_constant <= con.ub)
-    else
-        addConstraint(master, new_lhs + new_constant >= con.lb)
-    end
-    return true
 end
