@@ -102,8 +102,8 @@ function setup(w::GeneralOracle, rm::Model)
             for term_ind = 1:num_terms
                 # Create new variable y_i
                 y   = Variable(w.cut_model,-Inf,Inf,JuMP.CONTINUOUS,"_el_$term_ind")
-                Fug = AffExpr([w.cut_vars[i] for i in el_c.u],
-                              [el_c.F[term_ind,i] for i in 1:num_uncs],
+                Fug = AffExpr(Variable[w.cut_vars[i] for i in el_c.u],
+                              Float64[el_c.F[term_ind,i] for i in 1:num_uncs],
                               el_c.g[term_ind])
                 addConstraint(w.cut_model, y == Fug)
                 push!(yty.qvars1, y)
