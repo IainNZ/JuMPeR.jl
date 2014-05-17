@@ -256,7 +256,7 @@ function generateCut(w::GeneralOracle, rm::Model, ind::Int, m::Model, cb=nothing
     # Update the cutting plane problem's objective, and solve
     cut_sense, unc_obj_coeffs, lhs_const = JuMPeR.build_cut_objective(con, master_sol)
     @setObjective(w.cut_model, cut_sense, sum{u[2]*w.cut_vars[u[1]], u=unc_obj_coeffs})
-    cut_solve_status = solve(w.cut_model)
+    cut_solve_status = solve(w.cut_model,suppress_warnings=true)
     cut_solve_status != :Optimal && error("Cutting plane problem infeasible or unbounded!")
     lhs_of_cut = getObjectiveValue(w.cut_model) + lhs_const
 
@@ -265,9 +265,9 @@ function generateCut(w::GeneralOracle, rm::Model, ind::Int, m::Model, cb=nothing
     #    (sense(con) == :<=) && println(abs(lhs_of_cut - con.ub))
     #    (sense(con) == :>=) && println(abs(lhs_of_cut - con.lb))
     #end
-    if active && (
-       ((sense(con) == :<=) && (abs(lhs_of_cut - con.ub) <= w.cut_tol)) ||
-       ((sense(con) == :>=) && (abs(lhs_of_cut - con.lb) <= w.cut_tol)))
+    if active #&& (
+       #((sense(con) == :<=) && (abs(lhs_of_cut - con.ub) <= 10)) ||  #w.cut_tol)) ||
+       #((sense(con) == :>=) && (abs(lhs_of_cut - con.lb) <= 10))) #w.cut_tol)))
         # Yup its active
         #println("Active yo")
         push!(rd.activecuts[ind], vec_to_scen(con, w.cut_model.colVal))
