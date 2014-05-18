@@ -20,6 +20,27 @@ type EllipseConstraint <: JuMP.JuMPConstraint
     Gamma::Float64
 end
 
+function printEll(rm::Model, ell::EllipseConstraint)
+    rd = getRobust(rm)
+    rows,cols = size(ell.F)
+    row_strs = {}
+    for r = 1:rows
+        row_str = ""
+        for c = 1:cols
+            if ell.F[r,c] != 0.0
+                row_str *= "$(ell.F[r,c]) $(rd.uncNames[ell.u[c]]) + "
+            end
+        end
+        row_str *= "$(ell.g[r])"
+        push!(row_strs, row_str)
+    end
+    max_len = maximum(map(length,row_strs))
+    for r = 1:rows-1
+        println("|| " * rpad(row_strs[r], max_len, " ") * " ||")
+    end
+    println("|| " * rpad(row_strs[rows], max_len, " ") * " || <= $(ell.Gamma)\n")
+end
+
 # build_ellipse_constraint
 # Given || vec ||_2 <= Gamma, return an EllipseConstraint by expanding 
 # `vec` out to its full `Fu+g` form.
