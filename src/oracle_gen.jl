@@ -102,8 +102,8 @@ function setup(w::GeneralOracle, rm::Model)
             for term_ind = 1:num_terms
                 # Create new variable y_i
                 y   = Variable(w.cut_model,-Inf,Inf,JuMP.CONTINUOUS,"_el_$term_ind")
-                Fug = AffExpr([w.cut_vars[i] for i in el_c.u],
-                              [el_c.F[term_ind,i] for i in 1:num_uncs],
+                Fug = AffExpr(Variable[w.cut_vars[i] for i in el_c.u],
+                              Float64[el_c.F[term_ind,i] for i in 1:num_uncs],
                               el_c.g[term_ind])
                 addConstraint(w.cut_model, y == Fug)
                 push!(yty.qvars1, y)
@@ -256,7 +256,7 @@ function generateCut(w::GeneralOracle, rm::Model, ind::Int, m::Model, cb=nothing
     # Update the cutting plane problem's objective, and solve
     cut_sense, unc_obj_coeffs, lhs_const = JuMPeR.build_cut_objective(con, master_sol)
     @setObjective(w.cut_model, cut_sense, sum{u[2]*w.cut_vars[u[1]], u=unc_obj_coeffs})
-    cut_solve_status = solve(w.cut_model,suppress_warnings=true)
+    cut_solve_status = solve(w.cut_model, suppress_warnings=true)
     cut_solve_status != :Optimal && error("Cutting plane problem infeasible or unbounded!")
     lhs_of_cut = getObjectiveValue(w.cut_model) + lhs_const
 
@@ -308,12 +308,15 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
     # This is the reformulated "main" constraint that will replace the
     # existing uncertain constraint
     new_lhs     = AffExpr()
+
+    # We will do all reformulation as if the constraint is a <=
+    # constraint. This necessitates mulitplying through by -1
+    # if the original constraint is not of this form
+    sign_flip   = sense(w.cons[con_ind]) == :(<=) ? +1.0 : -1.0
     # The right-hand-side of the new constraint
-    new_rhs     = rhs(w.cons[con_ind])
+    new_rhs     = rhs(w.cons[con_ind]) * sign_flip
     # The uncertain constraint left-hand-side
     orig_lhs    = w.cons[con_ind].terms
-    # The sense of the original constraint
-    orig_sense  = sense(w.cons[con_ind])
 
     # First collect the certain terms of the uncertain constraint - they
     # won't take part in the reformulation, so we can append them to the
@@ -322,7 +325,7 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
     for term_i = 1:num_lhs_terms
         var_col = orig_lhs.vars[term_i].col
         if orig_lhs.coeffs[term_i].constant != 0.0
-            push!(new_lhs,  orig_lhs.coeffs[term_i].constant,
+            push!(new_lhs,  orig_lhs.coeffs[term_i].constant * sign_flip,
                             Variable(master, var_col) )
         end
     end
@@ -339,7 +342,8 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
             unc   = term_coeff.vars[coeff_term_j].unc
             rd.uncCat[unc] != JuMP.CONTINUOUS && 
                 error("No integer uncertainties allowed in reformulation!")
-            push!(dual_rhs[unc], coeff, Variable(master, var_col))
+            push!(dual_rhs[unc], coeff * sign_flip, 
+                                 Variable(master, var_col))
         end
     end
     # We also need the standalone (a^T u) not related to any variable
@@ -348,21 +352,12 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
             unc   = orig_lhs.constant.vars[const_term_j].unc
             rd.uncCat[unc] != JuMP.CONTINUOUS && 
                 error("No integer uncertainties allowed in reformulation!")
-            dual_rhs[unc].constant += coeff
+            dual_rhs[unc].constant += coeff * sign_flip
         end
 
     # The right-hand-side is the only thing unique to this particular
     # constraint. We now need to create dual variables for this specific
     # contraint and add them to the new constraint's LHS
-    # One thing we need to do: if its a >= constraint, we need to flip
-    # the sign in front of the cone LHS.
-    if orig_sense == :(>=) 
-        for i = 1:length(w.dual_ell_lhs_idxs)
-            if w.dual_ell_lhs_idxs[i] != 0
-                dual_objs[w.dual_ell_lhs_idxs[i]] *= -1
-            end
-        end
-    end
     dual_vars = Variable[]
     for ind = 1:num_dualvar
         # Determine bounds for case where contraint is <= (maximize)
@@ -380,10 +375,6 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
             ubound = 0
         end
         # Equality and RHS of cone -->  free
-        # Now flip if needed
-        if orig_sense != :(<=) && vt != :Qlhs
-            lbound, ubound = -ubound, -lbound
-        end
         new_v = Variable(master,lbound,ubound,JuMP.CONTINUOUS,var_name)
         push!(dual_vars, new_v)
         push!(new_lhs, dual_objs[ind], new_v)
@@ -392,8 +383,7 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
     w.debug_printreform && println("DEBUG new_lhs ", new_lhs)
 
     # Add the new constraint which "replaces" the original constraint
-    orig_sense == :(<=) && addConstraint(master, new_lhs <= new_rhs)
-    orig_sense == :(>=) && addConstraint(master, new_lhs >= new_rhs)
+    addConstraint(master, new_lhs <= new_rhs)
 
     # Add the additional new constraints
     # - If the uncertainty wasn't involved in an ellipse, its just dual_A
@@ -424,10 +414,9 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
         end
 
         dualtype = dual_contype[unc]
-        if      dualtype == :(==)
+        if     dualtype == :(==)
             addConstraint(master, new_lhs == dual_rhs[unc])
-        elseif (dualtype == :(<=) && orig_sense == :(<=)) ||
-               (dualtype == :(>=) && orig_sense == :(>=))
+        elseif dualtype == :(<=)
             addConstraint(master, new_lhs <= dual_rhs[unc])
         else
             addConstraint(master, new_lhs >= dual_rhs[unc])

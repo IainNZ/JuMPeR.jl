@@ -41,28 +41,36 @@ end
 if Pkg.installed("Gurobi") == nothing
     println("Cannot run ellipse uncertainty set solution tests - no Gurobi!")    
 else
-    using Gurobi
+    eval(Expr(:using,:Gurobi))
 
-    function Test1(cuts)
-        println(" Test1 $cuts")
+    function EllTest1(cuts,flip)
+        println(" Test1 cuts=$cuts, flip=$flip")
         m = RobustModel(solver=GurobiSolver(OutputFlag=0))
         @defVar(m, 0 <= x <= 10)
         @defUnc(m, 0 <= u <= 10)
         @setObjective(m, Max, 10x)
-        addConstraint(m, u*x <= 7)
+        !flip && addConstraint(m,  u*x <=  7)
+         flip && addConstraint(m, -u*x >= -7)
         addEllipseConstraint(m, [1.0*u - 5], 2)  # 5 <= u <= 7
-        solveRobust(m, suppress_warnings=true, prefer_cuts=cuts) #, debug_printreform=!cuts, debug_printfinal=!cuts)
+        #printRobust(m)
+        solveRobust(m, suppress_warnings=true, prefer_cuts=cuts)
+        #solveRobust(m,  prefer_cuts         = cuts,
+        #                debug_printreform   =!cuts, 
+        #                debug_printcut      = cuts,
+        #                debug_printfinal    = true)
         @test_approx_eq_eps getValue(x) 1.0 1e-6
     end
 
-    function Test2(cuts)
-        println(" Test2 $cuts")
+    function EllTest2(cuts,flip)
+        println(" Test2 cuts=$cuts, flip=$flip")
         m = RobustModel(solver=GurobiSolver(OutputFlag=0))
         @defVar(m, 0 <= x[i=1:5] <= 2*i)
         @defUnc(m, 0 <= u[i=1:5] <= i+4)
         @setObjective(m, Max, sum{(6-i)*x[i], i=1:5})
-        addConstraint(m, dot(u,x) <= 100)
+        !flip && addConstraint(m,  dot(u,x) <=  100)
+         flip && addConstraint(m, -dot(u,x) >= -100)
         addEllipseConstraint(m, [3.0*u[1]-5, 1.0*u[5]-5, 2.0*u[4]-5], 1)
+        #printRobust(m)
         solveRobust(m, suppress_warnings=true, prefer_cuts=cuts)
         @test_approx_eq_eps getValue(x[1]) 2.000 1e-6
         @test_approx_eq_eps getValue(x[2]) 4.000 1e-6
@@ -71,39 +79,42 @@ else
         @test_approx_eq_eps getValue(x[5]) 1.283 1e-2
     end
 
-    function Test3(cuts)
+    function EllTest3(cuts,flip)
         # Polyhedral + ellipse
-        println(" Test3 $cuts")
+        println(" Test3 cuts=$cuts, flip=$flip")
         m = RobustModel(solver=GurobiSolver(OutputFlag=0))
         @defVar(m, 0 <= x[1:2] <= 10)
         @defUnc(m, u[1:2])
         @defUnc(m, z[1:2])
         @setObjective(m, Min, 1x[1] + 2x[2])
-        addConstraint(m, u[1]*x[1] + u[2]*x[2] >= 5)
+        !flip && addConstraint(m,  u[1]*x[1] + u[2]*x[2] >=  5)
+         flip && addConstraint(m, -u[1]*x[1] - u[2]*x[2] <= -5)
         # Uncertainty set
         addConstraint(m, u[1] == 5.0*z[1]            + 10.0)
         addConstraint(m, u[2] == 3.0*z[1] - 2.0*z[2] +  3.0)
         addEllipseConstraint(m, [z[1],z[2]], 1)
-
+        #printRobust(m)
         solveRobust(m, suppress_warnings=true, prefer_cuts=cuts)
         @test_approx_eq_eps getValue(x[1]) 1.000 1e-3
         @test_approx_eq_eps getValue(x[2]) 0.000 1e-3
     end
 
-    function Test4(cuts)
-        println(" Test4 $cuts")
+    function EllTest4(cuts,flip)
+        println(" Test4 cuts=$cuts, flip=$flip")
         m = RobustModel(solver=GurobiSolver(OutputFlag=0))
         @defVar(m, 0 <= x <= 10)
         @defUnc(m, 0 <= u <= 10)
         @setObjective(m, Min, 10x)
-        addConstraint(m, x >= u)
+        !flip && addConstraint(m,  x >=  u)
+         flip && addConstraint(m, -x <= -u)
         addEllipseConstraint(m, [1.0*u - 5], 2)  # 5 <= u <= 7
+        #printRobust(m)
         solveRobust(m, suppress_warnings=true, prefer_cuts=cuts) #, debug_printreform=!cuts, debug_printfinal=!cuts)
         @test_approx_eq_eps getValue(x) 7.0 1e-6
     end
 
-    function Test5(cuts)
-        println(" Test5 $cuts")
+    function EllTest5(cuts,flip)
+        println(" Test5 cuts=$cuts, flip=$flip")
         m = RobustModel(solver=GurobiSolver(OutputFlag=0))
         @defVar(m, 0 <= x <=  8)
         @defUnc(m, 0 <= u <= 10)
@@ -112,23 +123,48 @@ else
         @defUnc(m, 0 <= w <= 10)
 
         @setObjective(m, Max, 20x + 10y)
-        addConstraint(m, u*x + w*y <= 10)
+        !flip && addConstraint(m,  u*x + w*y <=  10)
+         flip && addConstraint(m, -u*x - w*y >= -10)
         addEllipseConstraint(m, [u - 5], 2)  # 5 <= u <= 7
         addEllipseConstraint(m, [w - 3], 1)  # 2 <= w <= 4
+        #printRobust(m)
         solveRobust(m, suppress_warnings=true, prefer_cuts=cuts) #, debug_printreform=!cuts, debug_printfinal=!cuts)
         @test_approx_eq_eps getValue(x) (10-4*2)/7 1e-5
         @test_approx_eq_eps getValue(y) 2.0 1e-5
     end
 
-    Test1(false)
-    Test2(false)
-    Test3(false)
-    Test4(false)
-    Test5(false)
 
-    Test1(true)
-    Test2(true)
-    Test3(true)
-    Test4(true)
-    Test5(true)
+    function EllTest6(cuts,flip)
+        # Via @dfagnan
+        println(" Test6 cuts=$cuts, flip=$flip")
+        m = RobustModel(solver=GurobiSolver(OutputFlag=0))
+        @defVar(m, 0 <= y <= 100)
+        @defVar(m, 0 <= z <= 100)
+        @defVar(m, -100 <= obj <= 100)
+        @defUnc(m, 0 <= u[1:2] <= 100)
+        @setObjective(m, Max, obj)
+        if !flip
+            addConstraint(m, obj <= (z+u[2]*y))
+            addConstraint(m, z <= (1-u[1]*y))
+        else
+            addConstraint(m, -obj >= -(z+u[2]*y))
+            addConstraint(m, -z >= -(1-u[1]*y))
+        end
+        addConstraint(m, u[1] == 1)
+        addEllipseConstraint(m,[u[2]-1.2],0.01)
+        #printRobust(m)
+        solveRobust(m, suppress_warnings=true, prefer_cuts=cuts)
+        @test_approx_eq_eps getValue(obj) 1.19 1e-6
+    end
+
+    for cuts in [true,false]
+        for flip in [true,false]
+            EllTest1(cuts,flip)
+            EllTest2(cuts,flip)
+            EllTest3(cuts,flip)
+            EllTest4(cuts,flip)
+            EllTest5(cuts,flip)
+            EllTest6(cuts,flip)
+        end
+    end
 end
