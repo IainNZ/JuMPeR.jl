@@ -55,6 +55,9 @@ function printRobust(m::Model)
     for uc in rd.uncertaintyset
         println(conToStr(uc))
     end
+    for elc in rd.normconstraints
+        printEll(m,elc)
+    end
     for unc in 1:rd.numUncs
         println("$(rd.uncLower[unc]) <= $(rd.uncNames[unc]) <= $(rd.uncUpper[unc])")
     end
