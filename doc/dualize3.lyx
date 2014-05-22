@@ -1,0 +1,237 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+The General Oracle
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+\max_{x}\  & c_{x}\cdot x+c_{y}\cdot y\\
+\text{subject to}\  & A_{x}x+A_{y}y=b\\
+ & \left\Vert Fy+g\right\Vert _{2}\leq\Gamma
+\end{alignat*}
+
+\end_inset
+
+Reformulate as
+\begin_inset Formula 
+\begin{alignat*}{2}
+\max_{x,y,z,t}\  & c_{x}\cdot x+c_{y}\cdot y\\
+\text{subject to}\  & A_{x}x+A_{y}y=b & :\ \pi\ free\\
+ & z=Fy+g & :\ \gamma\ free\\
+ & t=\Gamma & :\ \alpha\ free\\
+ & \left(t,z\right)\in{\cal Q}^{n+1} & :\ \left(\beta_{t},\beta_{z}\right)\in Q^{n+1}
+\end{alignat*}
+
+\end_inset
+
+then we can write the Langrangian as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+L\left(x,y,z,t,\pi,\gamma,\alpha,\beta\right) & =c_{x}\cdot x+c_{y}\cdot y\\
+ & +\pi^{T}\left(b-A_{x}x-A_{y}y\right)\\
+ & +\gamma^{T}\left(g-z+Fy\right)\\
+ & +\alpha\left(\Gamma-t\right)\\
+ & +\beta_{t}t+\beta_{z}^{T}z
+\end{alignat*}
+
+\end_inset
+
+and determine that
+\begin_inset Formula 
+\[
+\max_{x,y,t}L\left(x,y,z,t,\pi,\gamma,\alpha,\beta\right)=\begin{cases}
+b^{T}\pi+g^{T}\gamma+\Gamma\alpha & \quad iff\ \left\{ \begin{array}{c}
+A_{x}^{T}\pi=c_{x}\\
+A_{y}^{T}\pi-F^{T}\gamma=c_{y}\\
+\beta_{z}=\gamma\\
+\beta_{t}=\alpha
+\end{array}\right\} \\
+-\infty & \quad otherwise
+\end{cases}
+\]
+
+\end_inset
+
+thus the dual problem is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+\min_{\pi,\gamma,\alpha,\beta}\  & b^{T}\pi+g^{T}\gamma+\Gamma\alpha\\
+\text{subject to}\  & A_{x}^{T}\pi=c_{x}\\
+ & A_{y}^{T}\pi-F^{T}\gamma=c_{y}\\
+ & \beta_{z}=\gamma\\
+ & \beta_{t}=\alpha\\
+ & \pi,\gamma,\alpha\ free\\
+ & \left(\beta_{t},\beta_{z}\right)\in Q^{n+1}
+\end{alignat*}
+
+\end_inset
+
+which we simplify to
+\begin_inset Formula 
+\begin{alignat*}{1}
+\min_{\pi,\beta}\  & b^{T}\pi+g^{T}\beta_{z}+\Gamma\beta_{t}\\
+\text{subject to}\  & A_{x}^{T}\pi=c_{x}\\
+ & A_{y}^{T}\pi-F^{T}\beta_{z}=c_{y}\\
+ & \pi\ free\\
+ & \left(\beta_{t},\beta_{z}\right)\in Q^{n+1}
+\end{alignat*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Example Tilted Ellipse
+\end_layout
+
+\begin_layout Standard
+Consider constraint
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+a^{T}x\leq b\qquad\forall a\in\left\{ a\mid a=Sy+\mu,\left\Vert y\right\Vert \leq\Gamma\right\} 
+\]
+
+\end_inset
+
+which we can cast as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+\max_{a,y}\  & x^{T}a\\
+ & Ia-Sy=\mu\\
+\text{subject to}\  & \left\Vert Iy+0\right\Vert _{2}\leq1
+\end{alignat*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+which has dual
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+\min_{\pi,\beta}\  & \mu^{T}x+\beta_{t}\\
+\text{subject to}\  & -S^{T}x=\beta_{z}\\
+ & \left(\beta_{t},\beta_{z}\right)\in Q^{n+1}
+\end{alignat*}
+
+\end_inset
+
+
+\begin_inset Formula 
+\begin{alignat*}{1}
+\min_{\pi,\beta}\  & \mu^{T}x+\left\Vert S^{T}x\right\Vert _{2}
+\end{alignat*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Blah
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+7x=\max\  & xu\\
+\text{subject to}\  & \left\Vert u-5\right\Vert \leq2
+\end{alignat*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+\min_{\pi,\beta}\  & 5x+2\beta_{t}\\
+\text{subject to}\  & \beta_{t}\geq x
+\end{alignat*}
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
