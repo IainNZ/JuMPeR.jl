@@ -19,7 +19,7 @@ type GeneralOracle <: AbstractOracle
 
     # Cutting plane algorithm
     cut_model::Model
-    cut_vars::Vector{Variable}
+    cut_vars
     cut_tol::Float64
 
     # Reformulation (see setup for comments)
@@ -78,14 +78,13 @@ function setup(w::GeneralOracle, rm::Model)
     # Cutting plane setup
     if any_cut
         # Create an LP that we'll use to solve the cut problem
-        # Copy the uncertainty set from the original problem
         w.cut_model.solver   = rd.cutsolver == nothing ? rm.solver : rd.cutsolver
-        w.cut_model.numCols  = rd.numUncs
-        w.cut_model.colNames = rd.uncNames
-        w.cut_model.colLower = rd.uncLower
-        w.cut_model.colUpper = rd.uncUpper
+        # Copy the uncertainty set from the original problem
+        @defVar(w.cut_model, rd.uncLower[i] <= cut_vars[i=1:rd.numUncs] <= rd.uncUpper[i])
         w.cut_model.colCat   = rd.uncCat
-        w.cut_vars = [Variable(w.cut_model, i) for i = 1:rd.numUncs]
+        w.cut_model.colNames = rd.uncNames
+        w.cut_vars = cut_vars
+
         # Polyhedral constraints
         for c in rd.uncertaintyset
             newcon = LinearConstraint(AffExpr(), c.lb, c.ub)
