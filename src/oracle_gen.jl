@@ -261,16 +261,8 @@ function generateCut(w::GeneralOracle, rm::Model, ind::Int, m::Model, cb=nothing
     lhs_of_cut = getObjectiveValue(w.cut_model) + lhs_const
 
     # TEMPORARY: active cut detection
-    #if active
-    #    (sense(con) == :<=) && println(abs(lhs_of_cut - con.ub))
-    #    (sense(con) == :>=) && println(abs(lhs_of_cut - con.lb))
-    #end
-    if active #&& (
-       #((sense(con) == :<=) && (abs(lhs_of_cut - con.ub) <= 10)) ||  #w.cut_tol)) ||
-       #((sense(con) == :>=) && (abs(lhs_of_cut - con.lb) <= 10))) #w.cut_tol)))
-        # Yup its active
-        #println("Active yo")
-        push!(rd.activecuts[ind], vec_to_scen(con, w.cut_model.colVal))
+    if active
+        push!(rd.activecuts[ind], vec_to_scen(w.cut_model.colVal))
     end
     
     # Check violation

@@ -135,10 +135,10 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
     # Add constraints based on the provided scenarios
     for scen in robdata.scenarios
         for ind in 1:num_unccons
+            con = robdata.uncertainconstr[ind]
+            !scen_satisfies_con(scen, con) && continue
             addConstraint(master, 
-                build_certain_constraint(
-                    robdata.uncertainconstr[ind],
-                    scen_to_vec(rm,scen)))
+                build_certain_constraint(con, scen_to_vec(scen)))
         end
     end
 
