@@ -1,0 +1,290 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+The General Oracle
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+\max_{x}\  & c\cdot x\\
+\text{subject to}\  & Ax=b\\
+ & \left\Vert F_{i}x+g_{i}\right\Vert _{2}\leq\Gamma_{i}^{i}\qquad\forall i
+\end{alignat*}
+
+\end_inset
+
+Reformulate as
+\begin_inset Formula 
+\begin{alignat*}{3}
+\max_{x,y,z,t}\  & c\cdot x\\
+\text{subject to}\  & Ax=b &  & :\ \pi\ free\\
+ & z_{i}=F_{i}x+g_{i} &  & :\ \gamma_{i}\ free & \quad\forall i\\
+ & t_{i}=\Gamma_{i} &  & :\ \alpha_{i}\ free & \quad\forall i\\
+ & \left(t_{i},z_{i}\right)\in{\cal Q}^{n+1} &  & :\ \left(\beta_{i}^{t},\beta_{i}^{z}\right)\in Q^{n+1} & \quad\forall i
+\end{alignat*}
+
+\end_inset
+
+then we can write the Langrangian as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+L\left(x,y,z,t,\pi,\gamma,\alpha,\beta\right) & =c\cdot x\\
+ & +\pi^{T}\left(b-Ax\right)\\
+ & +\sum_{i}\gamma_{i}^{T}\left(g_{i}-z_{i}+F_{i}x\right)\\
+ & +\sum_{i}\alpha_{i}\left(\Gamma_{i}-t_{i}\right)\\
+ & +\sum_{i}\left(\beta_{i}^{t}\cdot t_{i}+\beta_{i}^{z}\cdot z_{i}\right)
+\end{alignat*}
+
+\end_inset
+
+and determine that
+\begin_inset Formula 
+\[
+\max_{x,y,z,t}L\left(x,y,z,t,\pi,\gamma,\alpha,\beta\right)=\begin{cases}
+b^{T}\pi+\sum_{i}g_{i}\cdot\gamma_{i}+\sum_{i}\Gamma_{i}\alpha_{i} & \quad iff\ \left\{ \begin{array}{c}
+A^{T}\pi-\sum_{i}F_{i}^{T}\gamma_{i}=c\\
+\beta_{i}^{z}=\gamma_{i}\quad\forall i\\
+\beta_{i}^{t}=\alpha_{i}\quad\forall i
+\end{array}\right\} \\
+-\infty & \quad otherwise
+\end{cases}
+\]
+
+\end_inset
+
+thus the dual problem is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+\min_{\pi,\gamma,\alpha,\beta}\  & b^{T}\pi+\sum_{i}g_{i}\cdot\gamma_{i}+\sum_{i}\Gamma_{i}\alpha_{i}\\
+\text{subject to}\  & A^{T}\pi-\sum_{i}F_{i}^{T}\gamma_{i}=c\\
+ & \beta_{i}^{z}=\gamma_{i}\quad\forall i\\
+ & \beta_{i}^{t}=\alpha_{i}\quad\forall i\\
+ & \pi,\gamma,\alpha\ free\\
+ & \left(\beta_{i}^{t},\beta_{i}^{z}\right)\in Q^{n+1}\quad\forall i
+\end{alignat*}
+
+\end_inset
+
+which we simplify to
+\begin_inset Formula 
+\begin{alignat*}{1}
+\min_{\pi,\beta}\  & b^{T}\pi+\sum_{i}g_{i}\cdot\beta_{i}^{z}+\sum_{i}\Gamma_{i}\beta_{i}^{t}\\
+\text{subject to}\  & A^{T}\pi-\sum_{i}F_{i}^{T}\beta_{i}^{z}=c\\
+ & \left(\beta_{i}^{t},\beta_{i}^{z}\right)\in Q^{n+1}\qquad\forall i\\
+ & \pi\ free
+\end{alignat*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Example Tilted Ellipse
+\end_layout
+
+\begin_layout Standard
+Consider constraint
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+a^{T}x\leq b\qquad\forall a\in\left\{ a\mid a=Sy+\mu,\left\Vert y\right\Vert \leq\Gamma\right\} 
+\]
+
+\end_inset
+
+which we can cast as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+\max_{a,y}\  & x^{T}a\\
+ & Ia-Sy=\mu\\
+\text{subject to}\  & \left\Vert Iy+0\right\Vert _{2}\leq1
+\end{alignat*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+which has dual
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+\min_{\pi,\beta}\  & \mu^{T}x+\beta_{t}\\
+\text{subject to}\  & -S^{T}x=\beta_{z}\\
+ & \left(\beta_{t},\beta_{z}\right)\in Q^{n+1}
+\end{alignat*}
+
+\end_inset
+
+
+\begin_inset Formula 
+\begin{alignat*}{1}
+\min_{\pi,\beta}\  & \mu^{T}x+\left\Vert S^{T}x\right\Vert _{2}
+\end{alignat*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Double Ellipse
+\end_layout
+
+\begin_layout Standard
+Consider constraint
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+ux+wy\leq b\qquad\forall\left(u,w\right)\in\left\{ u,w\mid\left\Vert u-5\right\Vert \leq2,\ \left\Vert w-3\right\Vert \leq1\right\} 
+\]
+
+\end_inset
+
+which we can cast as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+\max_{a,y}\  & xu+yw\\
+\text{subject to}\  & \left\Vert \left[\begin{array}{cc}
+1 & 0\\
+0 & 0
+\end{array}\right]\left[\begin{array}{c}
+u\\
+w
+\end{array}\right]+\left[\begin{array}{c}
+-5\\
+0
+\end{array}\right]\right\Vert _{2}\leq2\\
+ & \left\Vert \left[\begin{array}{cc}
+0 & 0\\
+0 & 1
+\end{array}\right]\left[\begin{array}{c}
+u\\
+w
+\end{array}\right]+\left[\begin{array}{c}
+0\\
+-3
+\end{array}\right]\right\Vert _{2}\leq1
+\end{alignat*}
+
+\end_inset
+
+which has dual
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+\min_{\pi,\beta}\  & b^{T}\pi+\sum_{i}g_{i}\cdot\beta_{i}^{z}+\sum_{i}\Gamma_{i}\beta_{i}^{t}\\
+\text{subject to}\  & A^{T}\pi=c\\
+ & \left(\beta_{i}^{t},\beta_{i}^{z}\right)\in Q^{n+1}\qquad\forall i\\
+ & \pi\ free
+\end{alignat*}
+
+\end_inset
+
+
+\begin_inset Formula 
+\begin{alignat*}{1}
+\min_{\pi,\beta}\  & -5\beta_{1,1}^{z}-3\beta_{2,2}^{z}+2\beta_{1}^{t}+\beta_{2}^{t}\\
+\text{subject to}\  & -\left[\begin{array}{cc}
+1 & 0\\
+0 & 0
+\end{array}\right]\beta_{1}^{z}-\left[\begin{array}{cc}
+0 & 0\\
+0 & 1
+\end{array}\right]\beta_{2}^{z}=\left[\begin{array}{c}
+x\\
+y
+\end{array}\right]\\
+ & \left(\beta_{1}^{t},\beta_{1,1}^{z},\beta_{1,2}^{z}\right)\in Q^{3}\\
+ & \left(\beta_{2}^{t},\beta_{2,2}^{z},\beta_{2,2}^{z}\right)\in Q^{3}
+\end{alignat*}
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

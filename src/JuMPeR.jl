@@ -13,7 +13,7 @@ import JuMP.string_intclamp
 import JuMP.JuMPDict, JuMP.@gendict
 importall JuMP
 
-import Base.dot, Base.sum, Base.push!, Base.isequal
+import Base.dot, Base.sum, Base.push!, Base.print
 
 export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
 export UncConstraint, UncSetConstraint, printRobust
@@ -25,21 +25,21 @@ export setDefaultOracle!
 export
 # Objects
     Model, Variable, AffExpr, QuadExpr, LinearConstraint, QuadConstraint, MultivarDict,
+    ConstraintRef,
 # Functions
-    # Relevant to all
-    print,show,
     # Model related
     getNumVars, getNumConstraints, getObjectiveValue, getObjective,
     getObjectiveSense, setObjectiveSense, writeLP, writeMPS, setObjective,
-    addConstraint, addVar, addVars, addSOS1, addSOS2, solve, copy,
-    getInternalModel,
+    addConstraint, addSOS1, addSOS2, solve,
+    getInternalModel, setPresolve, buildInternalModel,
     # Variable
     setName, getName, setLower, setUpper, getLower, getUpper,
     getValue, setValue, getDual,
     # Expressions and constraints
     affToStr, quadToStr, conToStr, chgConstrRHS,
-    # Macros and support functions
-    @addConstraint, @defVar, 
+    
+# Macros and support functions
+    @addConstraint, @addConstraints, @defVar, 
     @defConstrRef, @setObjective, addToExpression,
     @setNLObjective, @addNLConstraint, @gendict
 
@@ -125,10 +125,10 @@ function getName(u::Uncertain)
     checkUncNameStatus(u.m)
     return getRobust(u.m).uncNames[u.unc]
 end
-print(io::IO, u::Uncertain) = print(io, getName(u))
-show( io::IO, u::Uncertain) = print(io, getName(u))
+Base.print(io::IO, u::Uncertain) = print(io, getName(u))
+Base.show( io::IO, u::Uncertain) = print(io, getName(u))
 
-isequal(u1::Uncertain, u2::Uncertain) = isequal(u1.unc, u2.unc)
+Base.isequal(u1::Uncertain, u2::Uncertain) = isequal(u1.unc, u2.unc)
 
 #############################################################################
 # Uncertain Affine Expression class
@@ -141,8 +141,8 @@ UAffExpr(u::Uncertain, c::Real) = UAffExpr([u],[float(c)],0.)
 UAffExpr(coeffs::Array{Float64,1}) = [UAffExpr(c) for c in coeffs]
 zero(::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
 
-print(io::IO, a::UAffExpr) = print(io, affToStr(a))
-show( io::IO, a::UAffExpr) = print(io, affToStr(a))
+Base.print(io::IO, a::UAffExpr) = print(io, affToStr(a))
+Base.show( io::IO, a::UAffExpr) = print(io, affToStr(a))
 
 
 #############################################################################

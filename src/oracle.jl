@@ -87,6 +87,12 @@ function build_certain_constraint(  unc_con::UncConstraint,
                                      new_lhs >= unc_con.lb
 end
 
+function build_certain_constraint(  unc_con::UncConstraint, 
+                                    unc_val_dict::JuMPDict{Float64} )
+    length(unc_val_dict.indexsets) != 1 &&
+        error("only JuMPDict with one dimension allowed. Manually convert to Vector{Float64}")
+    return build_certain_constraint(unc_con, vec(unc_val_dict.innerArray))
+end
 
 # build_cut_objective
 # Takes an uncertain constraint (unc_con) and a master solution (x_val)
