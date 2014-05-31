@@ -45,6 +45,9 @@ let
 
     # -------------------
     lhs_val = dot([5,1,4,11],[2,3,4,5])
-    @test  JuMPeR.is_constraint_violated(new_con, lhs_val, 1e-6)
-    @test !JuMPeR.is_constraint_violated(new_con, lhs_val, 1e+6)
+    @test JuMPeR.check_cut_status(new_con, lhs_val, 1e-6) == :Violate
+    lhs_val = dot([5,1,4,11],[2,0,0,0])
+    @test JuMPeR.check_cut_status(new_con, lhs_val, 1e+6) == :Active
+    lhs_val = dot([5,1,4,11],[0,0,0,0])
+    @test JuMPeR.check_cut_status(new_con, lhs_val, 1e-6) == :Slack
 end

@@ -144,12 +144,21 @@ function build_cut_objective(   unc_con::UncConstraint,
                 collect(unc_coeffs), lhs_constant
 end
 
-# is_constraint_violated
+# check_cut_status
 # A simple helper function to check whether a left-hand-side will violate
-# an inequality constraint.
-function is_constraint_violated(con, lhs_value, tol)
-    return ((sense(con) == :<=) && (lhs_value > con.ub + tol)) ||
-           ((sense(con) == :>=) && (lhs_value < con.lb - tol))
+# an inequality constraint, is binding, or is loose
+# Returns  :Slack   -  more than tol gap between lhs and rhs
+#          :Active  -  absolute gap between lhs and rhs < gap
+#          :Violate -  constraint violated by more than tol
+function check_cut_status(con, lhs_value, tol)
+    abs(lhs_value - rhs(con)) <= tol && return :Active
+    if sense(con) == :<=
+        lhs_value > con.ub + tol && return :Violate    
+    else
+        @assert sense(con) == :>=
+        lhs_value < con.lb - tol && return :Violate
+    end
+    return :Slack
 end
 
 #############################################################################

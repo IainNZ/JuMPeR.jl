@@ -29,8 +29,14 @@ let
     @defUnc(rm, 1 <= v <= 1)
     @setObjective(rm, Max, x)
     mycon = addConstraint(rm, v*x <= u)
+    myloosecon = addConstraint(rm, u*x <= 10000)
     solveRobust(rm, prefer_cuts=true, active_cuts=true)
     ascen = getScenario(mycon)
     @test_approx_eq getUncValue(ascen, u) 3.0
     @test_approx_eq getUncValue(ascen, v) 1.0
+    @test isBinding(ascen)
+    bscen = getScenario(myloosecon)
+    @test_approx_eq getUncValue(bscen, u) 5.0
+    @test_approx_eq getUncValue(bscen, v) 1.0
+    @test !isBinding(bscen)
 end

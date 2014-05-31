@@ -262,11 +262,13 @@ function generateCut(w::GeneralOracle, rm::Model, ind::Int, m::Model, cb=nothing
 
     # TEMPORARY: active cut detection
     if active
-        push!(rd.activecuts[ind], vec_to_scen(w.cut_model.colVal))
+        push!(rd.activecuts[ind], 
+            cut_to_scen(w.cut_model.colVal, 
+                check_cut_status(con, lhs_of_cut, w.cut_tol) == :Active))
     end
     
     # Check violation
-    if !is_constraint_violated(con, lhs_of_cut, w.cut_tol)
+    if check_cut_status(con, lhs_of_cut, w.cut_tol) != :Violate
         w.debug_printcut && debug_printcut(rm,m,w,lhs_of_cut,con,nothing)
         return 0  # No violation, no new cut
     end

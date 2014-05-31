@@ -8,19 +8,21 @@
 # be both provided and retrieved at optimality.
 #############################################################################
 
-export Scenario, setUncValue, getUncValue
+export Scenario, setUncValue, getUncValue, isBinding
 type Scenario
     data::Vector{Float64}  # Using NaN as undefined
+    binding::Bool
 end
 setUncValue(s::Scenario, u::Uncertain, v::Float64) = (s.data[u.unc] = v)
 getUncValue(s::Scenario, u::Uncertain) = (s.data[u.unc])
+isBinding(s::Scenario) = s.binding
 
 
 # addScenario
 # Provide a scenario as either a dictionary or a Scenario type
 export addScenario
-function addScenario(m::Model, data::Dict{Uncertain,Float64})
-    scen = Scenario(fill(NaN,getRobust(m).numUncs))
+function addScenario(m::Model, data::Dict)
+    scen = Scenario(fill(NaN,getRobust(m).numUncs), false)
     for u in keys(data)
         scen.data[u.unc] = data[u]
     end
@@ -59,11 +61,8 @@ function scen_satisfies_con(scen::Scenario, con::UncConstraint)
     return true
 end
 
-# scen_to_vec
-# Internal function. Take scenario, return a numUncs vector
+# scen_to_vec [internal function]
 scen_to_vec(scen::Scenario) = scen.data
 
-# vec_to_scen
-# Internal function. Take vector of uncertainty values,
-# and return a Scenario object
-vec_to_scen(unc_val::Vector{Float64}) = Scenario(unc_val)
+# cut_to_scen [internal function]
+cut_to_scen(unc_val::Vector{Float64}, binding=false) = Scenario(unc_val,binding)
