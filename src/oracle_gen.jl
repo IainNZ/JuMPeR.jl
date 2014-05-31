@@ -245,7 +245,7 @@ end
 function generateCut(w::GeneralOracle, rm::Model, ind::Int, m::Model, cb=nothing, active=false)
     # If not doing cuts for this one, just skip
     con_ind = w.con_inds[ind]
-    if !w.con_modes[con_ind][:Cut]
+    if !w.con_modes[con_ind][:Cut] && !active
         return 0
     end
     con = w.cons[con_ind]

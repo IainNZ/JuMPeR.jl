@@ -139,7 +139,8 @@ UAffExpr(c::Real) = UAffExpr(Uncertain[],Float64[],float(c))
 UAffExpr(u::Uncertain) = UAffExpr([u],[1.],0.)
 UAffExpr(u::Uncertain, c::Real) = UAffExpr([u],[float(c)],0.)
 UAffExpr(coeffs::Array{Float64,1}) = [UAffExpr(c) for c in coeffs]
-zero(::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
+Base.zero(a::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
+Base.zero(a::UAffExpr) = zero(typeof(a))
 
 Base.print(io::IO, a::UAffExpr) = print(io, affToStr(a))
 Base.show( io::IO, a::UAffExpr) = print(io, affToStr(a))
@@ -153,6 +154,8 @@ Base.show( io::IO, a::UAffExpr) = print(io, affToStr(a))
 typealias FullAffExpr GenericAffExpr{UAffExpr,Variable}
 
 FullAffExpr() = FullAffExpr(Variable[], UAffExpr[], UAffExpr())
+Base.zero(a::Type{FullAffExpr}) = FullAffExpr()
+Base.zero(a::FullAffExpr) = zero(typeof(a))
 function push!(faff::FullAffExpr, new_coeff::Real, new_var::Variable)
     push!(faff.vars, new_var)
     push!(faff.coeffs, UAffExpr(new_coeff))
