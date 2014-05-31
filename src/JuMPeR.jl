@@ -10,7 +10,7 @@ import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
 import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
 import JuMP.string_intclamp
-import JuMP.JuMPDict
+import JuMP.JuMPDict, JuMP.@gendict
 importall JuMP
 
 import Base.dot, Base.sum, Base.push!, Base.print
@@ -19,7 +19,6 @@ export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
 export UncConstraint, UncSetConstraint, printRobust
 export setAdapt!
 export setDefaultOracle!
-export addScenario
 
 #############################################################################
 # JuMP rexports
@@ -42,7 +41,7 @@ export
 # Macros and support functions
     @addConstraint, @addConstraints, @defVar, 
     @defConstrRef, @setObjective, addToExpression,
-    @setNLObjective, @addNLConstraint
+    @setNLObjective, @addNLConstraint, @gendict
 
 
 #############################################################################
@@ -70,7 +69,7 @@ type RobustData
     defaultOracle
 
     # Active cuts
-    activecuts::Vector{Vector{Float64}}
+    activecuts
 
     # Can have different solver for cutting planes
     cutsolver
@@ -84,7 +83,7 @@ end
 RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
                             0,String[],Float64[],Float64[],Int[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
-                            GeneralOracle(), Vector{Float64}[],
+                            GeneralOracle(), {},
                             cutsolver,JuMPDict[],Any[])
 
 function RobustModel(;solver=nothing,cutsolver=nothing)
@@ -100,12 +99,6 @@ function getRobust(m::Model)
         error("This functionality is only available for RobustModels")
     end
 end
-
-function addScenario(m::Model, scen::Dict)
-    robdata = getRobust(m)
-    push!(robdata.scenarios, scen)
-end
-
 
 #############################################################################
 # Uncertain
@@ -135,7 +128,7 @@ end
 Base.print(io::IO, u::Uncertain) = print(io, getName(u))
 Base.show( io::IO, u::Uncertain) = print(io, getName(u))
 
-Base.isequal(u1::Uncertain, u2::Uncertain) = (u1.unc == u2.unc)
+Base.isequal(u1::Uncertain, u2::Uncertain) = isequal(u1.unc, u2.unc)
 
 #############################################################################
 # Uncertain Affine Expression class
@@ -146,7 +139,8 @@ UAffExpr(c::Real) = UAffExpr(Uncertain[],Float64[],float(c))
 UAffExpr(u::Uncertain) = UAffExpr([u],[1.],0.)
 UAffExpr(u::Uncertain, c::Real) = UAffExpr([u],[float(c)],0.)
 UAffExpr(coeffs::Array{Float64,1}) = [UAffExpr(c) for c in coeffs]
-zero(::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
+Base.zero(a::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
+Base.zero(a::UAffExpr) = zero(typeof(a))
 
 Base.print(io::IO, a::UAffExpr) = print(io, affToStr(a))
 Base.show( io::IO, a::UAffExpr) = print(io, affToStr(a))
@@ -160,6 +154,8 @@ Base.show( io::IO, a::UAffExpr) = print(io, affToStr(a))
 typealias FullAffExpr GenericAffExpr{UAffExpr,Variable}
 
 FullAffExpr() = FullAffExpr(Variable[], UAffExpr[], UAffExpr())
+Base.zero(a::Type{FullAffExpr}) = FullAffExpr()
+Base.zero(a::FullAffExpr) = zero(typeof(a))
 function push!(faff::FullAffExpr, new_coeff::Real, new_var::Variable)
     push!(faff.vars, new_var)
     push!(faff.coeffs, UAffExpr(new_coeff))
@@ -181,8 +177,11 @@ UncConstraint(faff::FullAffExpr,x::Float64,y::Int) = UncConstraint(faff,x,float(
 UncConstraint(faff::FullAffExpr,x::Int,y::Float64) = UncConstraint(faff,float(x),x)
 UncConstraint(faff::FullAffExpr,x::Int,y::Int)     = UncConstraint(faff,float(x),float(y))
 function addConstraint(m::Model, c::UncConstraint, w=nothing)
-    push!(getRobust(m).uncertainconstr,c)
-    push!(getRobust(m).oracles, w)
+    rd = getRobust(m)
+    push!(rd.uncertainconstr,c)
+    push!(rd.oracles, w)
+    push!(rd.activecuts, {})
+    return ConstraintRef{UncConstraint}(m,length(rd.uncertainconstr))
 end
 
 #############################################################################
@@ -205,6 +204,9 @@ setAdapt!(x::Array{Variable}, atype::Symbol, uncs::Vector) =
     map((v)->setAdapt!(v, atype, uncs), x)
 
 #############################################################################
+# Scenarios
+include("scenario.jl")
+
 # Ellipsoidal uncertainty set support
 include("ellipse.jl")
 

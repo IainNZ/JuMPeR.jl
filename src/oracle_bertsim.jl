@@ -127,8 +127,8 @@ function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model, cb=nothing
     # Check violation
     cut_val = nom_val + 
                 ((sense(con) == :<=) ? +1.0 : -1.0) * sum(absx_devs[max_inds])
-    
-    if !is_constraint_violated(con, cut_val, w.cut_tol)
+    if check_cut_status(con, cut_val, w.cut_tol) != :Violate
+        #w.debug_printcut && debug_printcut(rm,m,w,cut_val,con,nothing)
         return 0  # No violation, no new cut
     end
 

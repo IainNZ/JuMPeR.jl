@@ -245,7 +245,7 @@ end
 function generateCut(w::GeneralOracle, rm::Model, ind::Int, m::Model, cb=nothing, active=false)
     # If not doing cuts for this one, just skip
     con_ind = w.con_inds[ind]
-    if !w.con_modes[con_ind][:Cut]
+    if !w.con_modes[con_ind][:Cut] && !active
         return 0
     end
     con = w.cons[con_ind]
@@ -261,15 +261,14 @@ function generateCut(w::GeneralOracle, rm::Model, ind::Int, m::Model, cb=nothing
     lhs_of_cut = getObjectiveValue(w.cut_model) + lhs_const
 
     # TEMPORARY: active cut detection
-    if active && (
-       ((sense(con) == :<=) && (abs(lhs_of_cut - con.ub) <= w.cut_tol)) ||
-       ((sense(con) == :>=) && (abs(lhs_of_cut - con.lb) <= w.cut_tol)))
-        # Yup its active
-        push!(rd.activecuts, w.cut_model.colVal[:])
+    if active
+        push!(rd.activecuts[ind], 
+            cut_to_scen(w.cut_model.colVal, 
+                check_cut_status(con, lhs_of_cut, w.cut_tol) == :Active))
     end
     
     # Check violation
-    if !is_constraint_violated(con, lhs_of_cut, w.cut_tol)
+    if check_cut_status(con, lhs_of_cut, w.cut_tol) != :Violate
         w.debug_printcut && debug_printcut(rm,m,w,lhs_of_cut,con,nothing)
         return 0  # No violation, no new cut
     end
