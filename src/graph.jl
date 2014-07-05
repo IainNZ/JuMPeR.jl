@@ -60,7 +60,7 @@ function detect_components(num_unc, uncset)
     end
 
     # Compress components down
-    d = [v => u for (u,v) in enumerate(sort(collect(IntSet(unc_to_comp))))]
+    d = [v => u for (u,v) in enumerate(sort(collect(Set(unc_to_comp))))]
 
     return Int[d[i] for i in unc_to_comp], Int[d[i] for i in con_to_comp]
 end
