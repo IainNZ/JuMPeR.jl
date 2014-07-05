@@ -225,6 +225,9 @@ include("robustmacro.jl")
 # Pretty printing
 include("print.jl")
 
+# Graph algorithms
+include("graph.jl")
+
 #############################################################################
 end  # module
 #############################################################################

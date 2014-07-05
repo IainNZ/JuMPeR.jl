@@ -1,3 +1,8 @@
+using JuMPeR
+using Base.Test
+using Gurobi
+solver = GurobiSolver(OutputFlag=0)
+
 function Test1(pref)
     println("  Test1")
     m = RobustModel(solver=solver)
@@ -131,6 +136,23 @@ function Test6(pref, variant)
     @test_approx_eq getObjectiveValue(rm) 3.46
 end
 
+function Test7(pref)
+    println("  Test7")
+    rm = RobustModel(solver=solver)
+    @defUnc(rm, 1 <= u <= 2)
+    @defVar(rm, x, Bin)
+    @defVar(rm, y, Bin)
+    @defVar(rm, z, Bin)
+    @setObjective(rm, Max, x+y+z)
+    addConstraint(rm, x + x <= u/3 + u/3)
+    addConstraint(rm, x + y + z <= u)
+    addConstraint(rm, x + z >= -u)
+    solveRobust(rm, prefer_cuts=pref)
+    println(getValue(x))
+    println(getValue(y))
+    println(getValue(z))
+end
+
 function TestIntSet()
     println("  TestIntSet")
     rm = RobustModel(solver=solver)
@@ -155,6 +177,7 @@ for pref in [true,false]
     for variant = 0:7
         Test6(pref,variant)
     end
+    Test7(pref)
 end
 
 TestIntSet()

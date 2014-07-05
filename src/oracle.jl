@@ -49,7 +49,7 @@ export AbstractOracle
 export registerConstraint, setup, generateCut, generateReform
 export setDefaultOracle
 
-function setDefaultOracle!(rm, w::AbstractOracle)
+function setDefaultOracle(rm, w::AbstractOracle)
     getRobust(rm).defaultOracle = w
 end
 
@@ -164,4 +164,5 @@ end
 #############################################################################
 # Default included oracles
 include("oracle_gen.jl")            # GeneralOracle
+include("oracle_gen_graph.jl")      # GeneralOracle + Graph
 include("oracle_bertsim.jl")        # BertSimOracle

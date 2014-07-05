@@ -7,7 +7,7 @@ function BSTest1(cuts)
     values      = [0.1, 9.9]
 
     m = RobustModel(solver=solver)
-    setDefaultOracle!(m, BertSimOracle(1))
+    setDefaultOracle(m, BertSimOracle(1))
     
     @defVar(m, x[1:n] >= 0)
     @defUnc(m, weight_low[i] <= u[i=1:n] <= weight_high[i])
