@@ -1,7 +1,5 @@
 using JuMPeR
 using Base.Test
-using Gurobi
-solver = GurobiSolver(OutputFlag=0)
 
 function Test1(pref)
     println("  Test1")
