@@ -17,7 +17,6 @@ import Base.dot, Base.sum, Base.push!, Base.print
 
 export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
 export UncConstraint, UncSetConstraint, printRobust
-export setAdapt!
 export setDefaultOracle!
 
 #############################################################################
@@ -183,25 +182,6 @@ function addConstraint(m::Model, c::UncConstraint, w=nothing)
     push!(rd.activecuts, {})
     return ConstraintRef{UncConstraint}(m,length(rd.uncertainconstr))
 end
-
-#############################################################################
-# Adaptability
-function setAdapt!(x::Variable, atype::Symbol, uncs::Vector)
-    !(atype in [:Affine]) && error("Unrecognized adaptability type '$atype'")
-    all_uncs = Uncertain[]
-    add_to_list(u::Uncertain)           = (push!(all_uncs, u))
-    add_to_list(u::JuMP.JuMPDict{Uncertain}) = (all_uncs=vcat(all_uncs,u.innerArray))
-    add_to_list(u::Array{Uncertain})    = (all_uncs=vcat(all_uncs,vec(u)))
-    add_to_list{T}(u::T)                = error("Can only depend on Uncertains (tried to adapt on $T)")
-    map(add_to_list, uncs)
-    rd = getRobust(x.m)
-    rd.adapt_type[x.col] = atype
-    rd.adapt_on[x.col]   = all_uncs
-end
-setAdapt!(x::JuMP.JuMPDict{Variable}, atype::Symbol, uncs::Vector) =
-    map((v)->setAdapt!(v, atype, uncs), x.innerArray)
-setAdapt!(x::Array{Variable}, atype::Symbol, uncs::Vector) =
-    map((v)->setAdapt!(v, atype, uncs), x)
 
 #############################################################################
 # Scenarios

@@ -10,7 +10,6 @@ end
 tests = [   "operators.jl",
             "polyhedral.jl",
             "bertsim.jl",
-            "affine.jl",
             "oracle.jl",
             "ellipse.jl",
             "scenario.jl"]
