@@ -19,31 +19,33 @@ abstract AbstractOracle
 
 # registerConstraint
 # Notifies the oracle that it is responsible for this constraint, and 
-# passes any preferences provided via the solve command. Returns a dictionary
-# where the keys are the symbols :Cut, :Reform, and :Sample and the values
-# are true or false, where true indicates the oracle has selected these
-# operations for this constraint. (not currently used)
-registerConstraint(w::AbstractOracle, con, ind::Int, prefs) = error("Not implemented!")
+# passes any preferences provided via the solveRobust() command.
+registerConstraint(ab::AbstractOracle, rm::Model, ind::Int, prefs) = 
+    error("$(typeof(ab)) hasn't implemented registerConstraint")
 
 # setup
 # Gives oracle time to do any setup it needs to do. Called after all
 # constraints have been registered. Examples of work that could be done here
 # include transforming the uncertainty set and generating a cutting plane
-# model. May be called multiple times - this should be handled by the oracle
-setup(w::AbstractOracle, rm::Model) = error("Not implemented")
-
-# generateCut
-# Called in the main loop every iteration. m is the actual current model, aka
-# the master model, that will have the current solution and to which 
-# constraints should be added. Returns number of cuts added.
-# cb is nothing iff problem contains no integer variables, will be the
-# callback handle otherwise. If provided, should be used to add lazy 
-# constraints instead of normal constraints.
-generateCut(w::AbstractOracle, rm::Model, ind::Int, m::Model, cb) = error("Not implemented")
+# model. Will NOT be called multiple times.
+setup(ab::AbstractOracle, rm::Model, prefs) = 
+    error("$(typeof(ab)) hasn't implemented setup")
 
 # generateReform
-# Called before the main loop, adds anything it wants to the model
-generateReform(w::AbstractOracle, rm::Model, ind::Int, m::Model) = error("Not implemented")
+# Called before the main loop, adds anything it wants to the model. Returns
+# number of constraints reformulated.
+generateReform(ab::AbstractOracle, master::Model, rm::Model, inds::Vector{Int}) =
+    error("$(typeof(ab)) hasn't implemented generateReform")
+
+# generateCut
+# Called in the main loop every iteration/every time an integer solution is
+# found. Returns a vector of constraints which are added to the problem by
+# the main solve loop.
+# The optional "active" argument will be called if the user wants to know
+# the active scenarios at optimality.
+generateCut(ab::AbstractOracle, master::Model, rm::Model, inds::Vector{Int}, active=false) =
+    error("$(typeof(ab)) hasn't implemented generateCut")
+
 
 export AbstractOracle
 export registerConstraint, setup, generateCut, generateReform
@@ -164,4 +166,4 @@ end
 #############################################################################
 # Default included oracles
 include("oracle_gen.jl")            # GeneralOracle
-include("oracle_bertsim.jl")        # BertSimOracle
+#include("oracle_bertsim.jl")        # BertSimOracle
