@@ -20,12 +20,12 @@ function convert_model!(old_obj::QuadExpr, new_m::Model)
 end
 
 copy_quad(old_quad::QuadExpr, new_vars) =
-    QuadExpr(   map(v -> new_vars[v.col], old_quad.qvars1),
-                map(v -> new_vars[v.col], old_quad.qvars2),
+    QuadExpr(   Variable[new_vars[v.col] for v in old_quad.qvars1],
+                Variable[new_vars[v.col] for v in old_quad.qvars2],
                 copy(old_quad.qcoeffs),
                 copy_aff(old_quad.aff, new_vars))
 copy_aff(old_aff::AffExpr, new_vars) =
-    AffExpr(    map(v -> new_vars[v.col], old_aff.vars),
+    AffExpr(    Variable[new_vars[v.col] for v in old_aff.vars],
                 copy(old_aff.coeffs),
                 old_aff.constant)
 copy_linconstr(old_con::LinearConstraint, new_vars) =
