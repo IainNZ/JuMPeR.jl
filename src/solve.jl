@@ -87,6 +87,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
     oracle_register_time = time()
     for ind in 1:num_unccons
         c = robdata.uncertainconstr[ind]
+        convert_model!(c, master)
         w = robdata.oracles[ind]
         if w == nothing
             w = robdata.defaultOracle
@@ -128,6 +129,9 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
     if isIP
         function lazyCallback(cb)
             cutting_rounds += 1
+            if get(prefs, :debug_printcut, false)
+                println("CUTTING ROUND $cutting_rounds")
+            end
 
             # Master is solved
 
@@ -170,12 +174,14 @@ function solveRobust(rm::Model; report=false, active_cuts=false, args...)
             master_status = solve(master,
                                   load_model_only   = get(prefs, :load_model_only, false),
                                   suppress_warnings = get(prefs, :suppress_warnings, false))
+            #println(getObjectiveValue(master))
             master_time += toq()
 
             # Generate cuts
             cut_added = false
             tic()
             for ind = 1:num_unccons
+                #ind % 100 == 0 && println("  $ind")
                 num_cuts_added = generateCut(robdata.oracles[ind], rm, ind, master)
                 if num_cuts_added > 0
                     cut_added = true
