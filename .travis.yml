@@ -15,7 +15,7 @@ before_install:
     - git config --global user.name "Travis User"
     - git config --global user.email "travis@example.net"
 script:
-    - julia -e 'Pkg.init(); Pkg.add("JuMP"); Pkg.checkout("JuMP")'
+    - julia -e 'Pkg.init(); Pkg.add("JuMP");'
     - julia -e 'run(`ln -s $(pwd()) $(Pkg.dir("JuMPeR"))`)'
     - julia -e 'for p in split(ENV["PKGADD"],";") Pkg.add(p) end'
     - julia ./test/runtests.jl
