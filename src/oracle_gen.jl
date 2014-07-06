@@ -61,6 +61,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
     if gen.use_cuts
         # Create an LP that we'll use to solve the cut problem
         # Copy the uncertainty set from the original problem
+        gen.cut_model = Model()
         gen.cut_model.solver   = rd.cutsolver == nothing ? rm.solver : rd.cutsolver
         gen.cut_model.numCols  = rd.numUncs
         gen.cut_model.colNames = rd.uncNames

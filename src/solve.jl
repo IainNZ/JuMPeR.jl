@@ -236,6 +236,10 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
         active_cuts && println("Active cuts time:  $activecut_time")
     end
 
+    for ind in 1:num_unccons
+        convert_model!(robdata.uncertainconstr[ind], rm)
+    end
+
     # Return solve status
     return master_status
 end
