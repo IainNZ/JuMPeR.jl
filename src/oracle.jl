@@ -56,7 +56,13 @@ function setDefaultOracle!(rm, w::AbstractOracle)
 end
 
 #############################################################################
-# Helper functions that can be shared by all oracles
+# Utility functions that can be shared by all oracles
+
+# get_uncertain_constraint
+# Given a RobustModel and a constraint index, returns the uncertain
+# constraint for that index
+get_uncertain_constraint(rm::Model, ind::Int) =
+    getRobust(rm).uncertainconstr[ind]
 
 # build_certain_constraint
 # Takes an uncertain constraint (unc_con) that we are making certain by
@@ -166,4 +172,4 @@ end
 #############################################################################
 # Default included oracles
 include("oracle_gen.jl")            # GeneralOracle
-#include("oracle_bertsim.jl")        # BertSimOracle
+include("oracle_bertsim.jl")        # BertSimOracle

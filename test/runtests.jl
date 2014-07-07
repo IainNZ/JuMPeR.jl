@@ -9,7 +9,7 @@ end
 
 tests = [   "operators.jl",
             "polyhedral.jl",
-            #"bertsim.jl",
+            "bertsim.jl",
             "oracle.jl",
             "ellipse.jl",
             "scenario.jl",

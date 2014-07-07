@@ -231,7 +231,7 @@ function generateCut(gen::GeneralOracle, master::Model, rm::Model, inds::Vector{
     new_cons = {}
 
     for con_ind in inds
-        con = rd.uncertainconstr[con_ind]
+        con = get_uncertain_constraint(rm, con_ind)
 
         # Update the cutting plane problem's objective, and solve
         cut_sense, unc_obj_coeffs, lhs_const = JuMPeR.build_cut_objective(con, master_sol)
@@ -307,7 +307,7 @@ end
 
 function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int)
     rd = getRobust(rm)
-    con = rd.uncertainconstr[con_ind]
+    con = get_uncertain_constraint(rm, con_ind)
 
     num_dualvar = gen.num_dualvar
     num_dualcon = rd.numUncs

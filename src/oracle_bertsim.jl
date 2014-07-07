@@ -12,176 +12,138 @@
 
 export BertSimOracle
 type BertSimOracle <: AbstractOracle
-    # The constraints associated with this oracle and the selected mode(s)
-    # of operation for each constraint.
-    cons::Vector{UncConstraint}
-    con_modes::Vector{Dict{Symbol,Bool}}
-    con_inds::Dict{Int,Int}
-    setup_done::Bool
-
-
-    Gamma::Int  # Only support integer values of Gamma for sake of cut
-                # Could relax this, would make cutting plane more awkward
-                # but is possible.
-    means::Vector{Float64}
-    devs::Vector{Float64}
-
+    Gamma::Int              # Only support integer values of Gamma (simpler)
+    noms::Vector{Float64}   # Nominal values for each uncertainty
+    devs::Vector{Float64}   # Deviation values for each uncertainty
     cut_tol::Float64
 end
 # Preferred constructor - just Gamma
-BertSimOracle(Gamma::Int) =
-    BertSimOracle(  UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(),
-                    false, Gamma, Float64[], Float64[], 0.0)
+BertSimOracle(Gamma::Int) = BertSimOracle(Gamma, Float64[], Float64[], 1e-6)
 # Default constructor - no uncertainty
 BertSimOracle() = BertSimOracle(0)
 
 
 # registerConstraint
-# We must handle this constraint, and the users preferences have been
-# communicated through prefs
-function registerConstraint(w::BertSimOracle, con, ind::Int, prefs)
-    con_mode = [:Cut => true, :Reform => true]
-    push!(w.con_modes, con_mode)
-    push!(w.cons, con)
-    w.con_inds[ind] = length(w.cons)
+# We need to validate that every uncertain that appears in this 
+# constraint has bound information. We'll also calculate the nominal
+# and deviation while we are at it
+function registerConstraint(bs::BertSimOracle, rm::Model, ind::Int, prefs)
+    rd = getRobust(rm)
 
-    # Extract preferences we care about
-    w.cut_tol = get(prefs, :cut_tol, 1e-6)
-    return con_mode
+    # If we haven't allocated space for the nominals/deviations yet,
+    # do so now
+    if length(bs.noms) == 0
+        bs.noms = fill(NaN, rd.numUncs)
+        bs.devs = fill(NaN, rd.numUncs)
+    end
+
+    # Check every uncertain in this constraint to ensure it has bounds
+    # and if so, calculate the mean and deviation values
+    con = get_uncertain_constraint(rm, ind)
+    for term_ind in 1:length(con.terms.vars)
+        for unc_ind in 1:length(con.terms.coeffs[term_ind].vars)
+            unc = con.terms.coeffs[term_ind].vars[unc_ind].unc
+            if isnan(bs.noms[unc])
+                lower, upper = rd.uncLower[unc], rd.uncUpper[unc]
+                upper == +Inf &&
+                    error("Unc. $(rm.uncNames[i]) has no upper bound, cannot determine nominal & deviation.")
+                lower == -Inf &&
+                    error("Unc. $(rm.uncNames[i]) has no lower bound, cannot determine nominal & deviation.")
+                bs.noms[unc] = (upper + lower)/2
+                bs.devs[unc] = (upper - lower)/2
+            end
+        end
+    end
 end
 
 
 # setup
-# Analyze box on uncertainties to determine means/dev values for each uncertainty
-function setup(w::BertSimOracle, rm::Model)
-    rd = getRobust(rm)
-    w.means = zeros(rd.numUncs)
-    w.devs  = zeros(rd.numUncs)
-
-    # Note, problematic we fail here - what if it doesn't appear in constraints
-    # we are concerned with. Maybe this sohuld be done on a per-constraint basis?
-    # Or at least not error out unless its tried to be used later on
-    for i in 1:rd.numUncs
-        if rd.uncUpper[i] == +Inf
-            # No upper bound
-            error("Uncertainty $(rm.uncNames[i]) (index $i) has no upper bound, cannot determine mean & deviation.")
-        elseif rd.uncLower[i] == -Inf
-            error("Uncertainty $(rm.uncNames[i]) (index $i) has no lower bound, cannot determine mean & deviation.")
-        end
-        w.means[i] = (rd.uncUpper[i] + rd.uncLower[i])/2
-        w.devs[i]  = (rd.uncUpper[i] - rd.uncLower[i])/2
-    end
+# Most work has been done in registerConstraint
+function setup(bs::BertSimOracle, rm::Model, prefs)
+    bs.cut_tol = get(prefs, :cut_tol, 1e-6)
 end
 
 
-function generateCut(w::BertSimOracle, rm::Model, ind::Int, m::Model, cb=nothing)
+# generateCut
+# Generate cuts by doing a sort based on current value of the master problem
+# Given a constraint
+# u_1 x_1 + .... u_n x_n <= b
+# with this uncertainty set, it is sufficient to:
+# 1. Calculate abs(x_i) * dev_i for each i
+# 2. Sort ascending
+# 3. If constraint can be violated by setting Gamma at bounds, add cut.
+# TODO: Relax assumption of one uncertain per variable?
+function generateCut(bs::BertSimOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)
+    master_sol = master.colVal
+    new_cons = {}
 
-    # If not doing cuts for this one, just skip
-    con_ind = w.con_inds[ind]
-    if !w.con_modes[con_ind][:Cut]
-        return 0
-    end
+    for con_ind in inds
+        absx_devs = Float64[]       # kth term is x[j]*devs[i]
+        uncx_inds = Int[]           # k
 
-    # Given a constraint
-    # u_1 x_1 + .... u_n x_n <= b
-    # with this uncertainty set, it is sufficient to:
-    # 1. Calculate abs(x_i) * dev_i for each i
-    # 2. Sort ascending
-    # 3. If constraint can be violated by setting Gamma at bounds
-    #    add cut.
-    # TODO: Relax assumption of one uncertain per variable?
-    master_sol = m.colVal
-
-    absx_devs = Float64[]       # kth term is x[j]*devs[i]
-    uncx_inds = Int[]           # k
-
-    con = w.cons[con_ind]
-    orig_lhs = con.terms
-    nom_val  = 0.0
-    for var_ind = 1:length(orig_lhs.vars)
-        col      = orig_lhs.vars[var_ind].col
-        num_uncs = length(orig_lhs.coeffs[var_ind].vars)
-        coeff_val = 0.0
-        if num_uncs > 1
-            # More than one uncertain on this variable
-            # Not supported
-            error("BertSimOracle only supports one uncertain coefficient per variable")
-        elseif num_uncs == 1
-            unc = orig_lhs.coeffs[var_ind].vars[1].unc
-            push!(absx_devs, abs(master_sol[col]) * w.devs[unc])
-            push!(uncx_inds, var_ind)
-            coeff_val += orig_lhs.coeffs[var_ind].coeffs[1] * w.means[unc]
-        end
-        coeff_val += orig_lhs.coeffs[var_ind].constant
-        nom_val += coeff_val * master_sol[col]
-    end
-    if length(orig_lhs.constant.vars) >= 1
-        error("BertSimOracle doesn't support uncertain not attached to variable yet")
-    end
-    nom_val += orig_lhs.constant.constant
-
-    # Now we have the lists, we can sort them in order
-    perm = sortperm(absx_devs)  # Ascending
-    max_inds = uncx_inds[perm[(end-w.Gamma+1):end]]
-    
-    # Check violation
-    cut_val = nom_val + 
-                ((sense(con) == :<=) ? +1.0 : -1.0) * sum(absx_devs[max_inds])
-    if check_cut_status(con, cut_val, w.cut_tol) != :Violate
-        #w.debug_printcut && debug_printcut(rm,m,w,cut_val,con,nothing)
-        return 0  # No violation, no new cut
-    end
-
-    # Add new constraint
-    unc_val = w.means[:]
-    for p in 1:length(perm)
-        var_ind = uncx_inds[p]
-        unc     = orig_lhs.coeffs[var_ind].vars[1].unc
-        col     = orig_lhs.vars[var_ind].col
-        # Whether we add or remove a deviation depends on both the 
-        # constraint sense and the sign of x
-        sign    = sense(con) == :(<=) ? (master_sol[col] >= 0 ? +1.0 : -1.0) :
-                                        (master_sol[col] >= 0 ? -1.0 : +1.0)
-        unc_val[unc] += sign * w.devs[unc]
-    end
-    new_con = JuMPeR.build_certain_constraint(con, unc_val)
-    cb == nothing ? addConstraint(m, new_con) :
-                    addLazyConstraint(cb, new_con)
-
-    return 1
-end
-
-
-function generateReform(w::BertSimOracle, rm::Model, ind::Int, m::Model)
-    # If not doing reform for this one, just skip
-    con_ind = w.con_inds[ind]
-    if !w.con_modes[con_ind][:Reform]
-        return false
-    end
-    
-    # Generate an initial cut for each constraint using the nominal values
-    # To help make initial cut round more useful
-    con = w.cons[con_ind]
+        con = get_uncertain_constraint(rm, con_ind)
         orig_lhs = con.terms
-        new_lhs = AffExpr(orig_lhs.vars,
-                          [orig_lhs.coeffs[i].constant for i in 1:length(orig_lhs.vars)],
-                          orig_lhs.constant.constant)
+        nom_val  = 0.0
+
+        # Calculate the nominal value of the LHS constraint, and how much we
+        # can move that LHS value by adjusting the uncertains.
+        # For every variable in the constraint...
         for var_ind = 1:length(orig_lhs.vars)
-            col      = orig_lhs.vars[var_ind].col
             num_uncs = length(orig_lhs.coeffs[var_ind].vars)
-            if num_uncs > 1
-                # More than one uncertain on this variable - not supported
-                error("BertSimOracle only supports one uncertain coefficient per variable")
-            elseif num_uncs == 1
-                unc   = orig_lhs.coeffs[var_ind].vars[1].unc
-                coeff = orig_lhs.coeffs[var_ind].coeffs[1]
-                new_lhs.coeffs[var_ind] += coeff * w.means[unc]
+            # Only support one uncertain per variable
+            num_uncs > 1 && error("BertSimOracle only supports one uncertain per variable")
+            
+            col = orig_lhs.vars[var_ind].col
+            nom_coeff_val = orig_lhs.coeffs[var_ind].constant
+            if num_uncs == 1
+                unc = orig_lhs.coeffs[var_ind].vars[1].unc
+                # Store |x|*deviation
+                push!(absx_devs, abs(master_sol[col]) * bs.devs[unc])
+                push!(uncx_inds, var_ind)
+                nom_coeff_val += orig_lhs.coeffs[var_ind].coeffs[1] * bs.noms[unc]
             end
+            nom_val += nom_coeff_val * master_sol[col]
         end
-        if sense(con) == :<=
-            @addConstraint(m, new_lhs <= con.ub)
-        else
-            @addConstraint(m, new_lhs >= con.lb)
+        length(orig_lhs.constant.vars) >= 1 &&
+            error("BertSimOracle doesn't support unattached uncertainties.")
+        nom_val += orig_lhs.constant.constant
+
+        # Sort the list of how much we can change LHS in ascending order
+        perm = sortperm(absx_devs)
+        # Obtain the top Gamma indices 
+        max_inds = uncx_inds[perm[(end-bs.Gamma+1):end]]
+        
+        # Check violation that would be obtained from moving these in the
+        # adversarial direction
+        cut_val = nom_val + 
+                    ((sense(con) == :<=) ? +1.0 : -1.0) * sum(absx_devs[max_inds])
+        if check_cut_status(con, cut_val, bs.cut_tol) != :Violate
+            # No violation, no new cut
+            continue
         end
-    return true
+
+        # Violation -> add new constraint
+        unc_val = bs.noms[:]
+        for p in 1:length(perm)
+            var_ind = uncx_inds[p]
+            unc     = orig_lhs.coeffs[var_ind].vars[1].unc
+            col     = orig_lhs.vars[var_ind].col
+            # Whether we add or remove a deviation depends on both the 
+            # constraint sense and the sign of x
+            sign    = sense(con) == :(<=) ? (master_sol[col] >= 0 ? +1.0 : -1.0) :
+                                            (master_sol[col] >= 0 ? -1.0 : +1.0)
+            unc_val[unc] += sign * bs.devs[unc]
+        end
+        new_con = JuMPeR.build_certain_constraint(con, unc_val)
+        push!(new_cons, new_con)
+    end
+
+    return new_cons
+end
+
+
+# generateReform
+# Not implemented yet for this oracle
+function generateReform(bs::BertSimOracle, master::Model, rm::Model, inds::Vector{Int})
+    return 0 
 end
