@@ -15,9 +15,10 @@ importall JuMP
 
 import Base.dot, Base.sum, Base.push!, Base.print
 
-export RobustModel, Uncertain, UAffExpr, FullAffExpr, @defUnc, solveRobust
-export UncConstraint, UncSetConstraint, printRobust
+export RobustModel, getNumUncs, solveRobust, printRobust
 export setDefaultOracle!
+export Uncertain, @defUnc, UAffExpr, FullAffExpr
+export UncConstraint, UncSetConstraint
 
 #############################################################################
 # JuMP rexports
@@ -98,6 +99,8 @@ function getRobust(m::Model)
         error("This functionality is only available for RobustModels")
     end
 end
+
+getNumUncs(m::Model) = getRobust(m).numUncs
 
 #############################################################################
 # Uncertain

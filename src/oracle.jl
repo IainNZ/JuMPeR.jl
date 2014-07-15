@@ -104,6 +104,49 @@ end
 
 # build_cut_objective
 # Takes an uncertain constraint (unc_con) and a master solution (x_val)
+# and returns the coefficients for each uncertainty, as
+# well as the objective sense and the constant term of the objective
+# of the cutting plane problem that arises from variables that do not have
+# uncertain coefficients.
+# For example, for input:
+#     unc_con = (3*u[1] + 2.0) * x[1] + (  u[2] - 1.0) * x[2] +
+#               (u[1] +  u[3]) * x[3] + (u[3] +2*u[4]) * x[4] <= 5.0 + u[5]
+#     x_val   = [2.0, 3.0, 4.0, 5.0]
+# returns
+#     :Max, [], 1.0
+# Constraint with build_cut_objective_sparse, which returns only
+# the coefficients that appear in the constraint
+function build_cut_objective(   rm::Model,
+                                unc_con::UncConstraint,
+                                x_val::Vector{Float64})
+    unc_coeffs = zeros(getNumUncs(rm))
+    unc_lhs    = unc_con.terms
+    lhs_const  = 0.0
+
+    # Uncertains attached to variables
+    for var_ind = 1:length(unc_lhs.vars)
+        uaff = unc_lhs.coeffs[var_ind]
+        col  = unc_lhs.vars[var_ind].col
+        for unc_ind = 1:length(uaff.vars)
+            unc = uaff.vars[unc_ind].unc
+            unc_coeffs[unc] += uaff.coeffs[unc_ind] * x_val[col]
+        end
+        lhs_const += uaff.constant * x_val[col]
+    end
+    # Uncertains not attached to variables
+        uaff = unc_lhs.constant
+        for unc_ind = 1:length(uaff.vars)
+            unc = uaff.vars[unc_ind].unc
+            unc_coeffs[unc] += uaff.coeffs[unc_ind]
+        end
+
+    return (sense(unc_con) == :(<=) ? :Max : :Min), 
+                unc_coeffs, lhs_const
+end
+
+
+# build_cut_objective_sparse
+# Takes an uncertain constraint (unc_con) and a master solution (x_val)
 # and returns the coefficients for each uncertain in the cutting plane, as
 # well as the objective sense and the constant term of the objective
 # of the cutting plane problem that arises from variables that do not have
@@ -116,7 +159,7 @@ end
 #     :Max, [(5,-1.0),(4,10.0),(2,3.0),(3,9.0),(1,10.0)], 1.0
 # Note that exact order of coefficients is non-deterministic due to the
 # use of a dictionary internally.
-function build_cut_objective(   unc_con::UncConstraint,
+function build_cut_objective_sparse(   unc_con::UncConstraint,
                                 x_val::Vector{Float64})
     unc_coeffs = Dict{Int,Float64}()
     unc_lhs = unc_con.terms   
