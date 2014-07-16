@@ -16,7 +16,17 @@ let
     col_val = [2.0, 3.0, 4.0, 5.0]
 
     # -------------------
-    sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective(unc_con, col_val)
+    sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective(rm, unc_con, col_val)
+    @test sense == :Max
+    @test_approx_eq unc_coeffs[1] 3.0*2.0+4.0
+    @test_approx_eq unc_coeffs[2] 3.0
+    @test_approx_eq unc_coeffs[3] 4.0+5.0
+    @test_approx_eq unc_coeffs[4] 2*5.0
+    @test_approx_eq unc_coeffs[5] -1.0
+    @test_approx_eq lhs_const     2.0*2.0-1.0*3.0
+
+    # -------------------
+    sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective_sparse(unc_con, col_val)
     sort!(unc_coeffs)
     
     @test sense == :Max
