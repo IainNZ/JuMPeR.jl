@@ -48,7 +48,7 @@ function Test2IP(pref)
     setObjective(m, :Max, 1.1*x[1] + x[2])
     addConstraint(m, u1*x[1] + 1*x[2] <= 2.)
     addConstraint(m, u2*x[1] + 1*x[2] <= 6.)
-    status = solveRobust(m, prefer_cuts=true)
+    status = solveRobust(m, prefer_cuts=pref)
     @test_approx_eq getValue(x[1]) 3.0
     @test_approx_eq getValue(x[2]) 0.0
 end
@@ -142,7 +142,7 @@ function TestIntSet()
     @test_approx_eq getValue(x) 1.0
 end
 
-for pref in [true,false]
+for pref in [true, false]
     println(" prefer_cuts:", pref)
     Test1(pref)
     Test2(pref)

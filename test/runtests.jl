@@ -12,7 +12,8 @@ tests = [   "operators.jl",
             "bertsim.jl",
             "oracle.jl",
             "ellipse.jl",
-            "scenario.jl"]
+            "scenario.jl",
+            "resolve.jl"]
 
 println("Running tests...")
 for curtest in tests

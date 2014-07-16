@@ -10,19 +10,14 @@
 #############################################################################
 
 type GeneralOracle <: AbstractOracle
-    # The constraints associated with this oracle and the selected mode(s)
-    # of operation for each constraint.
-    cons::Vector{UncConstraint}
-    con_modes::Vector{Dict{Symbol,Bool}}
-    con_inds::Dict{Int,Int}
-    setup_done::Bool
+    use_cuts::Bool
 
     # Cutting plane algorithm
     cut_model::Model
     cut_vars::Vector{Variable}
     cut_tol::Float64
 
-    # Reformulation (see setup for comments)
+    # Reformulation (see setup() for details)
     num_dualvar::Int
     dual_A::Vector{Vector{(Int,Float64)}}
     dual_objs::Vector{Float64}
@@ -31,13 +26,13 @@ type GeneralOracle <: AbstractOracle
     dual_ell_rhs_idxs::Vector{Vector{Int}}
     dual_ell_lhs_idxs::Vector{Int}
 
-    # Other options
+    # Options
     debug_printcut::Bool
     debug_printreform::Bool
 end
 # Default constructor
 GeneralOracle() = 
-    GeneralOracle(  UncConstraint[], Dict{Symbol,Bool}[], Dict{Int,Int}(), false,
+    GeneralOracle(  false,
                     Model(), Variable[], 0.0, # Cutting plane
                     0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[], 
                     Vector{Int}[], Int[],
@@ -46,52 +41,40 @@ GeneralOracle() =
 
 # registerConstraint
 # We must handle this constraint, and the users preferences have been
-# communicated through prefs
-function registerConstraint(w::GeneralOracle, con, ind::Int, prefs)
-    con_mode = [:Cut    =>  get(prefs, :prefer_cuts, false), 
-                :Reform => !get(prefs, :prefer_cuts, false)]
-    push!(w.con_modes, con_mode)
-    push!(w.cons, con)
-    w.con_inds[ind] = length(w.cons)
-
-    # Extract preferences we care about
-    w.debug_printcut    = get(prefs, :debug_printcut, false)
-    w.debug_printreform = get(prefs, :debug_printreform, false)
-    w.cut_tol           = get(prefs, :cut_tol, 1e-6)
-
-    return con_mode
-end
+# communicated through prefs. We don't need to take any action here.
+registerConstraint(gen::GeneralOracle, rm::Model, ind::Int, prefs) = nothing
 
 
 # setup
-# Now that all modes of operation have been selected, generate the cutting
-# plane model and/or the reformulation
-function setup(w::GeneralOracle, rm::Model)
-    w.setup_done && return
+# Generate the cutting plane model or precompute the reformulation structure.
+function setup(gen::GeneralOracle, rm::Model, prefs)
+
+    # Extract preferences we care about
+    gen.use_cuts          = get(prefs, :prefer_cuts, false)
+    gen.cut_tol           = get(prefs, :cut_tol, 1e-6)
+    gen.debug_printcut    = get(prefs, :debug_printcut, false)
+    gen.debug_printreform = get(prefs, :debug_printreform, false)
+
     rd = getRobust(rm)
-    any_cut = any_reform = false
-    for con_mode in w.con_modes
-        any_cut    |= con_mode[:Cut]
-        any_reform |= con_mode[:Reform]
-    end
 
     # Cutting plane setup
-    if any_cut
+    if gen.use_cuts
         # Create an LP that we'll use to solve the cut problem
         # Copy the uncertainty set from the original problem
-        w.cut_model.solver   = rd.cutsolver == nothing ? rm.solver : rd.cutsolver
-        w.cut_model.numCols  = rd.numUncs
-        w.cut_model.colNames = rd.uncNames
-        w.cut_model.colLower = rd.uncLower
-        w.cut_model.colUpper = rd.uncUpper
-        w.cut_model.colCat   = rd.uncCat
-        w.cut_vars = [Variable(w.cut_model, i) for i = 1:rd.numUncs]
+        gen.cut_model = Model()
+        gen.cut_model.solver   = rd.cutsolver == nothing ? rm.solver : rd.cutsolver
+        gen.cut_model.numCols  = rd.numUncs
+        gen.cut_model.colNames = rd.uncNames
+        gen.cut_model.colLower = rd.uncLower
+        gen.cut_model.colUpper = rd.uncUpper
+        gen.cut_model.colCat   = rd.uncCat
+        gen.cut_vars = [Variable(gen.cut_model, i) for i = 1:rd.numUncs]
         # Polyhedral constraints
         for c in rd.uncertaintyset
             newcon = LinearConstraint(AffExpr(), c.lb, c.ub)
             newcon.terms.coeffs = c.terms.coeffs
-            newcon.terms.vars   = [w.cut_vars[u.unc] for u in c.terms.vars]
-            push!(w.cut_model.linconstr, newcon)
+            newcon.terms.vars   = [gen.cut_vars[u.unc] for u in c.terms.vars]
+            push!(gen.cut_model.linconstr, newcon)
         end
         # Ellipse constraints
         # Take || Fu + g || <= Gamma and rewrite as
@@ -101,21 +84,20 @@ function setup(w::GeneralOracle, rm::Model)
             num_terms, num_uncs = size(el_c.F)
             for term_ind = 1:num_terms
                 # Create new variable y_i
-                y   = Variable(w.cut_model,-Inf,Inf,JuMP.CONTINUOUS,"_el_$term_ind")
-                Fug = AffExpr(Variable[w.cut_vars[i] for i in el_c.u],
+                y   = Variable(gen.cut_model,-Inf,Inf,JuMP.CONTINUOUS,"_el_$term_ind")
+                Fug = AffExpr(Variable[gen.cut_vars[i] for i in el_c.u],
                               Float64[el_c.F[term_ind,i] for i in 1:num_uncs],
                               el_c.g[term_ind])
-                addConstraint(w.cut_model, y == Fug)
+                addConstraint(gen.cut_model, y == Fug)
                 push!(yty.qvars1, y)
                 push!(yty.qvars2, y)
                 push!(yty.qcoeffs, 1.0)
             end
-            addConstraint(w.cut_model, yty <= el_c.Gamma^2)
+            addConstraint(gen.cut_model, yty <= el_c.Gamma^2)
         end
-    end
-
-    # Reformulation setup
-    if any_reform
+    
+    else
+        # Reformulation setup
         #####################################################################
         # We have 
         # - one new variable for every constraint in the uncertainty set
@@ -188,13 +170,13 @@ function setup(w::GeneralOracle, rm::Model)
                 # into constraints later
                 push!(dual_ell_rhs_idx, dual_idx)
             end
-            push!(w.dual_ell_rhs_idxs, dual_ell_rhs_idx)
+            push!(gen.dual_ell_rhs_idxs, dual_ell_rhs_idx)
 
             # Dual corresponding to the RHS dual
             lhs_idx = start_index+length(el_c.g)+1
             dual_objs[lhs_idx]      = el_c.Gamma
             dual_vartype[lhs_idx]   = :Qlhs
-            push!(w.dual_ell_lhs_idxs, lhs_idx)
+            push!(gen.dual_ell_lhs_idxs, lhs_idx)
             start_index += length(el_c.g) + 1
         end
 
@@ -219,13 +201,13 @@ function setup(w::GeneralOracle, rm::Model)
             dual_contype[unc_i] = :(==)
         end
 
-        w.num_dualvar   = num_dualvar
-        w.dual_A        = dual_A
-        w.dual_objs     = dual_objs
-        w.dual_vartype  = dual_vartype
-        w.dual_contype  = dual_contype
+        gen.num_dualvar   = num_dualvar
+        gen.dual_A        = dual_A
+        gen.dual_objs     = dual_objs
+        gen.dual_vartype  = dual_vartype
+        gen.dual_contype  = dual_contype
 
-        if w.debug_printreform
+        if gen.debug_printreform
             println("BEGIN DEBUG :debug_printreform")
             println("Num dual var ", num_dualvar)
             println("Objective")
@@ -233,69 +215,106 @@ function setup(w::GeneralOracle, rm::Model)
             println("dual_A")
             println(dual_A)
             println("lhs,rhs idx")
-            dump(w.dual_ell_lhs_idxs)
-            dump(w.dual_ell_rhs_idxs)
+            dump(gen.dual_ell_lhs_idxs)
+            dump(gen.dual_ell_rhs_idxs)
             println("END DEBUG   :debug_printreform")
         end
     end  # end reformulation preparation
-    w.setup_done = true
+end
+
+function generateCut(gen::GeneralOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)
+    # If not doing cuts...
+    !gen.use_cuts && return {}
+
+    rd = getRobust(rm)
+    master_sol = master.colVal
+    new_cons = {}
+
+    for con_ind in inds
+        con = get_uncertain_constraint(rm, con_ind)
+
+        # Update the cutting plane problem's objective, and solve
+        cut_sense, unc_obj_coeffs, lhs_const = JuMPeR.build_cut_objective_sparse(con, master_sol)
+        @setObjective(gen.cut_model, cut_sense, sum{u[2]*gen.cut_vars[u[1]], u=unc_obj_coeffs})
+        cut_solve_status = solve(gen.cut_model, suppress_warnings=true)
+        cut_solve_status != :Optimal && error("Cutting plane problem infeasible or unbounded!")
+        lhs_of_cut = getObjectiveValue(gen.cut_model) + lhs_const
+
+        # SUBJECT TO CHANGE: active cut detection
+        if active
+            push!(rd.activecuts[con_ind], 
+                cut_to_scen(gen.cut_model.colVal, 
+                    check_cut_status(con, lhs_of_cut, gen.cut_tol) == :Active))
+            continue
+        end
+        
+        # Check violation
+        if check_cut_status(con, lhs_of_cut, gen.cut_tol) != :Violate
+            gen.debug_printcut && debug_printcut(rm,master,gen,lhs_of_cut,con,nothing)
+            continue  # No violation, no new cut
+        end
+        
+        # Create and add the new constraint
+        new_con = JuMPeR.build_certain_constraint(con, gen.cut_model.colVal)
+        gen.debug_printcut && debug_printcut(rm,master,gen,lhs_of_cut,con,new_con)
+        convert_model!(new_con, master)
+        push!(new_cons, new_con)
+    end
+    
+    return new_cons
 end
 
 
-function generateCut(w::GeneralOracle, rm::Model, ind::Int, m::Model, cb=nothing, active=false)
-    # If not doing cuts for this one, just skip
-    con_ind = w.con_inds[ind]
-    if !w.con_modes[con_ind][:Cut] && !active
-        return 0
+function debug_printcut(rm,m,w,lhs,con,new_con)
+    println("BEGIN DEBUG :debug_printcut")
+    convert_model!(con, rm)
+    println("  Constraint:  ", con)
+    convert_model!(con, m)
+    println("  Master sol:  ")
+    for j in 1:length(m.colNames)
+        println("    ", m.colNames[j], "  ", m.colVal[j])
     end
-    con = w.cons[con_ind]
-    rd = getRobust(rm)
-    
-    master_sol = m.colVal
-
-    # Update the cutting plane problem's objective, and solve
-    cut_sense, unc_obj_coeffs, lhs_const = JuMPeR.build_cut_objective(con, master_sol)
-    @setObjective(w.cut_model, cut_sense, sum{u[2]*w.cut_vars[u[1]], u=unc_obj_coeffs})
-    cut_solve_status = solve(w.cut_model, suppress_warnings=true)
-    cut_solve_status != :Optimal && error("Cutting plane problem infeasible or unbounded!")
-    lhs_of_cut = getObjectiveValue(w.cut_model) + lhs_const
-
-    # TEMPORARY: active cut detection
-    if active
-        push!(rd.activecuts[ind], 
-            cut_to_scen(w.cut_model.colVal, 
-                check_cut_status(con, lhs_of_cut, w.cut_tol) == :Active))
+    print(w.cut_model)
+    #println("  Solve status ", cut_solve_status)
+    println("  Cut sol:     ")
+    for j in 1:length(w.cut_model.colNames)
+        println("    ", w.cut_model.colNames[j], "  ", w.cut_model.colVal[j])
     end
-    
-    # Check violation
-    if check_cut_status(con, lhs_of_cut, w.cut_tol) != :Violate
-        w.debug_printcut && debug_printcut(rm,m,w,lhs_of_cut,con,nothing)
-        return 0  # No violation, no new cut
-    end
-    
-    # Create and add the new constraint
-    new_con = JuMPeR.build_certain_constraint(con, w.cut_model.colVal)
-    w.debug_printcut && debug_printcut(rm,m,w,lhs_of_cut,con,new_con)
-    cb == nothing ? addConstraint(m, new_con) :
-                    addLazyConstraint(cb, new_con)
-    return 1
+    println("  OrigLHS val: ", lhs)
+    println("  Sense:       ", sense(con))
+    println("  con.lb/ub:   ", con.lb, "  ", con.ub)
+    println("  new con:  ", new_con)
+    println("END DEBUG   :debug_printcut")
 end
 
 
-function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
-    # If not doing reform for this one, just skip
-    con_ind = w.con_inds[ind]
-    if !w.con_modes[con_ind][:Reform]
-        return false
-    end
-    rd = getRobust(rm)
 
-    num_dualvar = w.num_dualvar
+
+#############################################################################
+# REFORMULATION
+#############################################################################
+
+function generateReform(gen::GeneralOracle, master::Model, rm::Model, inds::Vector{Int})
+    # If not doing reform...
+    gen.use_cuts && return 0
+    # Apply the reformulation to all relevant constraints
+    for ind in inds
+        apply_reform(gen, master, rm, ind)
+    end
+    return length(inds)
+end
+    
+
+function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int)
+    rd = getRobust(rm)
+    con = get_uncertain_constraint(rm, con_ind)
+
+    num_dualvar = gen.num_dualvar
     num_dualcon = rd.numUncs
-    dual_A      = w.dual_A
-    dual_objs   = w.dual_objs
-    dual_vartype= w.dual_vartype
-    dual_contype= w.dual_contype 
+    dual_A      = gen.dual_A
+    dual_objs   = gen.dual_objs
+    dual_vartype= gen.dual_vartype
+    dual_contype= gen.dual_contype 
     # These are the objective coefficients of the cutting plane problem
     # that are the right-hand-side of the dual problem.
     dual_rhs    = [AffExpr() for i = 1:num_dualcon]
@@ -306,11 +325,11 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
     # We will do all reformulation as if the constraint is a <=
     # constraint. This necessitates mulitplying through by -1
     # if the original constraint is not of this form
-    sign_flip   = sense(w.cons[con_ind]) == :(<=) ? +1.0 : -1.0
+    sign_flip   = sense(con) == :(<=) ? +1.0 : -1.0
     # The right-hand-side of the new constraint
-    new_rhs     = rhs(w.cons[con_ind]) * sign_flip
+    new_rhs     = rhs(con) * sign_flip
     # The uncertain constraint left-hand-side
-    orig_lhs    = w.cons[con_ind].terms
+    orig_lhs    = con.terms
 
     # First collect the certain terms of the uncertain constraint - they
     # won't take part in the reformulation, so we can append them to the
@@ -374,7 +393,7 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
         push!(new_lhs, dual_objs[ind], new_v)
     end
 
-    w.debug_printreform && println("DEBUG new_lhs ", new_lhs)
+    gen.debug_printreform && println("DEBUG new_lhs ", new_lhs)
 
     # Add the new constraint which "replaces" the original constraint
     addConstraint(master, new_lhs <= new_rhs)
@@ -403,7 +422,7 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
             F_slice = el_c.F[:,el_matrix_col]
             for el_matrix_row = 1:length(F_slice)
                 push!(new_lhs, -F_slice[el_matrix_row], 
-                      dual_vars[w.dual_ell_rhs_idxs[ell_idx][el_matrix_row]] )
+                      dual_vars[gen.dual_ell_rhs_idxs[ell_idx][el_matrix_row]] )
             end
         end
 
@@ -422,33 +441,10 @@ function generateReform(w::GeneralOracle, rm::Model, ind::Int, master::Model)
     ell_idx = 0
     for el_c in rd.normconstraints
         ell_idx += 1
-        beta_t = dual_vars[w.dual_ell_lhs_idxs[ell_idx]]
-        beta_zs = dual_vars[w.dual_ell_rhs_idxs[ell_idx]]
+        beta_t = dual_vars[gen.dual_ell_lhs_idxs[ell_idx]]
+        beta_zs = dual_vars[gen.dual_ell_rhs_idxs[ell_idx]]
         addConstraint(master, beta_t^2 >= sum([beta_z^2 for beta_z in beta_zs]))
     end
     
     return true
-end
-
-
-function debug_printcut(rm,m,w,lhs,con,new_con)
-    println("BEGIN DEBUG :debug_printcut")
-    convert_model!(con, rm)
-    println("  Constraint:  ", con)
-    convert_model!(con, m)
-    println("  Master sol:  ")
-    for j in 1:length(m.colNames)
-        println("    ", m.colNames[j], "  ", m.colVal[j])
-    end
-    print(w.cut_model)
-    #println("  Solve status ", cut_solve_status)
-    println("  Cut sol:     ")
-    for j in 1:length(w.cut_model.colNames)
-        println("    ", w.cut_model.colNames[j], "  ", w.cut_model.colVal[j])
-    end
-    println("  OrigLHS val: ", lhs)
-    println("  Sense:       ", sense(con))
-    println("  con.lb/ub:   ", con.lb, "  ", con.ub)
-    println("  new con:  ", new_con)
-    println("END DEBUG   :debug_printcut")
 end

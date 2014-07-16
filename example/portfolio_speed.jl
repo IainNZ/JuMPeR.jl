@@ -3,10 +3,10 @@
 # Julia for Mathematical Programming - extension for Robust Optimization
 # See http://github.com/IainNZ/JuMPeR.jl
 #############################################################################
-# portfolio.jl
-# Use the CovarOracle defined in oracle_covar.jl to solve an asset
-# allocation problem. Solves for multiple values of Γ and shows the
-# distribution of returns of the optimal portfolio for each value.
+# portfolio_speed.jl
+# A counter-part to the portfolio.jl example. Compares the speed difference
+# between a dedicated oracle (CovarOracle) and the general oracle that uses
+# Gurobi to solve the cutting plane problem
 #############################################################################
 
 using JuMPeR
@@ -14,7 +14,7 @@ using Distributions
 using Gurobi
 include("oracle_covar.jl")
 
-const NUM_ASSET = 10
+const NUM_ASSET = 20
 
 # Seed the RNG for reproducibilities sake
 srand(10)
@@ -59,12 +59,9 @@ end
 #         xi ≥ 0
 #   where R is CovarOracle's set, an ellipse centered on the mean return
 #         and tilted using the covariance of the returns
-function solve_portfolio(past_returns, Γ)
+function solve_portfolio(past_returns, Γ, oracle_choice, report_time)
     # Setup the robust optimization model
     m = RobustModel(solver=GurobiSolver(OutputFlag=0))
-
-    # Create the CovarOracle
-    setDefaultOracle!(m, CovarOracle(past_returns, Γ))
 
     # Variables
     @defVar(m, obj)  # Put objective as constraint (epigraph form)
@@ -81,11 +78,26 @@ function solve_portfolio(past_returns, Γ)
     # The objective constraint - uncertain
     addConstraint(m, obj - dot(r, x) <= 0)
 
-    # Solve it, report statistics on number of cutting planes etc.
-    #println("Solving model for Γ=$Γ")
-    #solveRobust(m, report=true)
-    #println("Objective value: ", getValue(obj))
-    solveRobust(m)
+    if oracle_choice == :CovarOracle
+        # Create the CovarOracle
+        setDefaultOracle!(m, CovarOracle(past_returns, Γ))
+    elseif oracle_choice == :GeneralOracleCut ||
+           oracle_choice == :GeneralOracleReform
+        # Setup the uncertainty set manually
+        μ = vec(mean(past_returns, 1))
+        S = cov(past_returns)
+        A = chol(S)
+        @defUnc(m, z[1:NUM_ASSET])
+        for i = 1:NUM_ASSET
+            addConstraint(m, r[i] == sum([A[i,j]*z[j] for j=1:NUM_ASSET]) + μ[i])
+        end
+        addEllipseConstraint(m, [z[i] for i=1:NUM_ASSET], Γ)
+    end
+
+    # Solve it
+    solveRobust(m,  prefer_cuts = (oracle_choice == :GeneralOracleCut),
+                    report      = report_time,
+                    cut_tol     = 1e-5)
 
     return getValue(x), getValue(obj)
 end
@@ -93,29 +105,36 @@ end
 
 #############################################################################
 # simulate
-# Generate some past returns, then obtain portfolios for different values
-# of Γ to see the effect of robustness on the distribution of returns
+# Generate some past returns, then solve the portfolio problem using first
+# a dedicated oracle, then the general oracle included in JuMPeR (with a
+# warm-up run first to remove transient effects). The results show that
+# the reformulation using the GeneralOracle is best in this case, followed
+# by the CovarOracle's cutting planes and finally the GeneralOracle's
+# cutting planes.
 function simulate(num_past, num_future)
     # Generate the simulated data
     past_returns   = generate_data(num_past)
-    future_returns = generate_data(num_future)
+    
+    # Set the conservatism level
+    Γ = 3.0
 
-    # Print table header
-    println("   Γ|   Min|   10%|   20%|  Mean|   Max")
-    for Γ in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
-        # Solve for portfolio
-        x, obj = solve_portfolio(past_returns, Γ)
-        # Evaluate portfolio returns in future
-        future_z = future_returns*x[:]
-        sort!(future_z)
-        min_z    = future_z[1]*100
-        ten_z    = future_z[int(num_future*0.1)]*100
-        twenty_z = future_z[int(num_future*0.2)]*100
-        mean_z   = mean(future_z)*100
-        max_z    = future_z[end]*100
-        @printf(" %3.1f| %5.1f| %5.1f| %5.1f| %5.1f| %5.1f\n",
-                    Γ, min_z, ten_z, twenty_z, mean_z, max_z)
-    end
+    # Warmup runs
+    x, obj = solve_portfolio(past_returns, Γ, :CovarOracle, false)
+    x, obj = solve_portfolio(past_returns, Γ, :GeneralOracleCut, false)
+    x, obj = solve_portfolio(past_returns, Γ, :GeneralOracleReform, false)
+
+    # Solve with CovarOracle
+    println("== CovarOracle          ====================")
+    x, obj = solve_portfolio(past_returns, Γ, :CovarOracle, true)
+    println("Objective value: ", obj)
+
+    # Solve with GeneralOracle
+    println("== GeneralOracle-Cuts   ====================")
+    x, obj = solve_portfolio(past_returns, Γ, :GeneralOracleCut, true)
+    println("Objective value: ", obj)
+    println("== GeneralOracle-Reform ====================")
+    x, obj = solve_portfolio(past_returns, Γ, :GeneralOracleReform, true)
+    println("Objective value: ", obj)
 end
 
 simulate(1000, 1000)

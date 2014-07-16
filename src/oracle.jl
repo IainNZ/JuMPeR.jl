@@ -19,31 +19,33 @@ abstract AbstractOracle
 
 # registerConstraint
 # Notifies the oracle that it is responsible for this constraint, and 
-# passes any preferences provided via the solve command. Returns a dictionary
-# where the keys are the symbols :Cut, :Reform, and :Sample and the values
-# are true or false, where true indicates the oracle has selected these
-# operations for this constraint. (not currently used)
-registerConstraint(w::AbstractOracle, con, ind::Int, prefs) = error("Not implemented!")
+# passes any preferences provided via the solveRobust() command.
+registerConstraint(ab::AbstractOracle, rm::Model, ind::Int, prefs) = 
+    error("$(typeof(ab)) hasn't implemented registerConstraint")
 
 # setup
 # Gives oracle time to do any setup it needs to do. Called after all
 # constraints have been registered. Examples of work that could be done here
 # include transforming the uncertainty set and generating a cutting plane
-# model. May be called multiple times - this should be handled by the oracle
-setup(w::AbstractOracle, rm::Model) = error("Not implemented")
-
-# generateCut
-# Called in the main loop every iteration. m is the actual current model, aka
-# the master model, that will have the current solution and to which 
-# constraints should be added. Returns number of cuts added.
-# cb is nothing iff problem contains no integer variables, will be the
-# callback handle otherwise. If provided, should be used to add lazy 
-# constraints instead of normal constraints.
-generateCut(w::AbstractOracle, rm::Model, ind::Int, m::Model, cb) = error("Not implemented")
+# model. Will NOT be called multiple times.
+setup(ab::AbstractOracle, rm::Model, prefs) = 
+    error("$(typeof(ab)) hasn't implemented setup")
 
 # generateReform
-# Called before the main loop, adds anything it wants to the model
-generateReform(w::AbstractOracle, rm::Model, ind::Int, m::Model) = error("Not implemented")
+# Called before the main loop, adds anything it wants to the model. Returns
+# number of constraints reformulated.
+generateReform(ab::AbstractOracle, master::Model, rm::Model, inds::Vector{Int}) =
+    error("$(typeof(ab)) hasn't implemented generateReform")
+
+# generateCut
+# Called in the main loop every iteration/every time an integer solution is
+# found. Returns a vector of constraints which are added to the problem by
+# the main solve loop.
+# The optional "active" argument will be called if the user wants to know
+# the active scenarios at optimality.
+generateCut(ab::AbstractOracle, master::Model, rm::Model, inds::Vector{Int}, active=false) =
+    error("$(typeof(ab)) hasn't implemented generateCut")
+
 
 export AbstractOracle
 export registerConstraint, setup, generateCut, generateReform
@@ -54,7 +56,13 @@ function setDefaultOracle!(rm, w::AbstractOracle)
 end
 
 #############################################################################
-# Helper functions that can be shared by all oracles
+# Utility functions that can be shared by all oracles
+
+# get_uncertain_constraint
+# Given a RobustModel and a constraint index, returns the uncertain
+# constraint for that index
+get_uncertain_constraint(rm::Model, ind::Int) =
+    getRobust(rm).uncertainconstr[ind]
 
 # build_certain_constraint
 # Takes an uncertain constraint (unc_con) that we are making certain by
@@ -96,6 +104,49 @@ end
 
 # build_cut_objective
 # Takes an uncertain constraint (unc_con) and a master solution (x_val)
+# and returns the coefficients for each uncertainty, as
+# well as the objective sense and the constant term of the objective
+# of the cutting plane problem that arises from variables that do not have
+# uncertain coefficients.
+# For example, for input:
+#     unc_con = (3*u[1] + 2.0) * x[1] + (  u[2] - 1.0) * x[2] +
+#               (u[1] +  u[3]) * x[3] + (u[3] +2*u[4]) * x[4] <= 5.0 + u[5]
+#     x_val   = [2.0, 3.0, 4.0, 5.0]
+# returns
+#     :Max, [], 1.0
+# Constraint with build_cut_objective_sparse, which returns only
+# the coefficients that appear in the constraint
+function build_cut_objective(   rm::Model,
+                                unc_con::UncConstraint,
+                                x_val::Vector{Float64})
+    unc_coeffs = zeros(getNumUncs(rm))
+    unc_lhs    = unc_con.terms
+    lhs_const  = 0.0
+
+    # Uncertains attached to variables
+    for var_ind = 1:length(unc_lhs.vars)
+        uaff = unc_lhs.coeffs[var_ind]
+        col  = unc_lhs.vars[var_ind].col
+        for unc_ind = 1:length(uaff.vars)
+            unc = uaff.vars[unc_ind].unc
+            unc_coeffs[unc] += uaff.coeffs[unc_ind] * x_val[col]
+        end
+        lhs_const += uaff.constant * x_val[col]
+    end
+    # Uncertains not attached to variables
+        uaff = unc_lhs.constant
+        for unc_ind = 1:length(uaff.vars)
+            unc = uaff.vars[unc_ind].unc
+            unc_coeffs[unc] += uaff.coeffs[unc_ind]
+        end
+
+    return (sense(unc_con) == :(<=) ? :Max : :Min), 
+                unc_coeffs, lhs_const
+end
+
+
+# build_cut_objective_sparse
+# Takes an uncertain constraint (unc_con) and a master solution (x_val)
 # and returns the coefficients for each uncertain in the cutting plane, as
 # well as the objective sense and the constant term of the objective
 # of the cutting plane problem that arises from variables that do not have
@@ -108,7 +159,7 @@ end
 #     :Max, [(5,-1.0),(4,10.0),(2,3.0),(3,9.0),(1,10.0)], 1.0
 # Note that exact order of coefficients is non-deterministic due to the
 # use of a dictionary internally.
-function build_cut_objective(   unc_con::UncConstraint,
+function build_cut_objective_sparse(   unc_con::UncConstraint,
                                 x_val::Vector{Float64})
     unc_coeffs = Dict{Int,Float64}()
     unc_lhs = unc_con.terms   
