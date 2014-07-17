@@ -73,10 +73,10 @@ function solve_portfolio(past_returns, Γ, oracle_choice, report_time)
     @setObjective(m, Max, obj)
 
     # Portfolio constraint
-    addConstraint(m, sum(x) == 1)
+    @addConstraint(m, sum(x) == 1)
 
     # The objective constraint - uncertain
-    addConstraint(m, obj - dot(r, x) <= 0)
+    @addConstraint(m, obj - dot(r, x) <= 0)
 
     if oracle_choice == :CovarOracle
         # Create the CovarOracle
@@ -89,7 +89,7 @@ function solve_portfolio(past_returns, Γ, oracle_choice, report_time)
         A = chol(S)
         @defUnc(m, z[1:NUM_ASSET])
         for i = 1:NUM_ASSET
-            addConstraint(m, r[i] == sum([A[i,j]*z[j] for j=1:NUM_ASSET]) + μ[i])
+            @addConstraint(m, r[i] == sum{A[i,j]*z[j], j=1:NUM_ASSET} + μ[i])
         end
         addEllipseConstraint(m, [z[i] for i=1:NUM_ASSET], Γ)
     end

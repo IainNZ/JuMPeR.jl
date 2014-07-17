@@ -134,7 +134,7 @@ function generateCut(bs::BertSimOracle, master::Model, rm::Model, inds::Vector{I
                                             (master_sol[col] >= 0 ? -1.0 : +1.0)
             unc_val[unc] += sign * bs.devs[unc]
         end
-        new_con = JuMPeR.build_certain_constraint(con, unc_val)
+        new_con = JuMPeR.build_certain_constraint(master, con, unc_val)
         push!(new_cons, new_con)
     end
 

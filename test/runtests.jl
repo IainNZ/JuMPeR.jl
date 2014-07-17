@@ -8,6 +8,7 @@ if Pkg.installed("Gurobi") != nothing
 end
 
 tests = [   "operators.jl",
+            "macro.jl",
             "polyhedral.jl",
             "bertsim.jl",
             "oracle.jl",

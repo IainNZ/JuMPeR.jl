@@ -99,3 +99,8 @@ macro defUnc(m, x, extra...)
     end
 end
 
+# Stuff to make JuMP macros work with Uncertains
+(*)(u::Uncertain) = u
+function addToExpression(aff::GenericAffExpr,c,x)
+    return aff + c*x
+end

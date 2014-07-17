@@ -62,7 +62,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
         # Create an LP that we'll use to solve the cut problem
         # Copy the uncertainty set from the original problem
         gen.cut_model = Model()
-        gen.cut_model.solver   = rd.cutsolver == nothing ? rm.solver : rd.cutsolver
+        gen.cut_model.solver   = isa(rd.cutsolver,JuMP.UnsetSolver) ? rm.solver : rd.cutsolver
         gen.cut_model.numCols  = rd.numUncs
         gen.cut_model.colNames = rd.uncNames
         gen.cut_model.colLower = rd.uncLower
@@ -255,9 +255,8 @@ function generateCut(gen::GeneralOracle, master::Model, rm::Model, inds::Vector{
         end
         
         # Create and add the new constraint
-        new_con = JuMPeR.build_certain_constraint(con, gen.cut_model.colVal)
+        new_con = JuMPeR.build_certain_constraint(master, con, gen.cut_model.colVal)
         gen.debug_printcut && debug_printcut(rm,master,gen,lhs_of_cut,con,new_con)
-        convert_model!(new_con, master)
         push!(new_cons, new_con)
     end
     

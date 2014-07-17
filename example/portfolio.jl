@@ -76,10 +76,10 @@ function solve_portfolio(past_returns, Γ)
     @setObjective(m, Max, obj)
 
     # Portfolio constraint
-    addConstraint(m, sum(x) == 1)
+    @addConstraint(m, sum(x) == 1)
 
     # The objective constraint - uncertain
-    addConstraint(m, obj - dot(r, x) <= 0)
+    @addConstraint(m, obj - dot(r, x) <= 0)
 
     # Solve it, report statistics on number of cutting planes etc.
     #println("Solving model for Γ=$Γ")
