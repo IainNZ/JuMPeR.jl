@@ -1,6 +1,6 @@
 using JuMPeR
 using Base.Test
-solver = nothing
+solver = JuMPeR.JuMP.UnsetSolver()
 if Pkg.installed("Gurobi") != nothing
     using Gurobi
     solver = GurobiSolver(OutputFlag=0)
@@ -8,6 +8,7 @@ if Pkg.installed("Gurobi") != nothing
 end
 
 tests = [   "operators.jl",
+            "macro.jl",
             "polyhedral.jl",
             "bertsim.jl",
             "oracle.jl",

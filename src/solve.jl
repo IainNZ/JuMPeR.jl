@@ -10,15 +10,7 @@
 
 const BOXSIZE = 1e6
 
-# Utility functions for 
-convert_model!(old_con::GenericRangeConstraint, new_m::Model) =
-    map((v)->(v.m = new_m), old_con.terms.vars)
-function convert_model!(old_obj::QuadExpr, new_m::Model)
-    map((v)->(v.m = new_m), old_obj.qvars1)
-    map((v)->(v.m = new_m), old_obj.qvars2)
-    map((v)->(v.m = new_m), old_obj.aff.vars)
-end
-
+# Utility functions for moving an expression to a new model
 copy_quad(old_quad::QuadExpr, new_vars) =
     QuadExpr(   Variable[new_vars[v.col] for v in old_quad.qvars1],
                 Variable[new_vars[v.col] for v in old_quad.qvars2],
@@ -78,7 +70,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
             !scen_satisfies_con(scen, con) && continue
             addConstraint(master, 
                 copy_linconstr(
-                    build_certain_constraint(con, scen_to_vec(scen)),
+                    build_certain_constraint(master, con, scen_to_vec(scen)),
                 mastervars))
         end
     end
@@ -148,7 +140,6 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
             for oracle in keys(oracle_to_cons)
                 cons_to_add = generateCut(oracle, master, rm, oracle_to_cons[oracle])
                 for new_con in cons_to_add
-                    convert_model!(new_con, master)
                     addLazyConstraint(cb, new_con)
                 end
                 cuts_added += length(cons_to_add)
@@ -183,7 +174,6 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
             for oracle in keys(oracle_to_cons)
                 cons_to_add = generateCut(oracle, master, rm, oracle_to_cons[oracle])
                 for new_con in cons_to_add
-                    convert_model!(new_con, master)
                     addConstraint(master, new_con)
                     cut_added = true
                 end
@@ -234,10 +224,6 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
         @printf("  Master solve   %12.5f\n", master_time)
         @printf("  Cut solve&add  %12.5f\n", cut_time)
         active_cuts && println("Active cut time: %12.5f\n", activecut_time)
-    end
-
-    for ind in 1:num_unccons
-        convert_model!(robdata.uncertainconstr[ind], rm)
     end
 
     # Return solve status

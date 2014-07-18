@@ -101,7 +101,7 @@ function JuMPeR.generateCut(cv::CovarOracle, master::Model, rm::Model, inds::Vec
 
         # Use a JuMPeR utility function to take our uncertain constraint
         # and create a deterministic constraint
-        new_con = JuMPeR.build_certain_constraint(con, u)
+        new_con = JuMPeR.build_certain_constraint(master, con, u)
 
         # Add to the list of constraints to return
         push!(new_cons, new_con)

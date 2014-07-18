@@ -86,7 +86,7 @@ RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
                             GeneralOracle(), {},
                             cutsolver,JuMPDict[],Any[])
 
-function RobustModel(;solver=nothing,cutsolver=nothing)
+function RobustModel(;solver=JuMP.UnsetSolver(),cutsolver=JuMP.UnsetSolver())
     m = Model(solver=solver)
     m.ext[:Robust] = RobustData(cutsolver)
     return m
@@ -180,6 +180,14 @@ UncConstraint(faff::FullAffExpr,x::Int,y::Float64) = UncConstraint(faff,float(x)
 UncConstraint(faff::FullAffExpr,x::Int,y::Int)     = UncConstraint(faff,float(x),float(y))
 function addConstraint(m::Model, c::UncConstraint, w=nothing)
     rd = getRobust(m)
+    # Handle the odd special case where there are actually no variables in
+    # the constraint - arises from use of macros
+    if length(c.terms.vars) == 0
+        # Pure uncertain
+        @assert w == nothing
+        return addConstraint(m, UncSetConstraint(c.terms.constant, c.lb, c.ub))
+    end
+    # Just a regular old constraint
     push!(rd.uncertainconstr,c)
     push!(rd.oracles, w)
     push!(rd.activecuts, {})

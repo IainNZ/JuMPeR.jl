@@ -68,11 +68,12 @@ get_uncertain_constraint(rm::Model, ind::Int) =
 # Takes an uncertain constraint (unc_con) that we are making certain by
 # replacing uncertainties with actual numbers (unc_val) - the values of all
 # uncertainties in the robust optimization problem
-function build_certain_constraint(  unc_con::UncConstraint, 
+function build_certain_constraint(  master::Model,
+                                    unc_con::UncConstraint, 
                                     unc_val::Vector{Float64} )
-    unc_lhs = unc_con.terms   
+    unc_lhs = unc_con.terms
     num_var = length(unc_lhs.vars)
-    new_lhs = AffExpr(unc_lhs.vars,
+    new_lhs = AffExpr([Variable(master,v.col) for v in unc_lhs.vars],
                       [unc_lhs.coeffs[i].constant for i in 1:num_var],
                       0.0)
     
@@ -95,11 +96,12 @@ function build_certain_constraint(  unc_con::UncConstraint,
                                      new_lhs >= unc_con.lb
 end
 
-function build_certain_constraint(  unc_con::UncConstraint, 
+function build_certain_constraint(  master::Model,
+                                    unc_con::UncConstraint, 
                                     unc_val_dict::JuMPDict{Float64} )
     length(unc_val_dict.indexsets) != 1 &&
         error("only JuMPDict with one dimension allowed. Manually convert to Vector{Float64}")
-    return build_certain_constraint(unc_con, vec(unc_val_dict.innerArray))
+    return build_certain_constraint(master, unc_con, vec(unc_val_dict.innerArray))
 end
 
 # build_cut_objective
