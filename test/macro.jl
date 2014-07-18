@@ -21,3 +21,6 @@ rm = RobustModel()
 
 @addConstraint(rm, u == sum{i*v[i], i=1:3})
 @test lastuc(rm) == "-3 v[3] - 2 v[2] - v[1] + u == 0"
+
+@addConstraint(rm, sum{i*(u+v[i])*(y[i]+x), i=1:2:5} <= 0)
+@test lastc(rm) == "(u + v[1]) y[1] + (u + v[1]) x + (3 u + 3 v[3]) y[3] + (3 u + 3 v[3]) x + (5 u + 5 v[5]) y[5] + (5 u + 5 v[5]) x <= 0"
