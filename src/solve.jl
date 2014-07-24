@@ -223,7 +223,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
         @printf("  Reformulation  %12.5f\n", reform_time)
         @printf("  Master solve   %12.5f\n", master_time)
         @printf("  Cut solve&add  %12.5f\n", cut_time)
-        active_cuts && println("Active cut time: %12.5f\n", activecut_time)
+        active_cuts && @printf("Active cut time: %12.5f\n", activecut_time)
     end
 
     # Return solve status
