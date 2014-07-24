@@ -11,6 +11,7 @@ import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
 import JuMP.string_intclamp
 import JuMP.JuMPDict, JuMP.@gendict
+import JuMP.@buildExpr
 importall JuMP
 
 import Base.dot, Base.sum, Base.push!, Base.print
@@ -41,7 +42,7 @@ export
 # Macros and support functions
     @addConstraint, @addConstraints, @defVar, 
     @defConstrRef, @setObjective, addToExpression,
-    @setNLObjective, @addNLConstraint, @gendict
+    @setNLObjective, @addNLConstraint, @gendict, @buildExpr
 
 
 #############################################################################
