@@ -266,9 +266,9 @@ end
 
 function debug_printcut(rm,m,w,lhs,con,new_con)
     println("BEGIN DEBUG :debug_printcut")
-    convert_model!(con, rm)
+    #convert_model!(con, rm)
     println("  Constraint:  ", con)
-    convert_model!(con, m)
+    #convert_model!(con, m)
     println("  Master sol:  ")
     for j in 1:length(m.colNames)
         println("    ", m.colNames[j], "  ", m.colVal[j])
