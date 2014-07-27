@@ -217,4 +217,5 @@ end
 #############################################################################
 # Default included oracles
 include("oracle_gen.jl")            # GeneralOracle
+include("oracle_gen_graph.jl")      # GeneralGraphOracle
 include("oracle_bertsim.jl")        # BertSimOracle
