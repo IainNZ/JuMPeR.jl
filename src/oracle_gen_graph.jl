@@ -49,7 +49,7 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
     # Analyze components
     gen.unc_to_comp, gen.con_to_comp = detect_components(rd.numUncs, rd.uncertaintyset)
     num_components = maximum(gen.unc_to_comp)
-    println("GeneralGraphOracle: $num_components components detected.")
+    gen.debug_printcut && println("GeneralGraphOracle: $num_components components detected.")
     comp_to_unc = [Int[] for c in 1:num_components]
     for i = 1:rd.numUncs
         push!(comp_to_unc[gen.unc_to_comp[i]], i)
