@@ -58,7 +58,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
     rd = getRobust(rm)
 
     # Cutting plane setup
-    if gen.use_cuts
+    if gen.use_cuts || prefs[:active_cuts]
         # Create an LP that we'll use to solve the cut problem
         # Copy the uncertainty set from the original problem
         gen.cut_model = Model()
@@ -95,10 +95,12 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
             end
             addConstraint(gen.cut_model, yty <= el_c.Gamma^2)
         end
-    
-    else
-        # Reformulation setup
+    end
+
+    if !gen.use_cuts
         #####################################################################
+        # Reformulation setup
+        #
         # We have 
         # - one new variable for every constraint in the uncertainty set
         # - one new variable for every term in each ellipse
@@ -224,7 +226,7 @@ end
 
 function generateCut(gen::GeneralOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)
     # If not doing cuts...
-    !gen.use_cuts && return {}
+    (!gen.use_cuts && !active) && return {}
 
     rd = getRobust(rm)
     master_sol = master.colVal

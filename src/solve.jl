@@ -30,6 +30,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
 
     # Pull out extra keyword arguments that we will pas through to oracles
     prefs = [name => value for (name,value) in kwargs]
+    prefs[:active_cuts] = active_cuts
 
     # If we are doing any printing, we will need variables names. This ensures
     # that the variable name vectors get filled up

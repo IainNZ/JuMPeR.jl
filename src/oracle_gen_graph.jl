@@ -14,6 +14,15 @@ type GeneralGraphOracle <: AbstractOracle
     comp_cut_model::Vector{Model}
     comp_cut_vars::Vector{Vector{Variable}}
     cut_tol::Float64
+    use_cuts::Bool
+
+    # Reformulation (see setup() for details)
+    comp_num_dualvar::Vector{Int}
+    comp_num_dualcon::Vector{Int}
+    comp_dual_A::Vector{Vector{Vector{(Int,Float64)}}}
+    comp_dual_objs::Vector{Vector{Float64}}
+    comp_dual_vartype::Vector{Vector{Symbol}}
+    comp_dual_contype::Vector{Vector{Symbol}}
 
     # Mappings from full set to components
     unc_to_comp::Vector{Int}
@@ -25,7 +34,9 @@ type GeneralGraphOracle <: AbstractOracle
 end
 # Default constructor
 GeneralGraphOracle() = 
-    GeneralGraphOracle( Model[], Vector{Variable}[], 0.0,
+    GeneralGraphOracle( Model[], Vector{Variable}[], 0.0, false,
+                        Int[], Int[], Vector{Vector{(Int,Float64)}}[], Vector{Float64}[],
+                        Vector{Symbol}[], Vector{Symbol}[],
                         Int[], Vector{Int}[], Int[],
                         false)
 
@@ -41,6 +52,7 @@ registerConstraint(gen::GeneralGraphOracle, rm::Model, ind::Int, prefs) = nothin
 function setup(gen::GeneralGraphOracle, rm::Model, prefs)
 
     # Extract preferences we care about
+    gen.use_cuts          = get(prefs, :prefer_cuts, false)
     gen.cut_tol           = get(prefs, :cut_tol, 1e-6)
     gen.debug_printcut    = get(prefs, :debug_printcut, false)
 
@@ -56,8 +68,139 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
     end
 
     # Cutting plane setup
-    for comp = 1:num_components
-        m = Model(solver=rd.cutsolver == nothing ? rm.solver : rd.cutsolver)
+    if gen.use_cuts || prefs[:active_cuts]
+        for comp = 1:num_components
+            m = Model(solver=rd.cutsolver == nothing ? rm.solver : rd.cutsolver)
+            unc_to_comp_unc = zeros(Int, rd.numUncs)
+            pos = 0
+            for i = 1:rd.numUncs
+                gen.unc_to_comp[i] != comp && continue
+                pos += 1
+                unc_to_comp_unc[i] = pos
+            end
+            m.numCols  = length(comp_to_unc[comp])
+            m.colNames = rd.uncNames[comp_to_unc[comp]]
+            m.colLower = rd.uncLower[comp_to_unc[comp]]
+            m.colUpper = rd.uncUpper[comp_to_unc[comp]]
+            m.colCat   = rd.uncCat  [comp_to_unc[comp]]
+            cut_vars   = [Variable(m, i) for i = 1:length(comp_to_unc[comp])]
+            # Polyhedral constraints only right now
+            for con_ind in 1:length(rd.uncertaintyset)
+                gen.con_to_comp[con_ind] != comp && continue
+                c = rd.uncertaintyset[con_ind]
+                newcon = LinearConstraint(AffExpr(), c.lb, c.ub)
+                newcon.terms.coeffs = c.terms.coeffs
+                newcon.terms.vars   = [cut_vars[unc_to_comp_unc[u.unc]] for u in c.terms.vars]
+                push!(m.linconstr, newcon)
+            end
+
+            push!(gen.unc_to_comp_unc, unc_to_comp_unc)
+            push!(gen.comp_cut_model, m)
+            push!(gen.comp_cut_vars, cut_vars)
+        end
+    end
+
+    # Reformulation setup
+    if true #!gen.use_cuts
+        for comp = 1:num_components
+            # Get constraints for this component
+            comp_uncset = {}
+            for ci = 1:length(rd.uncertaintyset)
+                if gen.con_to_comp[ci] == comp
+                    push!(comp_uncset, rd.uncertaintyset[ci])
+                end
+            end
+            # Get uncertains for this component
+            unc_to_comp_unc = zeros(Int, rd.numUncs)
+            pos = 0
+            for i = 1:rd.numUncs
+                gen.unc_to_comp[i] != comp && continue
+                pos += 1
+                unc_to_comp_unc[i] = pos
+            end
+
+            num_dualvar = length(comp_uncset)       # WAS: length(rd.uncertaintyset)
+            num_dualcon = pos                       # WAS: rd.numUncs
+            dual_A      = [(Int,Float64)[] for i = 1:num_dualcon]   # WAS: rd.numUncs
+            dual_objs   = zeros(num_dualvar)
+            dual_vartype = [:>= for i = 1:num_dualvar]
+            dual_contype = [:>= for i = 1:num_dualcon]
+
+            for uncset_i = 1:length(comp_uncset)    # WAS: length(rd.uncertaintyset)
+                lhs = comp_uncset[uncset_i].terms   # WAS: rd.uncertaintyset[uncset_i].terms
+                for unc_j = 1:length(lhs.vars)
+                    push!(dual_A[unc_to_comp_unc[lhs.vars[unc_j].unc]],  # WAS: [lhs.vars[unc_j].unc],
+                                (uncset_i, lhs.coeffs[unc_j]))
+                end
+                dual_objs[uncset_i]    = rhs(comp_uncset[uncset_i])
+                dual_vartype[uncset_i] = sense(comp_uncset[uncset_i])
+            end
+
+            for unc_i = 1:rd.numUncs
+                gen.unc_to_comp[unc_i] != comp && continue
+                # If it has a lower bound...
+                if rd.uncLower[unc_i] != -Inf
+                    num_dualvar += 1
+                    push!(dual_A[unc_to_comp_unc[unc_i]], (num_dualvar, 1.0))
+                    push!(dual_objs,     rd.uncLower[unc_i])
+                    push!(dual_vartype,  :(>=))
+                end
+                # If it has an upper bound
+                if rd.uncUpper[unc_i] != +Inf
+                    num_dualvar += 1
+                    push!(dual_A[unc_to_comp_unc[unc_i]], (num_dualvar, 1.0))
+                    push!(dual_objs,     rd.uncUpper[unc_i])
+                    push!(dual_vartype,  :(<=))
+                end
+                # Now we just treat the variable as being free
+                dual_contype[unc_to_comp_unc[unc_i]] = :(==)
+            end
+
+            #=println("BEGIN DEBUG :debug_printreform")
+            println("Component: ", comp)
+            println("Mapping: ", unc_to_comp_unc)
+            println("Num dual var ", num_dualvar)
+            println("Objective")
+            dump(dual_objs)
+            println("dual_A")
+            println(dual_A)
+            println("END DEBUG   :debug_printreform")=#
+
+            push!(gen.comp_num_dualvar  , num_dualvar   )
+            push!(gen.comp_num_dualcon  , num_dualcon   )
+            push!(gen.comp_dual_A       , dual_A        )
+            push!(gen.comp_dual_objs    , dual_objs     )
+            push!(gen.comp_dual_vartype , dual_vartype  )
+            push!(gen.comp_dual_contype , dual_contype  )
+        end # next component
+    end
+end
+
+
+function generateReform(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Vector{Int})
+    rd = getRobust(rm)
+    for con_ind in inds
+        con = get_uncertain_constraint(rm, con_ind)
+
+        # Pull out right component
+        comp = 0
+        unc_lhs = con.terms
+        for var_ind = 1:length(unc_lhs.vars)
+            uaff = unc_lhs.coeffs[var_ind]
+            for unc_ind = 1:length(uaff.vars)
+                comp = gen.unc_to_comp[uaff.vars[unc_ind].unc]
+                break
+            end
+        end
+        if comp == 0
+            uaff = unc_lhs.constant
+            for unc_ind = 1:length(uaff.vars)
+                comp = gen.unc_to_comp[uaff.vars[unc_ind].unc]
+                break
+            end
+        end
+
+        # Create mapping again
         unc_to_comp_unc = zeros(Int, rd.numUncs)
         pos = 0
         for i = 1:rd.numUncs
@@ -65,31 +208,91 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
             pos += 1
             unc_to_comp_unc[i] = pos
         end
-        m.numCols  = length(comp_to_unc[comp])
-        m.colNames = rd.uncNames[comp_to_unc[comp]]
-        m.colLower = rd.uncLower[comp_to_unc[comp]]
-        m.colUpper = rd.uncUpper[comp_to_unc[comp]]
-        m.colCat   = rd.uncCat  [comp_to_unc[comp]]
-        cut_vars   = [Variable(m, i) for i = 1:length(comp_to_unc[comp])]
-        # Polyhedral constraints only right now
-        for con_ind in 1:length(rd.uncertaintyset)
-            gen.con_to_comp[con_ind] != comp && continue
-            c = rd.uncertaintyset[con_ind]
-            newcon = LinearConstraint(AffExpr(), c.lb, c.ub)
-            newcon.terms.coeffs = c.terms.coeffs
-            newcon.terms.vars   = [cut_vars[unc_to_comp_unc[u.unc]] for u in c.terms.vars]
-            push!(m.linconstr, newcon)
+
+        num_dualvar = gen.comp_num_dualvar[comp]
+        num_dualcon = gen.comp_num_dualcon[comp]
+        dual_A      = gen.comp_dual_A[comp]
+        dual_objs   = gen.comp_dual_objs[comp]
+        dual_vartype= gen.comp_dual_vartype[comp]
+        dual_contype= gen.comp_dual_contype[comp]
+
+        dual_rhs    = [AffExpr() for i = 1:num_dualcon]
+        new_lhs     = AffExpr()
+        sign_flip   = sense(con) == :(<=) ? +1.0 : -1.0
+        new_rhs     = rhs(con) * sign_flip
+        orig_lhs    = con.terms
+
+        # Certain terms
+        num_lhs_terms = length(orig_lhs.vars)
+        for term_i = 1:num_lhs_terms
+            var_col = orig_lhs.vars[term_i].col
+            if orig_lhs.coeffs[term_i].constant != 0.0
+                push!(new_lhs,  orig_lhs.coeffs[term_i].constant * sign_flip,
+                                Variable(master, var_col) )
+            end
         end
 
-        push!(gen.unc_to_comp_unc, unc_to_comp_unc)
-        push!(gen.comp_cut_model, m)
-        push!(gen.comp_cut_vars, cut_vars)
+        # RHS from var coefficients
+        for term_i = 1:num_lhs_terms
+            var_col     = orig_lhs.vars[term_i].col
+            term_coeff  = orig_lhs.coeffs[term_i]
+            for coeff_term_j = 1:length(term_coeff.coeffs)
+                coeff = term_coeff.coeffs[coeff_term_j]
+                unc   = term_coeff.vars[coeff_term_j].unc
+                push!(dual_rhs[unc_to_comp_unc[unc]], 
+                                    coeff * sign_flip, 
+                                     Variable(master, var_col))
+            end
+        end
+        # From constant term
+            for const_term_j = 1:length(orig_lhs.constant.coeffs)
+                coeff = orig_lhs.constant.coeffs[const_term_j]
+                unc   = orig_lhs.constant.vars[const_term_j].unc
+                dual_rhs[unc_to_comp_unc[unc]].constant += coeff * sign_flip
+            end
+
+        # Make dual vars
+        dual_vars = Variable[]
+        for ind = 1:num_dualvar
+            var_name = "_µ$(con_ind)_$(ind)"
+            lbound = -Inf
+            ubound = +Inf
+            vt = dual_vartype[ind]
+            # Less-than and LHS of cone -->  v >= 0
+            if vt == :(<=) || vt == :Qlhs
+                lbound = 0
+            end
+            # Greater-than -->  v <= 0
+            if vt == :(>=)
+                ubound = 0
+            end
+            # Equality and RHS of cone -->  free
+            new_v = Variable(master,lbound,ubound,JuMP.CONTINUOUS,var_name)
+            push!(dual_vars, new_v)
+            push!(new_lhs, dual_objs[ind], new_v)
+        end
+
+
+        addConstraint(master, new_lhs <= new_rhs)
+
+        for unc = 1:num_dualcon
+            new_lhs = AffExpr()
+            # Add the linear constraint segment
+            for pair in dual_A[unc]
+                push!(new_lhs, pair[2], dual_vars[pair[1]])
+            end
+
+            dualtype = dual_contype[unc]
+            if     dualtype == :(==)
+                addConstraint(master, new_lhs == dual_rhs[unc])
+            elseif dualtype == :(<=)
+                addConstraint(master, new_lhs <= dual_rhs[unc])
+            else
+                addConstraint(master, new_lhs >= dual_rhs[unc])
+            end
+        end
     end
-end
-
-
-function generateReform(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Vector{Int})
-    return 0
+    return length(inds)
 end
 
 
