@@ -61,6 +61,7 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
     # Analyze components
     gen.unc_to_comp, gen.con_to_comp = detect_components(rd.numUncs, rd.uncertaintyset)
     num_components = maximum(gen.unc_to_comp)
+    @show num_components
     gen.debug_printcut && println("GeneralGraphOracle: $num_components components detected.")
     comp_to_unc = [Int[] for c in 1:num_components]
     for i = 1:rd.numUncs
@@ -101,7 +102,7 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
     end
 
     # Reformulation setup
-    if true #!gen.use_cuts
+    if !gen.use_cuts
         for comp = 1:num_components
             # Get constraints for this component
             comp_uncset = {}
@@ -178,6 +179,7 @@ end
 
 
 function generateReform(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Vector{Int})
+    gen.use_cuts && return 0
     rd = getRobust(rm)
     for con_ind in inds
         con = get_uncertain_constraint(rm, con_ind)
@@ -199,6 +201,7 @@ function generateReform(gen::GeneralGraphOracle, master::Model, rm::Model, inds:
                 break
             end
         end
+        #println("genReform $comp")
 
         # Create mapping again
         unc_to_comp_unc = zeros(Int, rd.numUncs)
@@ -297,6 +300,8 @@ end
 
 
 function generateCut(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)
+    # If not doing cuts...
+    (!gen.use_cuts && !active) && return {}
 
     rd = getRobust(rm)
     master_sol = master.colVal
