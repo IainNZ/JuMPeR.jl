@@ -226,6 +226,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
         @printf("  Cut solve&add  %12.5f (%6.2f%%)\n", cut_time, cut_time/total_time*100)
         active_cuts && @printf("Active cut time: %12.5f\n", activecut_time)
     end
+    robdata.solve_time = master_time + cut_time
 
     # Return solve status
     return master_status

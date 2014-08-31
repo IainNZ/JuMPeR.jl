@@ -11,7 +11,7 @@ import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
 import JuMP.string_intclamp
 import JuMP.JuMPDict, JuMP.@gendict
-import JuMP.@buildExpr
+#import JuMP.@buildExpr
 importall JuMP
 
 import Base.dot, Base.sum, Base.push!, Base.print
@@ -42,7 +42,7 @@ export
 # Macros and support functions
     @addConstraint, @addConstraints, @defVar, 
     @defConstrRef, @setObjective, addToExpression,
-    @setNLObjective, @addNLConstraint, @gendict, @buildExpr
+    @setNLObjective, @addNLConstraint, @gendict #, @buildExpr
 
 
 #############################################################################
@@ -80,12 +80,14 @@ type RobustData
 
     # Provided scenarios
     scenarios::Vector
+
+    solve_time::Float64
 end
 RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
                             0,String[],Float64[],Float64[],Int[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
                             GeneralOracle(), {},
-                            cutsolver,JuMPDict[],Any[])
+                            cutsolver,JuMPDict[],Any[],0.0)
 
 function RobustModel(;solver=JuMP.UnsetSolver(),cutsolver=JuMP.UnsetSolver())
     m = Model(solver=solver)
