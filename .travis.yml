@@ -16,6 +16,6 @@ before_install:
     - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 script:
     - julia -e 'Pkg.init(); Pkg.add("JuMP"); Pkg.checkout("JuMP")'
+    - julia -e 'Pkg.add("GLPKMathProgInterface")'
     - julia -e 'run(`ln -s $(pwd()) $(Pkg.dir("JuMPeR"))`)'
-    - julia -e 'for p in split(ENV["PKGADD"],";") Pkg.add(p) end'
     - julia ./test/runtests.jl
