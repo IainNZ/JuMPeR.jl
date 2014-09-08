@@ -61,7 +61,7 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
     # Analyze components
     gen.unc_to_comp, gen.con_to_comp = detect_components(rd.numUncs, rd.uncertaintyset)
     num_components = maximum(gen.unc_to_comp)
-    @show num_components
+    #@show num_components
     gen.debug_printcut && println("GeneralGraphOracle: $num_components components detected.")
     comp_to_unc = [Int[] for c in 1:num_components]
     for i = 1:rd.numUncs
@@ -270,7 +270,7 @@ function generateReform(gen::GeneralGraphOracle, master::Model, rm::Model, inds:
                 ubound = 0
             end
             # Equality and RHS of cone -->  free
-            new_v = Variable(master,lbound,ubound,JuMP.CONTINUOUS,var_name)
+            new_v = Variable(master,lbound,ubound,:Cont,var_name)
             push!(dual_vars, new_v)
             push!(new_lhs, dual_objs[ind], new_v)
         end

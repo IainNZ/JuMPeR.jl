@@ -84,7 +84,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
             num_terms, num_uncs = size(el_c.F)
             for term_ind = 1:num_terms
                 # Create new variable y_i
-                y   = Variable(gen.cut_model,-Inf,Inf,JuMP.CONTINUOUS,"_el_$term_ind")
+                y   = Variable(gen.cut_model,-Inf,Inf,:Cont,"_el_$term_ind")
                 Fug = AffExpr(Variable[gen.cut_vars[i] for i in el_c.u],
                               Float64[el_c.F[term_ind,i] for i in 1:num_uncs],
                               el_c.g[term_ind])
@@ -354,7 +354,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
         for coeff_term_j = 1:length(term_coeff.coeffs)
             coeff = term_coeff.coeffs[coeff_term_j]
             unc   = term_coeff.vars[coeff_term_j].unc
-            rd.uncCat[unc] != JuMP.CONTINUOUS && 
+            rd.uncCat[unc] != :Cont && 
                 error("No integer uncertainties allowed in reformulation!")
             push!(dual_rhs[unc], coeff * sign_flip, 
                                  Variable(master, var_col))
@@ -364,7 +364,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
         for const_term_j = 1:length(orig_lhs.constant.coeffs)
             coeff = orig_lhs.constant.coeffs[const_term_j]
             unc   = orig_lhs.constant.vars[const_term_j].unc
-            rd.uncCat[unc] != JuMP.CONTINUOUS && 
+            rd.uncCat[unc] != :Cont && 
                 error("No integer uncertainties allowed in reformulation!")
             dual_rhs[unc].constant += coeff * sign_flip
         end
@@ -389,7 +389,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
             ubound = 0
         end
         # Equality and RHS of cone -->  free
-        new_v = Variable(master,lbound,ubound,JuMP.CONTINUOUS,var_name)
+        new_v = Variable(master,lbound,ubound,:Cont,var_name)
         push!(dual_vars, new_v)
         push!(new_lhs, dual_objs[ind], new_v)
     end

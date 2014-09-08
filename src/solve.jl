@@ -62,7 +62,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
     num_unccons      = length(robdata.uncertainconstr)
 
     # If the problem is a MIP, we are going to have to do more work
-    is_mip = any(map(cat -> cat == JuMP.INTEGER, master.colCat))
+    is_mip = any(map(cat -> (cat in [:Int,:Bin]), master.colCat))
 
     # Add constraints based on the provided scenarios
     for scen in robdata.scenarios
