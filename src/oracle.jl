@@ -98,7 +98,7 @@ end
 
 function build_certain_constraint(  master::Model,
                                     unc_con::UncConstraint, 
-                                    unc_val_dict::JuMPDict{Float64} )
+                                    unc_val_dict::JuMP.JuMPContainer{Float64} )
     length(unc_val_dict.indexsets) != 1 &&
         error("only JuMPDict with one dimension allowed. Manually convert to Vector{Float64}")
     return build_certain_constraint(master, unc_con, vec(unc_val_dict.innerArray))

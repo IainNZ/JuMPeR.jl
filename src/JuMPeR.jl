@@ -87,7 +87,7 @@ RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
                             0,String[],Float64[],Float64[],Symbol[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
                             GeneralOracle(), {},
-                            cutsolver,JuMPDict[],Any[],0.0)
+                            cutsolver,{},{},0.0)
 
 function RobustModel(;solver=JuMP.UnsetSolver(),cutsolver=JuMP.UnsetSolver())
     m = Model(solver=solver)
