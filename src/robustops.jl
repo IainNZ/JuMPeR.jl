@@ -192,13 +192,13 @@ end
 #############################################################################
 
 # SUM
-sum(j::JuMPDict{Uncertain}) = UAffExpr(vec(j.innerArray), ones(length(j.innerArray)), 0.0)
-sum(j::Array{Uncertain}) = UAffExpr(vec(j), ones(length(j)), 0.0)
+Base.sum(j::JuMPDict{Uncertain}) = UAffExpr(vec(j.innerArray), ones(length(j.innerArray)), 0.0)
+Base.sum(j::Array{Uncertain}) = UAffExpr(vec(j), ones(length(j)), 0.0)
 # sum(j::Array{UAffExpr}) and sum(j::Array{FullAffExpr}) handled by 
 # GenericAffExpr code in JuMP
 
 # DOT
-function dot(lhs::JuMPDict{Variable}, rhs::JuMPDict{Uncertain})
+function Base.dot(lhs::JuMPDict{Variable}, rhs::JuMPDict{Uncertain})
     if length(rhs.indexsets) == 1
         # 1D JuMPDicts
         @assert length(lhs.indexsets) == 1
@@ -219,14 +219,14 @@ function dot(lhs::JuMPDict{Variable}, rhs::JuMPDict{Uncertain})
     end
     dot(lhs.innerArray,rhs.innerArray)
 end
-dot(lhs::JuMPDict{Uncertain},rhs::JuMPDict{Variable}) = dot(rhs,lhs)
+Base.dot(lhs::JuMPDict{Uncertain},rhs::JuMPDict{Variable}) = dot(rhs,lhs)
 
-dot{T<:Real}(lhs::Array{T}, rhs::Array{Uncertain}) = UAffExpr(vec(rhs), vec(float(lhs)), 0.0)
-dot{T<:Real}(rhs::Array{Uncertain}, lhs::Array{T}) = UAffExpr(vec(rhs), vec(float(lhs)), 0.0)
+Base.dot{T<:Real}(lhs::Array{T}, rhs::Array{Uncertain}) = UAffExpr(vec(rhs), vec(float(lhs)), 0.0)
+Base.dot{T<:Real}(rhs::Array{Uncertain}, lhs::Array{T}) = UAffExpr(vec(rhs), vec(float(lhs)), 0.0)
 
-dot(lhs::Array{Variable}, rhs::Array{Uncertain}) = 
+Base.dot(lhs::Array{Variable}, rhs::Array{Uncertain}) = 
   FullAffExpr(vec(lhs), [UAffExpr(r) for r in rhs], UAffExpr())
-dot(rhs::Array{Uncertain}, lhs::Array{Variable}) = dot(lhs,rhs)
+Base.dot(rhs::Array{Uncertain}, lhs::Array{Variable}) = dot(lhs,rhs)
 
-dot(lhs::Array{Variable}, rhs::Array{UAffExpr}) = FullAffExpr(vec(lhs), vec(rhs), UAffExpr())
-dot(rhs::Array{UAffExpr}, lhs::Array{Variable}) = dot(lhs,rhs)
+Base.dot(lhs::Array{Variable}, rhs::Array{UAffExpr}) = FullAffExpr(vec(lhs), vec(rhs), UAffExpr())
+Base.dot(rhs::Array{UAffExpr}, lhs::Array{Variable}) = dot(lhs,rhs)

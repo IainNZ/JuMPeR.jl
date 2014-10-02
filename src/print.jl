@@ -68,14 +68,9 @@ end
 #############################################################################
 
 function affToStr(a::UAffExpr, showConstant=true)
-    const ZEROTOL = 1e-20
-
+    # If the expression is empty, return the constant (or 0)
     if length(a.vars) == 0
-        if showConstant
-            return string_intclamp(a.constant)
-        else
-            return "0"
-        end
+        return showConstant ? str_round(a.constant) : "0"
     end
 
     # Get reference to robust part of model
@@ -89,59 +84,34 @@ function affToStr(a::UAffExpr, showConstant=true)
     end
 
     # Stringify the terms
-    elm = 0
-    termStrings = Array(UTF8String, 2*length(a.vars))
+    elm = 1
+    term_str = Array(UTF8String, 2*length(a.vars))
     for i in 1:indvec.nnz
         idx = indvec.nzidx[i]
-        if abs(abs(indvec.elts[idx])-1) <= ZEROTOL
-            if elm == 0
-                elm += 1
-                if indvec.elts[idx] < 0
-                    termStrings[1] = "-$(robdata.uncNames[idx])"
-                else
-                    termStrings[1] = "$(robdata.uncNames[idx])"
-                end
-            else 
-                if indvec.elts[idx] < 0
-                    termStrings[2*elm] = " - "
-                else
-                    termStrings[2*elm] = " + "
-                end
-                termStrings[2*elm+1] = "$(robdata.uncNames[idx])"
-                elm += 1
-            end
-        elseif abs(indvec.elts[idx]) >= ZEROTOL
-            if elm == 0
-                elm += 1
-                termStrings[1] = "$(string_intclamp(indvec.elts[idx])) $(robdata.uncNames[idx])"
-            else 
-                if indvec.elts[idx] < 0
-                    termStrings[2*elm] = " - "
-                else
-                    termStrings[2*elm] = " + "
-                end
-                termStrings[2*elm+1] = "$(string_intclamp(abs(indvec.elts[idx]))) $(robdata.uncNames[idx])"
-                elm += 1
-            end
-        end
-    end
-    
+        elt = indvec.elts[idx]
+        abs(elt) < JuMP.PRINT_ZERO_TOL && continue  # e.g. x - x
 
-    if elm == 0
-        ret = "0"
+        pre = abs(abs(elt)-1) < JuMP.PRINT_ZERO_TOL ? "" : str_round(abs(elt)) * " "
+        var = robdata.uncNames[idx]
+
+        term_str[2*elm-1] = elt < 0 ? " - " : " + "
+        term_str[2*elm  ] = "$pre$var"
+        elm += 1
+    end
+        
+    if elm == 1
+        # Will happen with cancellation of all terms
+        # We should just return the constant, if its desired
+        return showConstant ? str_round(a.constant) : "0"
     else
-        # And then connect them up with +s
-        ret = join(termStrings[1:(2*elm-1)])
-    end
-
-    if abs(a.constant) >= 0.000001 && showConstant
-        if a.constant < 0
-            ret = string(ret, " - ", string_intclamp(abs(a.constant)))
-        else
-            ret = string(ret, " + ", string_intclamp(a.constant))
+        # Correction for very first term - don't want a " + "/" - "
+        term_str[1] = (term_str[1] == " - ") ? "-" : ""
+        ret = join(term_str[1:2*(elm-1)])
+        if abs(a.constant) >= JuMP.PRINT_ZERO_TOL && showConstant
+            ret = string(ret, a.constant < 0 ? " - " : " + ", str_round(abs(a.constant)))
         end
+        return ret
     end
-    return ret
 end
 
 #############################################################################
@@ -187,10 +157,10 @@ function affToStr(a::FullAffExpr, showConstant=true)
                 # Constant is other than 0, +1, -1 
                 if first
                     sign = uaff.constant < 0 ? "-" : ""
-                    termStrings[numTerms] = "$sign$(string_intclamp(abs(uaff.constant))) $varn"
+                    termStrings[numTerms] = "$sign$(str_round(abs(uaff.constant))) $varn"
                 else
                     sign = uaff.constant < 0 ? "-" : "+"
-                    termStrings[numTerms] = " $sign $(string_intclamp(abs(uaff.constant))) $varn"
+                    termStrings[numTerms] = " $sign $(str_round(abs(uaff.constant))) $varn"
                 end
             end
         # Coefficient expression is a single uncertainty

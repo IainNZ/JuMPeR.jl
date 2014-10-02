@@ -2,6 +2,7 @@ using JuMPeR
 using Base.Test
 
 # build_cut_objective
+# build_cut_objective_sparse
 # build_certain_constraint
 # is_constraint_violated
 let
@@ -43,7 +44,7 @@ let
     # -------------------
     unc_val = [1.0, 2.0, 3.0, 4.0, 5.0]
     new_con = JuMPeR.build_certain_constraint(rm, unc_con, unc_val)
-    @test conToStr(new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] <= 10"
+    @test conToStr(new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
 
     # Bit of a hack to test build from JuMPDict
     inner_m = Model()
@@ -51,7 +52,7 @@ let
     @setObjective(inner_m, Max, sum(inner_u))
     solve(inner_m)
     new_con = JuMPeR.build_certain_constraint(rm, unc_con, getValue(inner_u))
-    @test conToStr(new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] <= 10"
+    @test conToStr(new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
 
     # -------------------
     lhs_val = dot([5,1,4,11],[2,3,4,5])

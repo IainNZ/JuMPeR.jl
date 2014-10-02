@@ -6,15 +6,13 @@
 
 module JuMPeR
 
+# Bring all of JuMP into local namespace
+importall JuMP  # Explicitly exported names
 import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
 import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
-import JuMP.string_intclamp
+import JuMP.str_round
 import JuMP.JuMPDict, JuMP.@gendict
-#import JuMP.@buildExpr
-importall JuMP
-
-import Base.dot, Base.sum, Base.push!, Base.print
 
 export RobustModel, getNumUncs, solveRobust, printRobust
 export setDefaultOracle!
@@ -25,14 +23,14 @@ export UncConstraint, UncSetConstraint
 # JuMP rexports
 export
 # Objects
-    Model, Variable, AffExpr, QuadExpr, LinearConstraint, QuadConstraint, MultivarDict,
-    ConstraintRef,
+    Model, Variable, AffExpr, QuadExpr, LinearConstraint, QuadConstraint,
+    ConstraintRef, LinConstrRef,
 # Functions
     # Model related
     getNumVars, getNumConstraints, getObjectiveValue, getObjective,
     getObjectiveSense, setObjectiveSense, writeLP, writeMPS, setObjective,
     addConstraint, addSOS1, addSOS2, solve,
-    getInternalModel, setPresolve, buildInternalModel,
+    getInternalModel, buildInternalModel,
     # Variable
     setName, getName, setLower, setUpper, getLower, getUpper,
     getValue, setValue, getDual,
@@ -41,8 +39,8 @@ export
     
 # Macros and support functions
     @addConstraint, @addConstraints, @defVar, 
-    @defConstrRef, @setObjective, addToExpression,
-    @setNLObjective, @addNLConstraint, @gendict #, @buildExpr
+    @defConstrRef, @setObjective, addToExpression, @defExpr, 
+    @setNLObjective, @addNLConstraint
 
 
 #############################################################################
@@ -161,7 +159,7 @@ typealias FullAffExpr GenericAffExpr{UAffExpr,Variable}
 FullAffExpr() = FullAffExpr(Variable[], UAffExpr[], UAffExpr())
 Base.zero(a::Type{FullAffExpr}) = FullAffExpr()
 Base.zero(a::FullAffExpr) = zero(typeof(a))
-function push!(faff::FullAffExpr, new_coeff::Real, new_var::Variable)
+function Base.push!(faff::FullAffExpr, new_coeff::Real, new_var::Variable)
     push!(faff.vars, new_var)
     push!(faff.coeffs, UAffExpr(new_coeff))
 end
