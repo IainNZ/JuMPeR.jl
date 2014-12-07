@@ -1,5 +1,7 @@
 using JuMPeR
-using Base.Test
+using FactCheck, Base.Test
+
+facts("[operators] Robust operator tests") do
 
 m = RobustModel()
 @defVar(m, w)
@@ -8,38 +10,40 @@ m = RobustModel()
 @defVar(m, z)
 
 aff = 7.1 * x + 2.5
-@test affToStr(aff) == "7.1 x + 2.5"
+@fact affToStr(aff) => "7.1 x + 2.5"
 
 aff2 = 1.2 * y + 1.2
-@test affToStr(aff2) == "1.2 y + 1.2"
+@fact affToStr(aff2) => "1.2 y + 1.2"
 
 a = Uncertain(m, 2.0, 3.0, :Cont, "a")
 b = Uncertain(m, 5.0, 6.0, :Cont, "b")
 
 uaff = 2.3 * a + 5.5
-@test affToStr(uaff) == "2.3 a + 5.5"
+@fact affToStr(uaff) => "2.3 a + 5.5"
 uaff2 = 3.4 * b + 1.1
-@test affToStr(uaff2) == "3.4 b + 1.1"
+@fact affToStr(uaff2) => "3.4 b + 1.1"
 
 faff = FullAffExpr([x],[UAffExpr([a],[5.],1.)],UAffExpr([b],[2.],3.))
-@test affToStr(faff) == "(5 a + 1) x + 2 b + 3"
+@fact affToStr(faff) => "(5 a + 1) x + 2 b + 3"
 
-# 1. Number tests
+
+context("Number--... tests") do
 # Number--Uncertain
-@test affToStr(4.13 + a) == "a + 4.13"
-@test affToStr(3.16 - a) == "-a + 3.16"
-@test affToStr(5.23 * a) == "5.23 a"
-@test_throws ErrorException 2.94 / a
+@fact affToStr(4.13 + a) => "a + 4.13"
+@fact affToStr(3.16 - a) => "-a + 3.16"
+@fact affToStr(5.23 * a) => "5.23 a"
+@fact_throws 2.94 / a
 # Number--UAffExpr
-@test affToStr(2.3 + uaff) == "2.3 a + 7.8"
-@test affToStr(1.5 - uaff) == "-2.3 a - 4"
-@test affToStr(2.0 * uaff) == "4.6 a + 11"
-@test_throws ErrorException 2.94 / uaff
+@fact affToStr(2.3 + uaff) => "2.3 a + 7.8"
+@fact affToStr(1.5 - uaff) => "-2.3 a - 4"
+@fact affToStr(2.0 * uaff) => "4.6 a + 11"
+@fact_throws 2.94 / uaff
 # Number--FullAffExpr
-@test affToStr(2.3 + faff) == "(5 a + 1) x + 2 b + 5.3"
-@test affToStr(1.0 - faff) == "(-5 a - 1) x + -2 b - 2"
-@test affToStr(2.0 * faff) == "(10 a + 2) x + 4 b + 6"
-@test_throws ErrorException 2.94 / faff
+@fact affToStr(2.3 + faff) => "(5 a + 1) x + 2 b + 5.3"
+@fact affToStr(1.0 - faff) => "(-5 a - 1) x + -2 b - 2"
+@fact affToStr(2.0 * faff) => "(10 a + 2) x + 4 b + 6"
+@fact_throws 2.94 / faff
+end
 
 # 2. Variable test
 # Variable--Uncertain
@@ -171,11 +175,22 @@ faff = FullAffExpr([x],[UAffExpr([a],[5.],1.)],UAffExpr([b],[2.],3.))
 @test_throws ErrorException faff * faff
 @test_throws ErrorException faff / faff
 
+
+
 # Expression operations
 push!(faff, 1, z)
 
+end
+
+
 # Higher level
 m2 = RobustModel()
+@defVar(m2, w)
+@defVar(m2, x)
+@defVar(m2, y)
+@defVar(m2, z)
+a = Uncertain(m2, 2.0, 3.0, :Cont, "a")
+b = Uncertain(m2, 5.0, 6.0, :Cont, "b")
 @defUnc(m2, udict[1:3])
 setName(udict[1], "a")
 setName(udict[2], "b")
