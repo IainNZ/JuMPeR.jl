@@ -1,5 +1,7 @@
 using JuMPeR
 using Base.Test
+
+# Use Gurobi it at all possible
 solver = JuMPeR.JuMP.UnsetSolver()
 if Pkg.installed("Gurobi") != nothing
     using Gurobi
@@ -9,13 +11,14 @@ end
 
 tests = [   "operators.jl",
             #"macro.jl",
-            "polyhedral.jl",
-            "bertsim.jl",
-            "oracle.jl",
-            "ellipse.jl",
-            "scenario.jl",
-            "resolve.jl",
-            "graph.jl"]
+            #"polyhedral.jl",
+            #"bertsim.jl",
+            #"oracle.jl",
+            #"ellipse.jl",
+            #"scenario.jl",
+            #"resolve.jl",
+            #"graph.jl"]
+        ]
 
 println("Running tests...")
 for curtest in tests
