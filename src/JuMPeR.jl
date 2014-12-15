@@ -223,3 +223,9 @@ include("graph.jl")
 #############################################################################
 end  # module
 #############################################################################
+
+#VG Talk to Iain about this
+#Doesn't feel like best way
+# Adding the DDUS stuff
+include("../contrib/DDUS/ddusets.jl")
+
