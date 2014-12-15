@@ -18,6 +18,7 @@ For the most part, our implementations closely follow the descriptions in the pa
 Each of our constructions are suitable to be used with JuMPeR as *cutting plane* oracles.  Reformulation may be supported in the future based on need.  A typical invocation might be:
 
 ```julia
+using JuMPeR, DDUSets
 dd_oracle = UCSOracle(data, epsilon, alpha)
 
 m = RobustModel()
