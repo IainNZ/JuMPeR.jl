@@ -192,41 +192,17 @@ end
 #############################################################################
 
 # SUM
-Base.sum(j::JuMPDict{Uncertain}) = UAffExpr(vec(j.innerArray), ones(length(j.innerArray)), 0.0)
-Base.sum(j::Array{Uncertain}) = UAffExpr(vec(j), ones(length(j)), 0.0)
-# sum(j::Array{UAffExpr}) and sum(j::Array{FullAffExpr}) handled by 
-# GenericAffExpr code in JuMP
+# Neither is strictly needed, but more efficient than fallbacks in JuMP
+Base.sum(j::JuMPArray{Uncertain}) = UAffExpr(vec(j.innerArray), ones(length(j.innerArray)), 0.0)
+Base.sum(j::JuMPDict{Uncertain})  = UAffExpr(vec(values(j.tupledict)), ones(length(j.tupledict)), 0.0)
+
 
 # DOT
-function Base.dot(lhs::JuMPDict{Variable}, rhs::JuMPDict{Uncertain})
-    if length(rhs.indexsets) == 1
-        # 1D JuMPDicts
-        @assert length(lhs.indexsets) == 1
-        @assert length(lhs.indexsets[1]) == length(rhs.indexsets[1])
-    elseif length(rhs.indexsets) == 2
-        # 2D JuMPDicts
-        @assert length(lhs.indexsets) == 2
-        @assert length(lhs.indexsets[1]) == length(rhs.indexsets[1]) &&
-                length(lhs.indexsets[2]) == length(rhs.indexsets[2])
-    elseif length(rhs.indexsets) == 3
-        #3D JuMPDicts
-        @assert length(lhs.indexsets) == 3
-        @assert length(lhs.indexsets[1]) == length(rhs.indexsets[1]) &&
-                length(lhs.indexsets[2]) == length(rhs.indexsets[2]) &&
-                length(lhs.indexsets[3]) == length(rhs.indexsets[3])
-    else
-        error("Dot products of matrices higher than 3D not supported.")
-    end
-    dot(lhs.innerArray,rhs.innerArray)
+function Base.dot(lhs::JuMPArray{Variable},rhs::JuMPArray{Uncertain})
+    size(lhs.innerArray) == size(rhs.innerArray) || error("Incompatible dimensions")
+    FullAffExpr(vec(lhs.innerArray), [1*u for u in rhs.innerArray], UAffExpr())
 end
-Base.dot(lhs::JuMPDict{Uncertain},rhs::JuMPDict{Variable}) = dot(rhs,lhs)
+Base.dot(lhs::JuMPArray{Uncertain},rhs::JuMPArray{Variable}) = dot(rhs,lhs)
 
 Base.dot{T<:Real}(lhs::Array{T}, rhs::Array{Uncertain}) = UAffExpr(vec(rhs), vec(float(lhs)), 0.0)
 Base.dot{T<:Real}(rhs::Array{Uncertain}, lhs::Array{T}) = UAffExpr(vec(rhs), vec(float(lhs)), 0.0)
-
-Base.dot(lhs::Array{Variable}, rhs::Array{Uncertain}) = 
-  FullAffExpr(vec(lhs), [UAffExpr(r) for r in rhs], UAffExpr())
-Base.dot(rhs::Array{Uncertain}, lhs::Array{Variable}) = dot(lhs,rhs)
-
-Base.dot(lhs::Array{Variable}, rhs::Array{UAffExpr}) = FullAffExpr(vec(lhs), vec(rhs), UAffExpr())
-Base.dot(rhs::Array{UAffExpr}, lhs::Array{Variable}) = dot(lhs,rhs)

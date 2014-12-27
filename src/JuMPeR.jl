@@ -12,7 +12,7 @@ import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
 import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
 import JuMP.str_round
-import JuMP.JuMPDict, JuMP.@gendict
+import JuMP.JuMPDict, JuMP.JuMPArray, JuMP.@gendict
 
 export RobustModel, getNumUncs, solveRobust, printRobust
 export setDefaultOracle!
