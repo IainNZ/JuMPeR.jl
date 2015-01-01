@@ -77,8 +77,10 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
     end
 
     # Put box around original solution. Really should be doing something
-    # smarter, only need this to deal with an unbounded initial solution.
-    # Alternatively, relax this later in solve process
+    # smarter, only need this to deal with an unbounded initial solution
+    # in the cutting plane process.
+    # TODO: relax this later in solve process
+    # TODO: even better, eliminate
     map!(v -> v == -Inf ? -BOXSIZE : v, master.colLower)
     map!(v -> v ==  Inf ?  BOXSIZE : v, master.colUpper)
 

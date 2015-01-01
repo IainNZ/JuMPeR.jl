@@ -3,57 +3,40 @@
 # Julia for Mathematical Programming - extension for Robust Optimization
 # See http://github.com/IainNZ/JuMPeR.jl
 #############################################################################
-
+# print.jl
+# All "pretty printers" for JuMPeR types.
 #############################################################################
-#### Robust model-specific printing
-#############################################################################
 
-# checkNameStatus
-# [Not exported] Initially uncertains defined as indexed with @defUnc do not
-# have names because generating them is relatively slow compared to just
-# creating the uncertain. We lazily generate them only when someone requires
-# them. This function checks if we have done that already, and if not,
-# generates them
-function checkUncNameStatus(rm::Model)
-    rd = getRobust(rm)
-    for i in 1:rd.numUncs
-        if rd.uncNames[i] == ""
-            fillUncNames(rm)
-            return
-        end
-    end
-end
+import JuMP.REPLMode
+import JuMP.IJuliaMode
+import JuMP.PRINT_ZERO_TOL
+import JuMP.DIMS
+import JuMP.str_round
 
-# fillUncNames
-# Go through every unc JuMPDict and create names for the uncertainties
-# that go with every dictionary.
-function fillUncNames(rm::Model)
-    rd = getRobust(rm)
-    for dict in rd.dictList
-        idxsets = dict.indexsets
-        lengths = map(length, idxsets)
-        N = length(idxsets)
-        name = dict.name
-        cprod = cumprod([lengths...])
-        for (ind,unc) in enumerate(dict.innerArray)
-            setName(unc,string("$name[$(idxsets[1][mod1(ind,lengths[1])])", [ ",$(idxsets[i][int(ceil(mod1(ind,cprod[i]) / cprod[i-1]))])" for i=2:N ]..., "]"))
-        end
-    end
-end
+import JuMP: repl_leq, repl_geq, repl_eq, repl_times, repl_sq,
+    repl_ind_open, repl_ind_close, repl_for_all, repl_in,
+    repl_open_set, repl_mid_set, repl_close_set, repl_union,
+    repl_infty, repl_open_rng, repl_close_rng, repl_integer
+import JuMP: ijulia_leq, ijulia_geq, ijulia_eq, ijulia_times, ijulia_sq,
+    ijulia_ind_open, ijulia_ind_close, ijulia_for_all, ijulia_in,
+    ijulia_open_set, ijulia_mid_set, ijulia_close_set, ijulia_union,
+    ijulia_infty, ijulia_open_rng, ijulia_close_rng, ijulia_integer
 
 
+#------------------------------------------------------------------------
+## RobustModel
+#------------------------------------------------------------------------
 function printRobust(m::Model)
-    checkUncNameStatus(m)
     rd = getRobust(m)
     # First, display normal model stuff
     print(m)
     println("Uncertain constraints:")
     for c in rd.uncertainconstr
-        println(conToStr(c))
+        println(c)
     end
     println("Uncertainty set:")
     for uc in rd.uncertaintyset
-        println(conToStr(uc))
+        println(uc)
     end
     for elc in rd.normconstraints
         printEll(m,elc)
@@ -63,78 +46,266 @@ function printRobust(m::Model)
     end
 end
 
+#------------------------------------------------------------------------
+## Uncertain
+#------------------------------------------------------------------------
+Base.print(io::IO, u::Uncertain) = print(io, unc_str(REPLMode,u))
+Base.show( io::IO, u::Uncertain) = print(io, unc_str(REPLMode,u))
+Base.writemime(io::IO, ::MIME"text/latex", u::Uncertain) = 
+    print(io, unc_str(IJuliaMode,u,mathmode=false))
+function unc_str(mode, m::Model, unc::Int, ind_open, ind_close)
+    rd = getRobust(m)
+    uncNames = rd.uncNames
+    if uncNames[unc] == ""
+        for cont in rd.dictList
+            fill_unc_names(mode, uncNames, cont)
+        end
+    end
+    return uncNames[unc] == "" ? "unc_$unc" : uncNames[unc]
+end
+function fill_unc_names(mode, uncNames, u::JuMPArray{Uncertain})
+    idxsets = v.indexsets
+    lengths = map(length, idxsets)
+    N = length(idxsets)
+    name = u.name
+    cprod = cumprod([lengths...])
+    for (ind,unc) in enumerate(u.innerArray)
+        idx_strs = [string( idxsets[1][mod1(ind,lengths[1])] )]
+        for i = 2:N
+            push!(idx_strs, string(idxsets[i][int(ceil(mod1(ind,cprod[i]) / cprod[i-1]))]))
+        end
+        if mode == IJuliaMode
+            uncNames[unc.col] = string(name, "_{", join(idx_strs,",") , "}")
+        else
+            uncNames[unc.col] = string(name,  "[", join(idx_strs,",") , "]")
+        end
+    end
+end
+function fill_unc_names(mode, uncNames, u::JuMPDict{Uncertain})
+    name = u.name
+    for tmp in u
+        ind, unc = tmp[1:end-1], tmp[end]
+        if mode == IJuliaMode
+            colNames[unc.unc] = string(name, "_{", join([string(i) for i in ind],","), "}")
+        else
+            colNames[unc.unc] = string(name,  "[", join([string(i) for i in ind],","), "]")
+        end
+    end
+end
 
-#############################################################################
-#############################################################################
+# Handlers to use correct symbols
+unc_str(::Type{REPLMode}, u::Uncertain) =
+    unc_str(REPLMode, u.m, u.unc)
+unc_str(::Type{IJuliaMode}, v::Variable; mathmode=true) =
+    unc_str(IJuliaMode, u.m, u.unc, mathmode=mathmode)
 
-function affToStr(a::UAffExpr, showConstant=true)
+unc_str(::Type{REPLMode}, m::Model, unc::Int) = 
+    unc_str(REPLMode, m, unc, repl_ind_open, repl_ind_close)
+unc_str(::Type{IJuliaMode}, m::Model, unc::Int; mathmode=true) = 
+    math(unc_str(IJuliaMode, m, unc, ijulia_ind_open, ijulia_ind_close), mathmode)
+
+
+#------------------------------------------------------------------------
+## JuMPContainer{Uncertain}
+#------------------------------------------------------------------------
+Base.print(io::IO, j::JuMPContainer{Uncertain}) = print(io, cont_str(REPLMode,j))
+Base.show( io::IO, j::JuMPContainer{Uncertain}) = print(io, cont_str(REPLMode,j))
+Base.writemime(io::IO, ::MIME"text/latex", j::JuMPContainer{Uncertain}) =
+    print(io, cont_str(IJuliaMode,j,mathmode=false))
+# Generic string converter, called by mode-specific handlers
+function cont_str(mode, j::JuMPContainer{Uncertain}, leq, eq, geq,
+                            ind_open, ind_close, for_all, in_set,
+                            open_set, mid_set, close_set, union, infty,
+                            open_rng, close_rng, integer)
+    # Check if anything in the container
+    isempty(j) && return string(j.name, " (no indices)")
+
+    # 1. construct the part with uncertain name and indexing
+    locvars = map(j.indexexprs) do tmp
+        var = tmp.idxvar
+        if var == nothing
+            return ""
+        else
+            return string(var)
+        end
+    end
+    num_dims = length(j.indexsets)
+    idxvars = Array(UTF8String, num_dims)
+    dimidx = 1
+    for i in 1:num_dims
+        if j.indexexprs[i].idxvar == nothing
+            while DIMS[dimidx] in locvars
+                dimidx += 1
+            end
+            if dimidx > length(DIMS)
+                error("Unexpectedly ran out of indices")
+            end
+            idxvars[i] = DIMS[dimidx]
+            dimidx += 1
+        else
+            idxvars[i] = locvars[i]
+        end
+    end
+    name_idx = string(j.name, ind_open, join(idxvars,","), ind_close)
+    # 2. construct part with what we index over
+    idx_sets = for_all*" "*join(map(dim->string(idxvars[dim], " ", in_set, " ", open_set,
+                                JuMP.cont_str_set(j.indexsets[dim], mid_set),
+                                close_set), 1:num_dims), ", ")
+    # 3. Handle any conditionals
+    #if isa(dict, JuMPDict) && !isempty(dict.condition)
+    #    tail_str *= " s.t. $(join(parse_conditions(j.condition[1]), " and "))"
+    #end
+
+    # 4. Bounds and category, if possible, and return final string
+    a_var = first(j)[end]
+    rd = getRobust(a_var.m)
+    unc_cat = rd.uncCat[a_var.unc]
+    unc_lb  = rd.uncLower[a_var.unc]
+    unc_ub  = rd.uncUpper[a_var.unc]
+    # Variables may have different bounds, so we can't really print nicely
+    # at this time (possibly ever, as they could have been changed post
+    # creation, which we'd never be able to handle.
+    all_same_lb = true
+    all_same_ub = true
+    for iter in j
+        unc = iter[end]
+        all_same_lb &= rd.uncLower[unc.unc] == unc_lb
+        all_same_ub &= rd.uncUpper[unc.unc] == unc_ub
+    end
+    str_lb = unc_lb == -Inf ? "-$infty" : str_round(unc_lb)
+    str_ub = unc_ub == +Inf ? infty     : str_round(unc_ub)
+    # Special case bounds printing based on the category
+    if unc_cat == :Bin  # x in {0,1}
+        return "$name_idx $in_set $(open_set)0,1$close_set $idx_sets"
+    elseif unc_cat == :SemiInt  # x in union of 0 and {lb,...,ub}
+        si_lb = all_same_lb ? str_lb : ".."
+        si_ub = all_same_ub ? str_ub : ".."
+        return "$name_idx $in_set $open_set$si_lb$mid_set$si_ub$close_set $union $(open_set)0$close_set $idx_sets"
+    elseif unc_cat == :SemiCont  # x in union of 0 and [lb,ub]
+        si_lb = all_same_lb ? str_lb : ".."
+        si_ub = all_same_ub ? str_ub : ".."
+        return "$name_idx $in_set $open_rng$si_lb,$si_ub$close_rng $union $(open_set)0$close_set $idx_sets"
+    elseif unc_cat == :Fixed
+        si_bnd = all_same_lb ? str_lb : ".."
+        return "$name_idx = $si_bnd $idx_sets"
+    end
+    # Continuous and Integer
+    idx_sets = unc_cat == :Int ? ", $integer, $idx_sets" : " $idx_sets"
+    if all_same_lb && all_same_ub
+        # Free variable
+        unc_lb == -Inf && unc_ub == +Inf && return "$name_idx free$idx_sets"
+        # No lower bound
+        unc_lb == -Inf && return "$name_idx $leq $str_ub$idx_sets"
+        # No upper bound
+        unc_ub == +Inf && return "$name_idx $geq $str_lb$idx_sets"
+        # Range
+        return "$str_lb $leq $name_idx $leq $str_ub$idx_sets"
+    end
+    if all_same_lb && !all_same_ub 
+        unc_lb == -Inf && return "$name_idx $leq ..$idx_sets"
+        return "$str_lb $leq $name_idx $leq ..$idx_sets"
+    end
+    if !all_same_lb && all_same_ub
+        unc_ub == +Inf && return "$name_idx $geq ..$idx_sets"
+        return ".. $leq $name_idx $leq $str_ub$idx_sets"
+    end
+    return ".. $leq $name_idx $leq ..$idx_sets"
+end
+
+# Handlers to use correct symbols
+cont_str(::Type{REPLMode}, j::JuMPContainer{Uncertain}; mathmode=false) =
+    cont_str(REPLMode, j, repl_leq, repl_eq, repl_geq, repl_ind_open, repl_ind_close,
+                repl_for_all, repl_in, repl_open_set, repl_mid_set, repl_close_set,
+                repl_union, repl_infty, repl_open_rng, repl_close_rng, repl_integer)
+cont_str(::Type{IJuliaMode}, j::JuMPContainer{Uncertain}; mathmode=true) =
+    math(cont_str(IJuliaMode, j, ijulia_leq, ijulia_eq, ijulia_geq, ijulia_ind_open, ijulia_ind_close,
+                ijulia_for_all, ijulia_in, ijulia_open_set, ijulia_mid_set, ijulia_close_set, 
+                ijulia_union, ijulia_infty, ijulia_open_rng, ijulia_close_rng, ijulia_integer), mathmode)
+
+
+#------------------------------------------------------------------------
+## UAffExpr
+#------------------------------------------------------------------------
+Base.print(io::IO, a::UAffExpr) = print(io, aff_str(REPLMode,a))
+Base.show( io::IO, a::UAffExpr) = print(io, aff_str(REPLMode,a))
+Base.writemime(io::IO, ::MIME"text/latex", a::UAffExpr) =
+    print(io, math(aff_str(IJuliaMode,a),false))
+# Generic string converter, called by mode-specific handlers
+function aff_str(mode, a::UAffExpr; show_constant=true)
     # If the expression is empty, return the constant (or 0)
     if length(a.vars) == 0
-        return showConstant ? str_round(a.constant) : "0"
+        return show_constant ? str_round(a.constant) : "0"
     end
 
     # Get reference to robust part of model
-    robdata = getRobust(a.vars[1].m)
-    checkUncNameStatus(a.vars[1].m)
+    m  = a.vars[1].m
+    rd = getRobust(m)
 
     # Collect like terms
-    indvec = IndexedVector(Float64, robdata.numUncs)
+    indvec = IndexedVector(Float64, rd.numUncs)
     for ind in 1:length(a.vars)
         addelt!(indvec, a.vars[ind].unc, a.coeffs[ind])
     end
 
-    # Stringify the terms
     elm = 1
     term_str = Array(UTF8String, 2*length(a.vars))
+    # For each non-zero for this model
     for i in 1:indvec.nnz
         idx = indvec.nzidx[i]
         elt = indvec.elts[idx]
-        abs(elt) < JuMP.PRINT_ZERO_TOL && continue  # e.g. x - x
+        abs(elt) < PRINT_ZERO_TOL && continue  # e.g. x - x
 
-        pre = abs(abs(elt)-1) < JuMP.PRINT_ZERO_TOL ? "" : str_round(abs(elt)) * " "
-        var = robdata.uncNames[idx]
+        pre = abs(abs(elt)-1) < PRINT_ZERO_TOL ? "" : str_round(abs(elt)) * " "
+        var = unc_str(mode,m,idx)
 
         term_str[2*elm-1] = elt < 0 ? " - " : " + "
         term_str[2*elm  ] = "$pre$var"
         elm += 1
     end
-        
+    
     if elm == 1
         # Will happen with cancellation of all terms
         # We should just return the constant, if its desired
-        return showConstant ? str_round(a.constant) : "0"
+        return show_constant ? str_round(a.constant) : "0"
     else
         # Correction for very first term - don't want a " + "/" - "
         term_str[1] = (term_str[1] == " - ") ? "-" : ""
         ret = join(term_str[1:2*(elm-1)])
-        if abs(a.constant) >= JuMP.PRINT_ZERO_TOL && showConstant
+        if abs(a.constant) >= PRINT_ZERO_TOL && show_constant
             ret = string(ret, a.constant < 0 ? " - " : " + ", str_round(abs(a.constant)))
         end
         return ret
     end
 end
 
-#############################################################################
-#############################################################################
+# Backwards compatability shim
+affToStr(a::UAffExpr) = aff_str(REPLMode,a)
 
-# Now conToStr says showConstant = false, because if the constant term is
+
+#------------------------------------------------------------------------
+## FullAffExpr
+#------------------------------------------------------------------------
+Base.print(io::IO, a::FullAffExpr) = print(io, aff_str(REPLMode,a))
+Base.show( io::IO, a::FullAffExpr) = print(io, aff_str(REPLMode,a))
+Base.writemime(io::IO, ::MIME"text/latex", a::FullAffExpr) =
+    print(io, math(aff_str(IJuliaMode,a),false))
+# Generic string converter, called by mode-specific handlers
+# conToStr says showConstant = false, because if the constant term is
 # just a number for AffExpr. However in our case it might also contain
-# uncertains - which we ALWAYS want to show. So we "partially" respect it.
-function affToStr(a::FullAffExpr, showConstant=true)
-    const ZEROTOL = 1e-20
-
+# uncertains - which we ALWAYS want to show.
+# So we "partially" respect it.
+function aff_str(mode, a::FullAffExpr; show_constant=true)
     # If no variables, hand off to the constant part
     if length(a.vars) == 0
-        # Will do the right thing even with showContant=true or false
-        return affToStr(a.constant)
+        return aff_str(mode, a.constant)
     end
 
     # Get reference to robust part of model
-    robdata = getRobust(a.vars[1].m)
-    checkUncNameStatus(a.vars[1].m)
+    m  = a.vars[1].m
+    rd = getRobust(m)
 
-    # Stringify the terms - we don't collect like terms
-    termStrings = Array(UTF8String, length(a.vars))
+    # Don't collect like terms
+    term_str = Array(UTF8String, length(a.vars))
     numTerms = 0
     first = true
     for i in 1:length(a.vars)
@@ -144,49 +315,49 @@ function affToStr(a::FullAffExpr, showConstant=true)
         prefix = first ? "" : " + "
         # Coefficient expression is a constant
         if length(uaff.vars) == 0
-            if abs(uaff.constant) <= ZEROTOL
+            if abs(uaff.constant) <= PRINT_ZERO_TOL
                 # Constant 0 - do not display this term at all
-                termStrings[numTerms] = ""
-            elseif abs(uaff.constant - 1) <= ZEROTOL
+                term_str[numTerms] = ""
+            elseif abs(uaff.constant - 1) <= PRINT_ZERO_TOL
                 # Constant +1
-                termStrings[numTerms] = first ? varn : " + $varn"
-            elseif abs(uaff.constant + 1) <= ZEROTOL
+                term_str[numTerms] = first ? varn : " + $varn"
+            elseif abs(uaff.constant + 1) <= PRINT_ZERO_TOL
                 # Constant -1
-                termStrings[numTerms] = first ? "-$varn" : " - $varn"
+                term_str[numTerms] = first ? "-$varn" : " - $varn"
             else
                 # Constant is other than 0, +1, -1 
-                if first
-                    sign = uaff.constant < 0 ? "-" : ""
-                    termStrings[numTerms] = "$sign$(str_round(abs(uaff.constant))) $varn"
-                else
-                    sign = uaff.constant < 0 ? "-" : "+"
-                    termStrings[numTerms] = " $sign $(str_round(abs(uaff.constant))) $varn"
-                end
+                sign = uaff.constant < 0 ? "-" : ""
+                term_str[numTerms] = (first?"$sign":" $sign ") *
+                    "$(str_round(abs(uaff.constant))) $varn"
             end
         # Coefficient expression is a single uncertainty
         elseif length(uaff.vars) == 1
-            if abs(uaff.constant) <= ZEROTOL && abs(abs(uaff.coeffs[1]) - 1) <= ZEROTOL
+            if abs(uaff.constant) <= PRINT_ZERO_TOL && abs(abs(uaff.coeffs[1]) - 1) <= PRINT_ZERO_TOL
                 # No constant, so no (...) needed
-                termStrings[numTerms] = string(prefix,affToStr(uaff)," ",varn)
+                term_str[numTerms] = string(prefix,aff_str(mode,uaff)," ",varn)
             else
                 # Constant - need (...)
-                termStrings[numTerms] = string(prefix,"(",affToStr(uaff),") ",varn)
+                term_str[numTerms] = string(prefix,"(",aff_str(mode,uaff),") ",varn)
             end
         # Coefficient is a more complicated expression
         else
-            termStrings[numTerms] = string(prefix,"(",affToStr(uaff),") ",varn)
+            term_str[numTerms] = string(prefix,"(",aff_str(mode,uaff),") ",varn)
         end
         first = false
     end
 
     # And then connect them up with +s
-    ret = join(termStrings[1:numTerms], "")
+    ret = join(term_str[1:numTerms], "")
     
     # Now the constant term
-    con_aff = affToStr(a.constant,showConstant)
+    con_aff = aff_str(REPLMode,a.constant,show_constant=show_constant)
     if con_aff != "" && con_aff != "0"
         ret = string(ret, " + ", con_aff)
     end
 
     return ret
 end
+
+
+# Backwards compatability shim
+affToStr(a::FullAffExpr) = aff_str(REPLMode,a)

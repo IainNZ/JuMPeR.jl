@@ -9,8 +9,9 @@ if Pkg.installed("Gurobi") != nothing
     println("Selected Gurobi as solver")
 end
 
-tests = [   "operators.jl",
-            #"macro.jl",
+#tests = [   "operators.jl",
+            
+tests = [   "macro.jl",
             #"polyhedral.jl",
             #"bertsim.jl",
             #"oracle.jl",

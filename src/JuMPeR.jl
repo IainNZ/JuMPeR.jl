@@ -11,8 +11,8 @@ importall JuMP  # Explicitly exported names
 import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
 import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
-import JuMP.str_round
-import JuMP.JuMPDict, JuMP.JuMPArray, JuMP.@gendict
+import JuMP.JuMPContainer, JuMP.JuMPDict, JuMP.JuMPArray
+import JuMP.@gendict
 
 export RobustModel, getNumUncs, solveRobust, printRobust
 export setDefaultOracle!
@@ -124,12 +124,7 @@ Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol) = Uncertain(m,low
 
 # Name setter/getters
 setName(u::Uncertain, n::String) = (getRobust(u.m).uncNames[u.unc] = n)
-function getName(u::Uncertain)
-    checkUncNameStatus(u.m)
-    return getRobust(u.m).uncNames[u.unc]
-end
-Base.print(io::IO, u::Uncertain) = print(io, getName(u))
-Base.show( io::IO, u::Uncertain) = print(io, getName(u))
+getName(u::Uncertain) = unc_str(REPLMode, u.m, u.unc)
 
 Base.isequal(u1::Uncertain, u2::Uncertain) = isequal(u1.unc, u2.unc)
 
