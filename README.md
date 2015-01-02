@@ -3,7 +3,7 @@ JuMPeR
 #### Julia for Mathematical Programming - extension for Robust optimization
 
 [![Build Status](https://travis-ci.org/IainNZ/JuMPeR.jl.png?branch=master)](https://travis-ci.org/IainNZ/JuMPeR.jl)
-[![Coverage Status](https://img.shields.io/coveralls/IainNZ/JuMPeR.jl.svg)](https://coveralls.io/r/IainNZ/JuMPeR.jl)
+[![Coverage Status](https://img.shields.io/coveralls/IainNZ/JuMPeR.jl.svg)](https://coveralls.io/r/IainNZ/JuMPeR.jl?branch=master)
 
 **[JuMP]** is a domain-specific modeling language for **[mathematical programming]** embedded in **[Julia]**. It supports a number of open-source and commercial solvers.
 
