@@ -13,6 +13,8 @@ import JuMP.PRINT_ZERO_TOL
 import JuMP.DIMS
 import JuMP.str_round
 
+import JuMP: cont_str, aff_str
+
 import JuMP: repl_leq, repl_geq, repl_eq, repl_times, repl_sq,
     repl_ind_open, repl_ind_close, repl_for_all, repl_in,
     repl_open_set, repl_mid_set, repl_close_set, repl_union,
@@ -64,7 +66,7 @@ function unc_str(mode, m::Model, unc::Int, ind_open, ind_close)
     return uncNames[unc] == "" ? "unc_$unc" : uncNames[unc]
 end
 function fill_unc_names(mode, uncNames, u::JuMPArray{Uncertain})
-    idxsets = v.indexsets
+    idxsets = u.indexsets
     lengths = map(length, idxsets)
     N = length(idxsets)
     name = u.name
@@ -75,9 +77,9 @@ function fill_unc_names(mode, uncNames, u::JuMPArray{Uncertain})
             push!(idx_strs, string(idxsets[i][int(ceil(mod1(ind,cprod[i]) / cprod[i-1]))]))
         end
         if mode == IJuliaMode
-            uncNames[unc.col] = string(name, "_{", join(idx_strs,",") , "}")
+            uncNames[unc.unc] = string(name, "_{", join(idx_strs,",") , "}")
         else
-            uncNames[unc.col] = string(name,  "[", join(idx_strs,",") , "]")
+            uncNames[unc.unc] = string(name,  "[", join(idx_strs,",") , "]")
         end
     end
 end

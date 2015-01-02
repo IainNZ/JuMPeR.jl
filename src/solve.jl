@@ -155,7 +155,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
         # and no lazy constraints are added
         tic()
         master_status = solve(master,
-                              load_model_only   = get(prefs, :load_model_only, false),
+                              #load_model_only   = get(prefs, :load_model_only, false),
                               suppress_warnings = get(prefs, :suppress_warnings, false))
         master_time = toq() - cut_time
     else
@@ -167,7 +167,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
             # Solve master
             tic()
             master_status = solve(master,
-                                  load_model_only   = get(prefs, :load_model_only, false),
+                                  #load_model_only   = get(prefs, :load_model_only, false),
                                   suppress_warnings = get(prefs, :suppress_warnings, false))
             master_time += toq()
 

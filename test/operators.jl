@@ -1,3 +1,12 @@
+#############################################################################
+# JuMPeR
+# Julia for Mathematical Programming - extension for Robust Optimization
+# See http://github.com/IainNZ/JuMPeR.jl
+#############################################################################
+# test/operators.jl
+# Testing for all operator overloads
+#############################################################################
+
 using JuMPeR
 using FactCheck
 

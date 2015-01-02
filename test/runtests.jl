@@ -9,17 +9,16 @@ if Pkg.installed("Gurobi") != nothing
     println("Selected Gurobi as solver")
 end
 
-#tests = [   "operators.jl",
-            
-tests = [   "macro.jl",
-            #"polyhedral.jl",
-            #"bertsim.jl",
-            #"oracle.jl",
-            #"ellipse.jl",
-            #"scenario.jl",
-            #"resolve.jl",
-            #"graph.jl"]
-        ]
+tests =["operators.jl",
+        "print.jl",
+        "macro.jl",
+            "polyhedral.jl",
+            "bertsim.jl",
+            "oracle.jl",
+            "ellipse.jl",
+            "scenario.jl",
+            "resolve.jl",
+            "graph.jl"]
 
 println("Running tests...")
 for curtest in tests
