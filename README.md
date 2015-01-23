@@ -9,6 +9,8 @@ JuMPeR
 
 **JuMPeR** extends JuMP to enable easy modeling of **[robust optimization]** problems. Specifically, instead of having to manually model the robust counterpart or write a cutting-plane generator, JuMPeR will do this work for you - simply provide the problem description, including uncertain parameters and the uncertainty set.
 
+JuMPeR can be extended with **oracles** - user-implemented reformulations and cutting-plane generators for arbitrary uncertainty sets. JuMPeR comes with an oracle for polyhedral and ellipsoidal sets, as well as the set from `Bertsimas, Sim, "The Price of Robustness", 2004`. [Vishal Gupta](http://www-bcf.usc.edu/~guptavis/) has implemented various [data-driven uncertainty sets (DDUS.jl)](https://github.com/vgupta1/DDUS.jl).
+
 Documentation is available on [ReadTheDocs](http://jumper.readthedocs.org/en/latest/jumper.html)
 
 [JuMP]: https://github.com/JuliaOpt/JuMP.jl
