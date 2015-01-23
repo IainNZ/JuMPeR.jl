@@ -18,6 +18,7 @@ export RobustModel, getNumUncs, solveRobust, printRobust
 export setDefaultOracle!
 export Uncertain, @defUnc, UAffExpr, FullAffExpr
 export UncConstraint, UncSetConstraint
+export @gendict
 
 #############################################################################
 # JuMP rexports
