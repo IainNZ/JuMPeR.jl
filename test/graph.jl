@@ -71,7 +71,6 @@ ret = JuMPeR.detect_components(r.numUncs, r.uncertaintyset)
 setDefaultOracle!(m, JuMPeR.GeneralGraphOracle())
 addConstraint(m, x[1] >= u[1])
 addConstraint(m, x[2] >= u[4])
-printRobust(m)
 solveRobust(m, prefer_cuts=true)    # CUTS
 @test_approx_eq getValue(x[1]) 1.0
 @test_approx_eq getValue(x[2]) 5.0

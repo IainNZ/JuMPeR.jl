@@ -93,7 +93,14 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
                 push!(yty.qvars2, y)
                 push!(yty.qcoeffs, 1.0)
             end
-            addConstraint(gen.cut_model, yty <= el_c.Gamma^2)
+            # Normally we'd do
+            # addConstraint(gen.cut_model, yty <= el_c.Gamma^2)
+            # But unfortunately this isn't a SOC constraint so ECOS
+            # won't like it (Gurobi can handle it). We just need
+            # an auxiliary variable set to equal the RHS.
+            rhs_aux = Variable(gen.cut_model,0,Inf,:Cont,"_el_rhs_aux")
+            @addConstraint(gen.cut_model, rhs_aux == el_c.Gamma)
+            @addConstraint(gen.cut_model, yty <= rhs_aux^2)
         end
     end
 
@@ -444,7 +451,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
         ell_idx += 1
         beta_t = dual_vars[gen.dual_ell_lhs_idxs[ell_idx]]
         beta_zs = dual_vars[gen.dual_ell_rhs_idxs[ell_idx]]
-        addConstraint(master, beta_t^2 >= sum([beta_z^2 for beta_z in beta_zs]))
+        @addConstraint(master, sum{beta_z^2, beta_z in beta_zs} <= beta_t^2)
     end
     
     return true
