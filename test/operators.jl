@@ -7,7 +7,7 @@
 # Testing for all operator overloads
 #############################################################################
 
-using JuMPeR
+using JuMP, JuMPeR
 using FactCheck
 
 facts("[operators] Robust operator tests") do

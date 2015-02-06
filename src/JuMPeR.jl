@@ -6,8 +6,8 @@
 
 module JuMPeR
 
-# Bring all of JuMP into local namespace
-importall JuMP  # Explicitly exported names
+# Import everything we need from JuMP, so we can build on it
+importall JuMP
 import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
 import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
@@ -18,30 +18,7 @@ export RobustModel, getNumUncs, solveRobust, printRobust
 export setDefaultOracle!
 export Uncertain, @defUnc, UAffExpr, FullAffExpr
 export UncConstraint, UncSetConstraint
-export @gendict
 
-#############################################################################
-# JuMP rexports
-export
-# Objects
-    Model, Variable, AffExpr, QuadExpr, LinearConstraint, QuadConstraint,
-    ConstraintRef, LinConstrRef,
-# Functions
-    # Model related
-    getNumVars, getNumConstraints, getObjectiveValue, getObjective,
-    getObjectiveSense, setObjectiveSense, writeLP, writeMPS, setObjective,
-    addConstraint, addSOS1, addSOS2, solve,
-    getInternalModel, buildInternalModel,
-    # Variable
-    setName, getName, setLower, setUpper, getLower, getUpper,
-    getValue, setValue, getDual,
-    # Expressions and constraints
-    affToStr, quadToStr, conToStr, chgConstrRHS,
-    
-# Macros and support functions
-    @addConstraint, @addConstraints, @defVar, 
-    @defConstrRef, @setObjective, addToExpression, @defExpr, 
-    @setNLObjective, @addNLConstraint
 
 
 #############################################################################
@@ -91,6 +68,7 @@ RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
 function RobustModel(;solver=JuMP.UnsetSolver(),cutsolver=JuMP.UnsetSolver())
     m = Model(solver=solver)
     m.ext[:Robust] = RobustData(cutsolver)
+    setSolveHook
     return m
 end
 

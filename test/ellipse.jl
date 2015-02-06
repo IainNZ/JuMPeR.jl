@@ -1,4 +1,4 @@
-using JuMPeR
+using JuMP, JuMPeR
 using Base.Test
 
 # Check the construction of the constraint data

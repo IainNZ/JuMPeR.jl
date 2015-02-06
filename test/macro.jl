@@ -7,7 +7,7 @@
 # Testing JuMP-defined macros still work with Uncertains etc.
 #############################################################################
 
-using JuMPeR
+using JuMP, JuMPeR
 using FactCheck
 
 lastuc(rm) = conToStr(JuMPeR.getRobust(rm).uncertainconstr[end])

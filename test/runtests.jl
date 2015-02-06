@@ -1,5 +1,6 @@
-using JuMPeR
+using JuMP, JuMPeR
 using Base.Test
+using FactCheck
 
 # Use Gurobi it at all possible
 solver = JuMPeR.JuMP.UnsetSolver()
@@ -25,3 +26,5 @@ for curtest in tests
     println("Test: $curtest")
     include(curtest)
 end
+
+FactCheck.exitstatus()

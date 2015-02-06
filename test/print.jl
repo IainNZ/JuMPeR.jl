@@ -7,7 +7,7 @@
 # Testing for all pretty-printing-related functionality
 #############################################################################
 
-using JuMPeR
+using JuMP, JuMPeR
 using FactCheck
 import JuMP.REPLMode, JuMP.IJuliaMode
 
