@@ -3,6 +3,7 @@ using Base.Test
 
 #----------------------------------------------------------------------
 
+println("  Test 1")
 m = RobustModel()
 r = JuMPeR.getRobust(m)
 @defUnc(m, 0 <= u[1:2,1:4] <= 1)
@@ -29,6 +30,7 @@ solveRobust(m, prefer_cuts=false)   # REFORM
 
 #----------------------------------------------------------------------
 
+println("  Test 2")
 m = RobustModel()
 r = JuMPeR.getRobust(m)
 @defUnc(m, 2 <= u[1:3] <= 2)
@@ -52,13 +54,14 @@ solveRobust(m, prefer_cuts=false)   # REFORM
 
 #----------------------------------------------------------------------
 
+println("  Test 3")
 m = RobustModel()
 r = JuMPeR.getRobust(m)
 @defUnc(m, u[1:4] >= 0)
 addConstraint(m, u[1]        + u[3]        == 1)
 addConstraint(m,        u[2]               == 1)
 addConstraint(m,        u[2] + u[3]        == 1)
-addConstraint(m,                      u[4] >= 5)
+addConstraint(m,                      u[4] <= 5)
 ret = JuMPeR.detect_components(r.numUncs, r.uncertaintyset)
 @test ret[1] == [1,1,1,2]
 @test ret[2] == [1,1,1,2]
@@ -68,6 +71,7 @@ ret = JuMPeR.detect_components(r.numUncs, r.uncertaintyset)
 setDefaultOracle!(m, JuMPeR.GeneralGraphOracle())
 addConstraint(m, x[1] >= u[1])
 addConstraint(m, x[2] >= u[4])
+printRobust(m)
 solveRobust(m, prefer_cuts=true)    # CUTS
 @test_approx_eq getValue(x[1]) 1.0
 @test_approx_eq getValue(x[2]) 5.0

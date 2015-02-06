@@ -34,6 +34,35 @@ faff  = (5a+1)x + (2b + 3)
 @fact affToStr(uaff2) => "3.4 b + 1.1"
 @fact affToStr(faff)  => "(5 a + 1) x + 2 b + 3"
 
+context("Core JuMPeR type methods") do
+    # Model
+    @fact getNumUncs(m) => 2
+    @fact_throws getNumUncs(Model())
+
+    # Uncertain
+    @fact isequal(a,b) => false
+    @fact getName(a) => "a"
+
+    # UAffExpr
+    @fact affToStr(UAffExpr()) => "0"
+    @fact affToStr(UAffExpr(1)) => "1"
+    @fact affToStr(UAffExpr(a)) => "a"
+    @fact affToStr(UAffExpr(a,2)) => "2 a"
+    @fact typeof(zero(uaff)) => UAffExpr
+    @fact affToStr(zero(uaff)) => "0"
+
+    # FullAffExpr
+    @fact affToStr(FullAffExpr()) => "0"
+    @fact typeof(zero(faff)) => FullAffExpr
+    @fact affToStr(zero(faff)) => "0"
+    pusher = a * x
+    @fact affToStr(pusher) => "a x"
+    push!(pusher, 2.0, y)
+    @fact affToStr(pusher) => "a x + 2 y"
+    push!(pusher, b, y)
+    @fact affToStr(pusher) => "a x + 2 y + b y"
+end
+    
 
 context("Number--... tests") do
     # Number--Uncertain

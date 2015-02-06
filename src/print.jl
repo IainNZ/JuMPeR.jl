@@ -327,10 +327,10 @@ function aff_str(mode, a::FullAffExpr; show_constant=true)
                 # Constant -1
                 term_str[numTerms] = first ? "-$varn" : " - $varn"
             else
-                # Constant is other than 0, +1, -1 
-                sign = uaff.constant < 0 ? "-" : ""
-                term_str[numTerms] = (first?"$sign":" $sign ") *
-                    "$(str_round(abs(uaff.constant))) $varn"
+                # Constant is other than 0, +1, -1
+                sign = first ? (uaff.constant < 0 ? "-" : "") :
+                               (uaff.constant < 0 ? " - " : " + ")
+                term_str[numTerms] = "$(sign)$(str_round(abs(uaff.constant))) $varn"
             end
         # Coefficient expression is a single uncertainty
         elseif length(uaff.vars) == 1
@@ -348,7 +348,7 @@ function aff_str(mode, a::FullAffExpr; show_constant=true)
         first = false
     end
 
-    # And then connect them up with +s
+    # And then connect them up
     ret = join(term_str[1:numTerms], "")
     
     # Now the constant term

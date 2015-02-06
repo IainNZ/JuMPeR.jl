@@ -115,13 +115,10 @@ UAffExpr() = UAffExpr(Uncertain[],Float64[],0.)
 UAffExpr(c::Real) = UAffExpr(Uncertain[],Float64[],float(c))
 UAffExpr(u::Uncertain) = UAffExpr([u],[1.],0.)
 UAffExpr(u::Uncertain, c::Real) = UAffExpr([u],[float(c)],0.)
+# Next is a bit weird - its basically the vectorized version of UAffExpr(c) 
 UAffExpr(coeffs::Array{Float64,1}) = [UAffExpr(c) for c in coeffs]
 Base.zero(a::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
 Base.zero(a::UAffExpr) = zero(typeof(a))
-
-Base.print(io::IO, a::UAffExpr) = print(io, affToStr(a))
-Base.show( io::IO, a::UAffExpr) = print(io, affToStr(a))
-
 
 #############################################################################
 # Full Affine Expression class
@@ -133,7 +130,11 @@ typealias FullAffExpr GenericAffExpr{UAffExpr,Variable}
 FullAffExpr() = FullAffExpr(Variable[], UAffExpr[], UAffExpr())
 Base.zero(a::Type{FullAffExpr}) = FullAffExpr()
 Base.zero(a::FullAffExpr) = zero(typeof(a))
-function Base.push!(faff::FullAffExpr, new_coeff::Real, new_var::Variable)
+function Base.push!(faff::FullAffExpr, new_coeff::UAffExpr, new_var::Variable)
+    push!(faff.vars, new_var)
+    push!(faff.coeffs, new_coeff)
+end
+function Base.push!(faff::FullAffExpr, new_coeff::Union(Real,Uncertain), new_var::Variable)
     push!(faff.vars, new_var)
     push!(faff.coeffs, UAffExpr(new_coeff))
 end
@@ -141,18 +142,10 @@ end
 #############################################################################
 # UncSetConstraint      Just uncertainties
 typealias UncSetConstraint GenericRangeConstraint{UAffExpr}
-# For 0.2
-UncSetConstraint(uaff::UAffExpr,x::Float64,y::Int) = UncSetConstraint(uaff,x,float(y))
-UncSetConstraint(uaff::UAffExpr,x::Int,y::Float64) = UncSetConstraint(uaff,float(x),x)
-UncSetConstraint(uaff::UAffExpr,x::Int,y::Int) = UncSetConstraint(uaff,float(x),float(y))
 addConstraint(m::Model, c::UncSetConstraint) = push!(getRobust(m).uncertaintyset, c)
 
 # UncConstraint         Mix of variables and uncertains
 typealias UncConstraint GenericRangeConstraint{FullAffExpr}
-# For 0.2
-UncConstraint(faff::FullAffExpr,x::Float64,y::Int) = UncConstraint(faff,x,float(y))
-UncConstraint(faff::FullAffExpr,x::Int,y::Float64) = UncConstraint(faff,float(x),x)
-UncConstraint(faff::FullAffExpr,x::Int,y::Int)     = UncConstraint(faff,float(x),float(y))
 function addConstraint(m::Model, c::UncConstraint, w=nothing)
     rd = getRobust(m)
     # Handle the odd special case where there are actually no variables in
