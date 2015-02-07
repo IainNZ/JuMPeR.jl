@@ -61,8 +61,9 @@ end
 # get_uncertain_constraint
 # Given a RobustModel and a constraint index, returns the uncertain
 # constraint for that index
-get_uncertain_constraint(rm::Model, ind::Int) =
+function get_uncertain_constraint(rm::Model, ind::Int)
     getRobust(rm).uncertainconstr[ind]
+end
 
 # build_certain_constraint
 # Takes an uncertain constraint (unc_con) that we are making certain by

@@ -194,7 +194,7 @@ end
 # SUM
 # Neither is strictly needed, but more efficient than fallbacks in JuMP
 Base.sum(j::JuMPArray{Uncertain}) = UAffExpr(vec(j.innerArray), ones(length(j.innerArray)), 0.0)
-Base.sum(j::JuMPDict{Uncertain})  = UAffExpr(vec(values(j.tupledict)), ones(length(j.tupledict)), 0.0)
+Base.sum(j::JuMPDict{Uncertain})  = UAffExpr(collect(values(j.tupledict)), ones(length(j.tupledict)), 0.0)
 
 
 # DOT

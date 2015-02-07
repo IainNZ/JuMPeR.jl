@@ -88,9 +88,9 @@ function fill_unc_names(mode, uncNames, u::JuMPDict{Uncertain})
     for tmp in u
         ind, unc = tmp[1:end-1], tmp[end]
         if mode == IJuliaMode
-            colNames[unc.unc] = string(name, "_{", join([string(i) for i in ind],","), "}")
+            uncNames[unc.unc] = string(name, "_{", join([string(i) for i in ind],","), "}")
         else
-            colNames[unc.unc] = string(name,  "[", join([string(i) for i in ind],","), "]")
+            uncNames[unc.unc] = string(name,  "[", join([string(i) for i in ind],","), "]")
         end
     end
 end

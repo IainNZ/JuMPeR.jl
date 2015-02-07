@@ -10,6 +10,12 @@
 using JuMP, JuMPeR
 using FactCheck
 
+# To ensure the tests work on both Windows and Linux/OSX, we need
+# to use the correct comparison operators in the strings
+const leq = JuMP.repl_leq
+const geq = JuMP.repl_geq
+const  eq = JuMP.repl_eq
+
 facts("[operators] Robust operator tests") do
 
 # Setup
@@ -49,18 +55,18 @@ context("Core JuMPeR type methods") do
     @fact affToStr(UAffExpr(a)) => "a"
     @fact affToStr(UAffExpr(a,2)) => "2 a"
     @fact typeof(zero(uaff)) => UAffExpr
-    @fact affToStr(zero(uaff)) => "0"
+    @fact affToStr(zero(UAffExpr)) => "0"
 
     # FullAffExpr
     @fact affToStr(FullAffExpr()) => "0"
     @fact typeof(zero(faff)) => FullAffExpr
-    @fact affToStr(zero(faff)) => "0"
+    @fact affToStr(zero(FullAffExpr)) => "0"
     pusher = a * x
     @fact affToStr(pusher) => "a x"
     push!(pusher, 2.0, y)
     @fact affToStr(pusher) => "a x + 2 y"
-    push!(pusher, b, y)
-    @fact affToStr(pusher) => "a x + 2 y + b y"
+    push!(pusher, uaff, z)
+    @fact affToStr(pusher) => "a x + 2 y + (2.3 a + 5.5) z"
 end
     
 
@@ -151,7 +157,7 @@ context("Uncertain--... tests") do
     @fact affToStr(a + faff) => "(5 a + 1) x + a + 2 b + 3"
     @fact affToStr(a - faff) => "(-5 a - 1) x + a - 2 b - 3"
     @fact_throws a * faff
-    @fact_throws b * faff
+    @fact_throws a / faff
 end
 
 
@@ -196,6 +202,7 @@ context("FullAffExpr--... tests") do
     @fact affToStr(faff - 2.0) => "(5 a + 1) x + 2 b + 1"
     @fact affToStr(faff * 2.0) => "(10 a + 2) x + 4 b + 6"
     @fact affToStr(faff / 2.0) => "(2.5 a + 0.5) x + b + 1.5"
+    @fact conToStr(faff == 1.0) => "(5 a + 1) x + 2 b $eq -2"
     # FullAffExpr--Variable
     @fact affToStr(faff + y) => "(5 a + 1) x + y + 2 b + 3"
     @fact affToStr(faff - y) => "(5 a + 1) x - y + 2 b + 3"
@@ -225,35 +232,22 @@ end
 
 end
 
-facts("[operators] Higher level operations") do# 
+
+facts("[operators] Higher level operations") do
 
 m = RobustModel()
 @defVar(m, 0 <= x[1:3] <= 1)
 @defUnc(m, 2 <= a <= 3)
 @defUnc(m, 5 <= b <= 6)
-
 @defUnc(m, u[1:3])
-setName(u[1], "a")
-setName(u[2], "b")
-setName(u[3], "c")
-
 @defUnc(m, v[4:6])
-setName(v[4], "d")
-setName(v[5], "e")
-setName(v[6], "f")
-
 @defUnc(m, U[1:3,1:3])
-for i = 1:3, j = 1:3
-    setName(U[i,j], "U$(i)$(j)")
-end
-
-#@defUnc(m, w[[:foo,:bar]])
-
+@defUnc(m, w[[:foo,:bar]])
 
 context("sum()") do
-    @fact affToStr(sum(u)) => "a + b + c"
-    @fact affToStr(sum(U)) => "U11 + U21 + U31 + U12 + U22 + U32 + U13 + U23 + U33"
-    #@fact affToStr(sum(w)) => ""  # FAILS BECAUSE JuMPDicts CHANGED
+    @fact affToStr(sum(u)) => "u[1] + u[2] + u[3]"
+    @fact affToStr(sum(U)) => "U[1,1] + U[2,1] + U[3,1] + U[1,2] + U[2,2] + U[3,2] + U[1,3] + U[2,3] + U[3,3]"
+    @fact affToStr(sum(w)) => anyof("w[foo] + w[bar]", "w[bar] + w[foo]")
     @fact affToStr(sum([2.0*a, 4.0*b])) => "2 a + 4 b"
     @fact affToStr(sum([x[1] + 2.0*a, x[2] + 4.0*b])) => "x[1] + x[2] + 2 a + 4 b"
 end
@@ -265,16 +259,16 @@ context("dot()") do
          5.5 6.2 1.2]
     # DOT
     # Vector{Float64} :: JuMPArray{Uncertain}
-    @fact affToStr(dot(c,u)) => "3.5 a + 4 b + 2 c"
-    @fact affToStr(dot(u,c)) => "3.5 a + 4 b + 2 c"
+    @fact affToStr(dot(c,u)) => "3.5 u[1] + 4 u[2] + 2 u[3]"
+    @fact affToStr(dot(u,c)) => "3.5 u[1] + 4 u[2] + 2 u[3]"
     # Vector{Float64} :: JuMPArray{Uncertain} (different indices)
-    @fact affToStr(dot(c,v)) => "3.5 d + 4 e + 2 f"
-    @fact affToStr(dot(v,c)) => "3.5 d + 4 e + 2 f"
+    @fact affToStr(dot(c,v)) => "3.5 v[4] + 4 v[5] + 2 v[6]"
+    @fact affToStr(dot(v,c)) => "3.5 v[4] + 4 v[5] + 2 v[6]"
     # Array{Float64,2} (2D) :: JuMPArray{Uncertain} (2D)
-    @fact affToStr(dot(A,U)) => "3 U11 + 1.5 U21 + 5.5 U31 + 4 U12 + 2.5 U22 + 6.2 U32 + 5 U13 + 3.3 U23 + 1.2 U33"
+    @fact affToStr(dot(A,U)) => "3 U[1,1] + 1.5 U[2,1] + 5.5 U[3,1] + 4 U[1,2] + 2.5 U[2,2] + 6.2 U[3,2] + 5 U[1,3] + 3.3 U[2,3] + 1.2 U[3,3]"
 
     # JuMPArray{Variable} :: JuMPArray{Uncertain}
-    @fact affToStr(dot(x,u)) => "a x[1] + b x[2] + c x[3]"
+    @fact affToStr(dot(x,u)) => "u[1] x[1] + u[2] x[2] + u[3] x[3]"
 
     # Array{Float64,2} (2D) :: JuMPDict{Uncertain} (1D)
     @fact_throws dot(A, u)

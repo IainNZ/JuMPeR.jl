@@ -1,11 +1,21 @@
 using JuMP, JuMPeR
 using Base.Test
 
+type IncompleteOracle <: AbstractOracle end
+
 # build_cut_objective
 # build_cut_objective_sparse
 # build_certain_constraint
 # is_constraint_violated
 let
+
+    @test_throws ErrorException registerConstraint(IncompleteOracle(), RobustModel(), 1, nothing)
+    @test_throws ErrorException setup(IncompleteOracle(), RobustModel(), nothing)
+    @test_throws ErrorException generateReform(IncompleteOracle(), Model(), RobustModel(), Int[])
+    @test_throws ErrorException generateCut(IncompleteOracle(), Model(), RobustModel(), Int[])
+
+
+    # -------------------
     rm = RobustModel()
     @defVar(rm, x[1:4] >= 0)
     @defUnc(rm, u[1:5])

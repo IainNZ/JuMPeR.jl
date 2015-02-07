@@ -1,3 +1,5 @@
+BertSimOracle()
+
 function BSTest1(cuts)
     println(" BSTest1 $cuts - postive x, positive coeff")
     # Data

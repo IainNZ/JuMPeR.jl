@@ -89,9 +89,10 @@ function Test4(pref)
     println("  Test4")
     m = RobustModel(solver=solver)
     @defVar(m, x >= 0)
-    @defUnc(m, 3.0 <= u <= 4.0);
-    setObjective(m, :Max, 1.0x)
-    addConstraint(m, 1.0*x <= 1.0*u)
+    @defUnc(m, u <= 4.0)
+    @addConstraint(m, u >= 3.0)
+    @setObjective(m, Max, 1.0x)
+    @addConstraint(m, x <= u)
     status = solveRobust(m, prefer_cuts=pref)
     @test_approx_eq getValue(x) 3.0
 end
@@ -142,6 +143,17 @@ function TestIntSet()
     @test_approx_eq getValue(x) 1.0
 end
 
+function Test7(pref)
+    println("  Test7")
+    m = RobustModel(solver=solver)
+    @defVar(m, x >= 0)
+    @defUnc(m, 0.5 <= u <= 0.5)
+    @setObjective(m, Max, x)
+    @addConstraint(m, u*x + u <= 2)
+    status = solveRobust(m, prefer_cuts=pref)
+    @test_approx_eq getValue(x) 3.0
+end
+
 for pref in [true, false]
     println(" prefer_cuts:", pref)
     Test1(pref)
@@ -155,6 +167,7 @@ for pref in [true, false]
     for variant = 0:7
         Test6(pref,variant)
     end
+    Test7(pref)
 end
 
 TestIntSet()

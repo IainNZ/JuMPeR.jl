@@ -16,7 +16,7 @@ tests =["operators.jl",
             "polyhedral.jl",
             "bertsim.jl",
             "oracle.jl",
-            "ellipse.jl",
+        "ellipse.jl",
             "scenario.jl",
             "resolve.jl",
             "graph.jl"]
