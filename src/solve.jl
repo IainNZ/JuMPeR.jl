@@ -32,13 +32,6 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
     prefs = [name => value for (name,value) in kwargs]
     prefs[:active_cuts] = active_cuts
 
-    # If we are doing any printing, we will need variables names. This ensures
-    # that the variable name vectors get filled up
-    if get(prefs, :debug_printfinal, false) || get(prefs, :debug_printcut, false)
-       JuMP.fillVarNames(rm)
-       JuMPeR.fillUncNames(rm)
-    end
-
     start_time = time()
 
     #########################################################################
@@ -58,6 +51,8 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
     master.obj       = copy_quad(rm.obj, mastervars)
     # Certain constraints
     master.linconstr = map(con -> copy_linconstr(con, mastervars), rm.linconstr)
+    # Copy JuMPContainers over so we get good printing
+    master.dictList  = copy(rm.dictList)
    
     num_unccons      = length(robdata.uncertainconstr)
 
