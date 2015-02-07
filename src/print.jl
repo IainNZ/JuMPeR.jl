@@ -41,7 +41,7 @@ function printRobust(m::Model)
         println(uc)
     end
     for elc in rd.normconstraints
-        printEll(m,elc)
+        println(elc)
     end
     for unc in 1:rd.numUncs
         println("$(rd.uncLower[unc]) <= $(rd.uncNames[unc]) <= $(rd.uncUpper[unc])")
@@ -360,6 +360,29 @@ function aff_str(mode, a::FullAffExpr; show_constant=true)
     return ret
 end
 
-
 # Backwards compatability shim
 affToStr(a::FullAffExpr) = aff_str(REPLMode,a)
+
+
+#------------------------------------------------------------------------
+## EllipseConstraint
+#------------------------------------------------------------------------
+Base.print(io::IO, e::EllipseConstraint) = print(io, con_str(REPLMode,e))
+Base.show( io::IO, e::EllipseConstraint) = print(io, con_str(REPLMode,e))
+Base.writemime(io::IO, ::MIME"text/latex", e::EllipseConstraint) =
+    print(io, math(con_str(IJuliaMode,e),false))
+# Generic string converter, called by mode-specific handlers
+function con_str(mode, e::EllipseConstraint)
+    rows, cols = size(e.F)
+    row_strs = [string() for r in 1:rows]
+    col_strs = [unc_str(mode, e.m, e.u[c]) for c in 1:cols]
+    for r in 1:rows
+        for c in 1:cols
+            e.F[r,c] != 0.0 && (row_strs[r] *= "$(e.F[r,c]) $(col_strs[c]) + ")
+        end
+        row_strs[r] *= string(e.g[r])
+    end
+    max_len = maximum(map(length,row_strs))
+    row_strs = ["|| " * rpad(row_strs[r], max_len, " ") * " ||" for r in 1:rows]
+    return join(row_strs, "\n") * " <= $(e.Gamma)"
+end

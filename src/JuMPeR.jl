@@ -14,10 +14,12 @@ import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
 import JuMP.JuMPContainer, JuMP.JuMPDict, JuMP.JuMPArray
 import JuMP.@gendict
 
+# JuMPeRs exported interface
 export RobustModel, getNumUncs, solveRobust, printRobust
 export setDefaultOracle!
-export Uncertain, @defUnc, UAffExpr, FullAffExpr
-export UncConstraint, UncSetConstraint
+export Uncertain, @defUnc, addEllipseConstraint
+export UAffExpr, FullAffExpr
+export UncConstraint, UncSetConstraint, EllipseConstraint
 
 
 
@@ -68,7 +70,6 @@ RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
 function RobustModel(;solver=JuMP.UnsetSolver(),cutsolver=JuMP.UnsetSolver())
     m = Model(solver=solver)
     m.ext[:Robust] = RobustData(cutsolver)
-    setSolveHook
     return m
 end
 
@@ -162,12 +163,64 @@ function addConstraint(m::Model, c::UncConstraint, w=nothing)
     return ConstraintRef{UncConstraint}(m,length(rd.uncertainconstr))
 end
 
+
+#############################################################################
+# EllipseConstraint
+# Capture uncertainty set constraints of the form  || F u + g ||_2 <= Gamma
+type EllipseConstraint <: JuMP.JuMPConstraint
+    m::Model
+    F::Array{Float64, 2}
+    u::Array{Int, 1}
+    g::Array{Float64, 1}
+    Gamma::Float64
+end
+
+# build_ellipse_constraint
+# Given || vec ||_2 <= Gamma, return an EllipseConstraint by expanding 
+# `vec` out to its full `Fu+g` form.
+function build_ellipse_constraint(m::Model, vec::Vector, Gamma::Float64)
+    
+    # In the first pass we determine a unique set of uncertainties
+    # present so we can allocate the correct size F and u
+    unc_map  = Dict{Int,Int}()
+    rev_map  = Dict{Int,Int}()
+    function record(v::Uncertain)
+        if !(v.unc in keys(unc_map))
+            unc_map[v.unc] = length(unc_map) + 1
+            rev_map[length(unc_map)] = v.unc
+        end
+    end
+    record(v::UAffExpr) = map(record, v.vars)
+    record(v) = ArgumentError()
+    map(record, vec)
+
+    # Create F and g
+    num_uncs  = length(unc_map)
+    num_terms = length(vec)
+    F = zeros(num_terms, num_uncs)
+    g = zeros(num_terms)
+    for (i,v) in enumerate(vec)
+        if typeof(v) <: UAffExpr
+            g[i] = v.constant
+            for (j,u) in enumerate(v.vars)
+                F[i,unc_map[u.unc]] += v.coeffs[j]
+            end
+        elseif typeof(v) <: Uncertain
+            F[i,unc_map[v.unc]] += 1.0
+        end
+    end
+
+    return EllipseConstraint(m,F,[rev_map[i] for i=1:num_uncs],g,Gamma)
+end
+
+function addEllipseConstraint(m::Model, vec::Vector, Gamma::Real)
+    push!(getRobust(m).normconstraints, build_ellipse_constraint(m,vec,float(Gamma)))
+    getRobust(m).normconstraints[end]
+end
+
 #############################################################################
 # Scenarios
 include("scenario.jl")
-
-# Ellipsoidal uncertainty set support
-include("ellipse.jl")
 
 # Operator overloads
 include("robustops.jl")

@@ -3,8 +3,8 @@
 # Julia for Mathematical Programming - extension for Robust Optimization
 # See http://github.com/IainNZ/JuMPeR.jl
 #############################################################################
-# test/operators.jl
-# Testing for all operator overloads
+# test/ellipse.jl
+# Testing for ellipsoidal uncertainty sets
 #############################################################################
 
 using JuMP, JuMPeR
@@ -15,7 +15,7 @@ facts("[ellipse] Check the construction of the constraint data") do
     @defUnc(rm, u[1:5])
 
     vec = [1.0*u[1]+2.0*u[2]+1.0, 5.0*u[5]+1.0*u[1]+5.0, 4.0*u[4]+4.0]
-    con = build_ellipse_constraint(vec, 2.0)
+    con = JuMPeR.build_ellipse_constraint(rm, vec, 2.0)
     @fact con.F => [1.0 2.0 0.0 0.0;
                     1.0 0.0 5.0 0.0;
                     0.0 0.0 0.0 4.0]
@@ -24,7 +24,7 @@ facts("[ellipse] Check the construction of the constraint data") do
     @fact con.Gamma => 2.0
 
     vec = [u[5], u[3], u[1] + 9.0]
-    con = build_ellipse_constraint(vec, 1.0)
+    con = JuMPeR.build_ellipse_constraint(rm, vec, 1.0)
     @fact con.F => [1.0 0.0 0.0;
                     0.0 1.0 0.0;
                     0.0 0.0 1.0]
@@ -33,14 +33,14 @@ facts("[ellipse] Check the construction of the constraint data") do
     @fact con.Gamma => 1.0
 
     vec = [1.0*u[1]-5]
-    con = build_ellipse_constraint(vec, 3.0)
+    con = JuMPeR.build_ellipse_constraint(rm, vec, 3.0)
     @fact con.F => ones(1,1)
     @fact con.u =>[  1]
     @fact con.g =>[-5.]
     @fact con.Gamma => 3.0
 
     vec = [2.0, 0.0]
-    @fact_throws build_ellipse_constraint(vec, 0.0)
+    @fact_throws JuMPeR.build_ellipse_constraint(rm, vec, 0.0)
 
     addEllipseConstraint(rm, [u[5], u[3], u[1] + 9.0], 1.0)
 end
@@ -123,7 +123,7 @@ context("Test 5 - 2 var, 2 unc, 2 ellipse") do
      flip && addConstraint(m, -u*x - w*y >= -10)
     addEllipseConstraint(m, [u - 5], 2)  # 5 <= u <= 7
     addEllipseConstraint(m, [w - 3], 1)  # 2 <= w <= 4
-    solveRobust(m, suppress_warnings=true, prefer_cuts=cuts) #, debug_printreform=!cuts, debug_printfinal=!cuts)
+    solveRobust(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x) => roughly((10-4*2)/7, 1e-5)
     @fact getValue(y) => roughly(2.0, 1e-5)
 end

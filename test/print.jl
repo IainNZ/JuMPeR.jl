@@ -45,3 +45,18 @@ facts("[print] JuMPContainer{Uncertain}") do
     io_test(REPLMode, bnd_difflo_with_up, ".. $le bnd_difflo_with_up[i] $le 5 for all i in {2,3,4,5}")
     io_test(REPLMode, bnd_diffup_with_lo, "2 $le bnd_diffup_with_lo[i] $le .. for all i in {2,3,4,5}")
 end
+
+facts("[print] EllipseConstraint") do
+    m = RobustModel()
+    @defUnc(m, 0 <= u[i=1:5] <= i+4)
+    c = addEllipseConstraint(m, [3.0*u[1]-5, 1.0*u[5]-5, 2.0*u[4]-5], 1)
+    io_test(REPLMode, c, """
+|| 3.0 u[1] + -5.0 ||
+|| 1.0 u[5] + -5.0 ||
+|| 2.0 u[4] + -5.0 || <= 1.0""")
+    c = addEllipseConstraint(m, [1.0*u[1]+2.0*u[2]+1.0, 5.0*u[5]+1.0*u[1]+5.0, 4.0*u[4]+4.0], 10)
+    io_test(REPLMode, c, """
+|| 1.0 u[1] + 2.0 u[2] + 1.0 ||
+|| 1.0 u[1] + 5.0 u[5] + 5.0 ||
+|| 4.0 u[4] + 4.0            || <= 10.0""")
+end
