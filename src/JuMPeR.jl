@@ -15,11 +15,13 @@ import JuMP.JuMPContainer, JuMP.JuMPDict, JuMP.JuMPArray
 import JuMP.@gendict
 
 # JuMPeRs exported interface
-export RobustModel, getNumUncs, solveRobust, printRobust
+export RobustModel, getNumUncs, solveRobust
 export setDefaultOracle!
 export Uncertain, @defUnc, addEllipseConstraint
 export UAffExpr, FullAffExpr
 export UncConstraint, UncSetConstraint, EllipseConstraint
+# Deprecated
+export printRobust
 
 
 
@@ -70,6 +72,7 @@ RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
 function RobustModel(;solver=JuMP.UnsetSolver(),cutsolver=JuMP.UnsetSolver())
     m = Model(solver=solver)
     m.ext[:Robust] = RobustData(cutsolver)
+    JuMP.setPrintHook(m, _printRobust)
     return m
 end
 
@@ -90,7 +93,6 @@ type Uncertain
     m::Model
     unc::Int
 end
-
 function Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol, name::String)
     robdata = getRobust(m)
     robdata.numUncs += 1
@@ -101,11 +103,7 @@ function Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol, name::St
     return Uncertain(m, robdata.numUncs)
 end
 Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol) = Uncertain(m,lower,upper,cat,"")
-
-# Name setter/getters
-setName(u::Uncertain, n::String) = (getRobust(u.m).uncNames[u.unc] = n)
 getName(u::Uncertain) = unc_str(REPLMode, u.m, u.unc)
-
 Base.isequal(u1::Uncertain, u2::Uncertain) = isequal(u1.unc, u2.unc)
 
 #############################################################################

@@ -28,23 +28,63 @@ import JuMP: ijulia_leq, ijulia_geq, ijulia_eq, ijulia_times, ijulia_sq,
 #------------------------------------------------------------------------
 ## RobustModel
 #------------------------------------------------------------------------
-function printRobust(m::Model)
+printRobust(m::Model) = printRobust(STDOUT, m)
+function printRobust(io::IO, m::Model)
+    Base.warn("""
+printRobust() has been deprecated in favour of print().
+printRobust() will be removed in JuMPeR v0.2""")
+    _printRobust(io, m)
+end
+function _printRobust(io::IO, m::Model)
+    # Called by the JuMP print hook
     rd = getRobust(m)
     # First, display normal model stuff
-    print(m)
-    println("Uncertain constraints:")
-    for c in rd.uncertainconstr
-        println(c)
+    JuMP.print(io, m, ignore_print_hook=true)
+    # Now print stuff particular to JuMPeR
+    println(io, "Uncertain constraints:")
+    for uc in rd.uncertainconstr
+        println(io, uc)
     end
     println("Uncertainty set:")
-    for uc in rd.uncertaintyset
-        println(uc)
+    for us in rd.uncertaintyset
+        println(io, us)
     end
-    for elc in rd.normconstraints
-        println(elc)
+    for nc in rd.normconstraints
+        println(io, nc)
     end
-    for unc in 1:rd.numUncs
-        println("$(rd.uncLower[unc]) <= $(rd.uncNames[unc]) <= $(rd.uncUpper[unc])")
+    # Uncertains
+    # Display indexed uncertains
+    in_dictlist = falses(rd.numUncs)
+    for d in rd.dictList
+        println(io, cont_str(REPLMode,d))
+        for it in d  # Mark uncertains in JuMPContainer as printed
+            in_dictlist[it[end].unc] = true
+        end
+    end
+
+    # Display non-indexed variables
+    for i in 1:rd.numUncs
+        in_dictlist[i] && continue
+        str = ""
+        unc_name = unc_str(REPLMode,m,i)
+        unc_lb, unc_ub = rd.uncLower[i], rd.uncUpper[i]
+        str_lb, str_ub = str_round(unc_lb), str_round(unc_ub)
+        unc_cat = rd.uncCat[i]
+        if unc_cat == :Bin  # x binary
+            str = "$unc_name $(repl_in) $(repl_open_set)0,1$(repl_close_set)"
+        elseif unc_lb == -Inf && unc_ub == +Inf # Free
+            str = "$unc_name free"
+        elseif unc_lb == -Inf  # No lower bound
+            str = "$unc_name $(repl_leq) $str_ub"
+        elseif unc_ub == +Inf  # No upper bound
+            str = "$unc_name $(repl_geq) $str_lb"
+        else
+            str = "$str_lb $(repl_leq) $unc_name $(repl_leq) $str_ub"
+        end
+        if unc_cat == :Int
+            str *= ", $integer"
+        end
+        println(io, str)
     end
 end
 

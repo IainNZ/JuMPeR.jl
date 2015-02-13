@@ -150,7 +150,6 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
         # and no lazy constraints are added
         tic()
         master_status = solve(master,
-                              #load_model_only   = get(prefs, :load_model_only, false),
                               suppress_warnings = get(prefs, :suppress_warnings, false))
         master_time = toq() - cut_time
     else
@@ -162,7 +161,6 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
             # Solve master
             tic()
             master_status = solve(master,
-                                  #load_model_only   = get(prefs, :load_model_only, false),
                                   suppress_warnings = get(prefs, :suppress_warnings, false))
             master_time += toq()
 
@@ -224,6 +222,10 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
         active_cuts && @printf("Active cut time: %12.5f\n", activecut_time)
     end
     robdata.solve_time = master_time + cut_time
+
+    # Store the internal model
+    rm.internalModel = master.internalModel
+    rm.internalModelLoaded = true
 
     # Return solve status
     return master_status
