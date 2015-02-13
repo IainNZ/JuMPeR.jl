@@ -28,7 +28,10 @@ import JuMP: ijulia_leq, ijulia_geq, ijulia_eq, ijulia_times, ijulia_sq,
 #------------------------------------------------------------------------
 ## RobustModel
 #------------------------------------------------------------------------
-printRobust(m::Model) = printRobust(STDOUT, m)
+function printRobust(m::Model)
+    # Compatability shim
+    printRobust(STDOUT, m)
+end
 function printRobust(io::IO, m::Model)
     Base.warn("""
 printRobust() has been deprecated in favour of print().
@@ -93,8 +96,8 @@ end
 #------------------------------------------------------------------------
 Base.print(io::IO, u::Uncertain) = print(io, unc_str(REPLMode,u))
 Base.show( io::IO, u::Uncertain) = print(io, unc_str(REPLMode,u))
-Base.writemime(io::IO, ::MIME"text/latex", u::Uncertain) = 
-    print(io, unc_str(IJuliaMode,u,mathmode=false))
+#Base.writemime(io::IO, ::MIME"text/latex", u::Uncertain) = 
+#    print(io, unc_str(IJuliaMode,u,mathmode=false))
 function unc_str(mode, m::Model, unc::Int, ind_open, ind_close)
     rd = getRobust(m)
     uncNames = rd.uncNames
@@ -116,35 +119,35 @@ function fill_unc_names(mode, uncNames, u::JuMPArray{Uncertain})
         for i = 2:N
             push!(idx_strs, string(idxsets[i][int(ceil(mod1(ind,cprod[i]) / cprod[i-1]))]))
         end
-        if mode == IJuliaMode
-            uncNames[unc.unc] = string(name, "_{", join(idx_strs,",") , "}")
-        else
+        #if mode == IJuliaMode
+        #    uncNames[unc.unc] = string(name, "_{", join(idx_strs,",") , "}")
+        #else
             uncNames[unc.unc] = string(name,  "[", join(idx_strs,",") , "]")
-        end
+        #end
     end
 end
 function fill_unc_names(mode, uncNames, u::JuMPDict{Uncertain})
     name = u.name
     for tmp in u
         ind, unc = tmp[1:end-1], tmp[end]
-        if mode == IJuliaMode
-            uncNames[unc.unc] = string(name, "_{", join([string(i) for i in ind],","), "}")
-        else
+        #if mode == IJuliaMode
+        #    uncNames[unc.unc] = string(name, "_{", join([string(i) for i in ind],","), "}")
+        #else
             uncNames[unc.unc] = string(name,  "[", join([string(i) for i in ind],","), "]")
-        end
+        #end
     end
 end
 
 # Handlers to use correct symbols
 unc_str(::Type{REPLMode}, u::Uncertain) =
     unc_str(REPLMode, u.m, u.unc)
-unc_str(::Type{IJuliaMode}, v::Variable; mathmode=true) =
-    unc_str(IJuliaMode, u.m, u.unc, mathmode=mathmode)
+#unc_str(::Type{IJuliaMode}, v::Variable; mathmode=true) =
+#    unc_str(IJuliaMode, u.m, u.unc, mathmode=mathmode)
 
 unc_str(::Type{REPLMode}, m::Model, unc::Int) = 
     unc_str(REPLMode, m, unc, repl_ind_open, repl_ind_close)
-unc_str(::Type{IJuliaMode}, m::Model, unc::Int; mathmode=true) = 
-    math(unc_str(IJuliaMode, m, unc, ijulia_ind_open, ijulia_ind_close), mathmode)
+#unc_str(::Type{IJuliaMode}, m::Model, unc::Int; mathmode=true) = 
+#    math(unc_str(IJuliaMode, m, unc, ijulia_ind_open, ijulia_ind_close), mathmode)
 
 
 #------------------------------------------------------------------------
@@ -152,8 +155,8 @@ unc_str(::Type{IJuliaMode}, m::Model, unc::Int; mathmode=true) =
 #------------------------------------------------------------------------
 Base.print(io::IO, j::JuMPContainer{Uncertain}) = print(io, cont_str(REPLMode,j))
 Base.show( io::IO, j::JuMPContainer{Uncertain}) = print(io, cont_str(REPLMode,j))
-Base.writemime(io::IO, ::MIME"text/latex", j::JuMPContainer{Uncertain}) =
-    print(io, cont_str(IJuliaMode,j,mathmode=false))
+#Base.writemime(io::IO, ::MIME"text/latex", j::JuMPContainer{Uncertain}) =
+#    print(io, cont_str(IJuliaMode,j,mathmode=false))
 # Generic string converter, called by mode-specific handlers
 function cont_str(mode, j::JuMPContainer{Uncertain}, leq, eq, geq,
                             ind_open, ind_close, for_all, in_set,
@@ -219,17 +222,6 @@ function cont_str(mode, j::JuMPContainer{Uncertain}, leq, eq, geq,
     # Special case bounds printing based on the category
     if unc_cat == :Bin  # x in {0,1}
         return "$name_idx $in_set $(open_set)0,1$close_set $idx_sets"
-    elseif unc_cat == :SemiInt  # x in union of 0 and {lb,...,ub}
-        si_lb = all_same_lb ? str_lb : ".."
-        si_ub = all_same_ub ? str_ub : ".."
-        return "$name_idx $in_set $open_set$si_lb$mid_set$si_ub$close_set $union $(open_set)0$close_set $idx_sets"
-    elseif unc_cat == :SemiCont  # x in union of 0 and [lb,ub]
-        si_lb = all_same_lb ? str_lb : ".."
-        si_ub = all_same_ub ? str_ub : ".."
-        return "$name_idx $in_set $open_rng$si_lb,$si_ub$close_rng $union $(open_set)0$close_set $idx_sets"
-    elseif unc_cat == :Fixed
-        si_bnd = all_same_lb ? str_lb : ".."
-        return "$name_idx = $si_bnd $idx_sets"
     end
     # Continuous and Integer
     idx_sets = unc_cat == :Int ? ", $integer, $idx_sets" : " $idx_sets"
@@ -259,10 +251,10 @@ cont_str(::Type{REPLMode}, j::JuMPContainer{Uncertain}; mathmode=false) =
     cont_str(REPLMode, j, repl_leq, repl_eq, repl_geq, repl_ind_open, repl_ind_close,
                 repl_for_all, repl_in, repl_open_set, repl_mid_set, repl_close_set,
                 repl_union, repl_infty, repl_open_rng, repl_close_rng, repl_integer)
-cont_str(::Type{IJuliaMode}, j::JuMPContainer{Uncertain}; mathmode=true) =
+#=cont_str(::Type{IJuliaMode}, j::JuMPContainer{Uncertain}; mathmode=true) =
     math(cont_str(IJuliaMode, j, ijulia_leq, ijulia_eq, ijulia_geq, ijulia_ind_open, ijulia_ind_close,
                 ijulia_for_all, ijulia_in, ijulia_open_set, ijulia_mid_set, ijulia_close_set, 
-                ijulia_union, ijulia_infty, ijulia_open_rng, ijulia_close_rng, ijulia_integer), mathmode)
+                ijulia_union, ijulia_infty, ijulia_open_rng, ijulia_close_rng, ijulia_integer), mathmode)=#
 
 
 #------------------------------------------------------------------------
@@ -270,8 +262,8 @@ cont_str(::Type{IJuliaMode}, j::JuMPContainer{Uncertain}; mathmode=true) =
 #------------------------------------------------------------------------
 Base.print(io::IO, a::UAffExpr) = print(io, aff_str(REPLMode,a))
 Base.show( io::IO, a::UAffExpr) = print(io, aff_str(REPLMode,a))
-Base.writemime(io::IO, ::MIME"text/latex", a::UAffExpr) =
-    print(io, math(aff_str(IJuliaMode,a),false))
+#Base.writemime(io::IO, ::MIME"text/latex", a::UAffExpr) =
+#    print(io, math(aff_str(IJuliaMode,a),false))
 # Generic string converter, called by mode-specific handlers
 function aff_str(mode, a::UAffExpr; show_constant=true)
     # If the expression is empty, return the constant (or 0)
@@ -329,8 +321,8 @@ affToStr(a::UAffExpr) = aff_str(REPLMode,a)
 #------------------------------------------------------------------------
 Base.print(io::IO, a::FullAffExpr) = print(io, aff_str(REPLMode,a))
 Base.show( io::IO, a::FullAffExpr) = print(io, aff_str(REPLMode,a))
-Base.writemime(io::IO, ::MIME"text/latex", a::FullAffExpr) =
-    print(io, math(aff_str(IJuliaMode,a),false))
+#Base.writemime(io::IO, ::MIME"text/latex", a::FullAffExpr) =
+#    print(io, math(aff_str(IJuliaMode,a),false))
 # Generic string converter, called by mode-specific handlers
 # conToStr says showConstant = false, because if the constant term is
 # just a number for AffExpr. However in our case it might also contain
@@ -409,8 +401,8 @@ affToStr(a::FullAffExpr) = aff_str(REPLMode,a)
 #------------------------------------------------------------------------
 Base.print(io::IO, e::EllipseConstraint) = print(io, con_str(REPLMode,e))
 Base.show( io::IO, e::EllipseConstraint) = print(io, con_str(REPLMode,e))
-Base.writemime(io::IO, ::MIME"text/latex", e::EllipseConstraint) =
-    print(io, math(con_str(IJuliaMode,e),false))
+#Base.writemime(io::IO, ::MIME"text/latex", e::EllipseConstraint) =
+#    print(io, math(con_str(IJuliaMode,e),false))
 # Generic string converter, called by mode-specific handlers
 function con_str(mode, e::EllipseConstraint)
     rows, cols = size(e.F)

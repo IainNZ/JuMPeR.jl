@@ -34,11 +34,14 @@ uaff  = 2.3 * a + 5.5
 uaff2 = 3.4 * b + 1.1
 faff  = (5a+1)x + (2b + 3)
 
+@fact sprint(print, a) => "a"
+@fact sprint( show, a) => "a"
 @fact affToStr(aff)   => "7.1 x + 2.5"
 @fact affToStr(aff2)  => "1.2 y + 1.2"
 @fact affToStr(uaff)  => "2.3 a + 5.5"
 @fact affToStr(uaff2) => "3.4 b + 1.1"
 @fact affToStr(faff)  => "(5 a + 1) x + 2 b + 3"
+@fact affToStr(x+UAffExpr(0.0)) => sprint(print, x)
 
 context("Core JuMPeR type methods") do
     # Model
