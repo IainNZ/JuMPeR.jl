@@ -1,4 +1,4 @@
-![JuMPeR Logo](doc/logo.svg)
+![JuMPeR Logo](http://iainnz.github.io/JuMPeR.jl/logo.svg)
 
 **[JuMPeR]** is a modeling language for **[robust optimization (RO)]**. It is embedded in the **[Julia programming language]**, and is an extension to the **[JuMP]** modeling language.
 
