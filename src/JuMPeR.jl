@@ -15,13 +15,13 @@ import JuMP.JuMPContainer, JuMP.JuMPDict, JuMP.JuMPArray
 import JuMP.@gendict
 
 # JuMPeRs exported interface
-export RobustModel, getNumUncs, solveRobust
+export RobustModel, getNumUncs
 export setDefaultOracle!
 export Uncertain, @defUnc, addEllipseConstraint
 export UAffExpr, FullAffExpr
 export UncConstraint, UncSetConstraint, EllipseConstraint
 # Deprecated
-export printRobust
+export printRobust, solveRobust
 
 
 
@@ -72,7 +72,8 @@ RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
 function RobustModel(;solver=JuMP.UnsetSolver(),cutsolver=JuMP.UnsetSolver())
     m = Model(solver=solver)
     m.ext[:Robust] = RobustData(cutsolver)
-    JuMP.setPrintHook(m, _printRobust)
+    JuMP.setPrintHook(m, _print_robust)
+    JuMP.setSolveHook(m, _solve_robust)
     return m
 end
 

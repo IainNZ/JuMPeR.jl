@@ -25,7 +25,13 @@ copy_linconstr(old_con::LinearConstraint, new_vars) =
 
 #############################################################################
 
-function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
+function solveRobust(rm::Model; kwargs...)
+    Base.warn("""
+solveRobust() has been deprecated in favour of solve().
+solveRobust() will be removed in JuMPeR v0.2""")
+    _solve_robust(rm; kwargs...)
+end
+function _solve_robust(rm::Model; report=false, active_cuts=false, kwargs...)
     robdata = getRobust(rm)
 
     # Pull out extra keyword arguments that we will pas through to oracles
@@ -144,7 +150,7 @@ function solveRobust(rm::Model; report=false, active_cuts=false, kwargs...)
             end
             cut_time += toq()
         end
-        setLazyCallback(master, lazyCallback)
+        addLazyCallback(master, lazyCallback)
 
         # Solve master. Terminate when we have an optimal integer solution
         # and no lazy constraints are added

@@ -51,7 +51,7 @@ facts("[print] RobustModel") do
     # Ellipse
     addEllipseConstraint(mod_1, [a, b], 1)
 
-    #=io_test(REPLMode, mod_1, """
+    io_test(REPLMode, mod_1, """
 Max 2 vars[1]
 Subject to
  vars[10] $le 10
@@ -74,9 +74,7 @@ b1 $le 1, integer
 x in {0,1}
 y free
 z free, integer
-""", repl=:print)=#
-    # For the sake of coverage until JuMP gets bumped
-    printRobust(mod_1)
+""", repl=:print)
 end
 
 facts("[print] JuMPContainer{Uncertain}") do

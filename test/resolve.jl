@@ -20,12 +20,12 @@ function resolve_1(pref)
     setObjective(m, :Max, 3*sum(S) - sum(B))
 
     # First solve
-    solveRobust(m, prefer_cuts=pref)
+    solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(B[1]) 5.0
     @test_approx_eq getValue(B[2]) 2.5
 
     # Solve again with no changes
-    solveRobust(m, prefer_cuts=pref)
+    solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(B[1]) 5.0
     @test_approx_eq getValue(B[2]) 2.5
 
@@ -34,20 +34,20 @@ function resolve_1(pref)
     addConstraint(m,  (D[1] - 20)/10 - (D[2] - 10)/5 <= 1.0)
     addConstraint(m, -(D[1] - 20)/10 + (D[2] - 10)/5 <= 1.0)
     addConstraint(m, -(D[1] - 20)/10 - (D[2] - 10)/5 <= 1.0)
-    solveRobust(m, prefer_cuts=pref)
+    solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(B[1]) 10.0
     @test_approx_eq getValue(B[2])  5.0
 
     # Add a certain constraint
     addConstraint(m, B[1] <= 8)
-    solveRobust(m, prefer_cuts=pref)
+    solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(B[1]) 8.0
     @test_approx_eq getValue(B[2]) 5.0
 
     # Add an uncertain constraint (and disambiguate objective)
     addConstraint(m, B[1] + B[2] <= (D[1] + D[2])/2)
     setObjective(m, :Max, 3.1*S[2] + 3.0*S[1] - sum(B))
-    solveRobust(m, prefer_cuts=pref)
+    solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(B[1]) 5.0
     @test_approx_eq getValue(B[2]) 5.0
 end

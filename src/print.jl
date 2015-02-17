@@ -36,9 +36,9 @@ function printRobust(io::IO, m::Model)
     Base.warn("""
 printRobust() has been deprecated in favour of print().
 printRobust() will be removed in JuMPeR v0.2""")
-    _printRobust(io, m)
+    _print_robust(io, m)
 end
-function _printRobust(io::IO, m::Model)
+function _print_robust(io::IO, m::Model)
     # Called by the JuMP print hook
     rd = getRobust(m)
     # First, display normal model stuff

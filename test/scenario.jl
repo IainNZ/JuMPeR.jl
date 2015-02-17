@@ -17,7 +17,7 @@ let
     # able to complete define a constraint
     addScenario(rm, [v => 9999.0])
 
-    solveRobust(rm)
+    solve(rm)
     @test_approx_eq getValue(x) 0.5
 end
 
@@ -30,7 +30,7 @@ let
     @setObjective(rm, Max, x)
     mycon = addConstraint(rm, v*x <= u)
     myloosecon = addConstraint(rm, u*x <= 10000)
-    solveRobust(rm, prefer_cuts=true, active_cuts=true)
+    solve(rm, prefer_cuts=true, active_cuts=true)
     ascen = getScenario(mycon)
     @test_approx_eq getUncValue(ascen, u) 3.0
     @test_approx_eq getUncValue(ascen, v) 1.0

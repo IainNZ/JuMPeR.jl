@@ -18,7 +18,7 @@ function BSTest1(cuts)
 
     addConstraint(m, sum([u[i]*x[i] for i=1:n]) <= 21)
     
-    status = solveRobust(m, prefer_cuts=cuts)
+    status = solve(m, prefer_cuts=cuts)
     @test_approx_eq getValue(x[1]) 0.0
     @test_approx_eq getValue(x[2]) 3.0
 end
@@ -40,7 +40,7 @@ function BSTest2(cuts)
 
     addConstraint(m, sum([u[i]*x[i] for i=1:n]) >= -21, BertSimOracle(1))
     
-    status = solveRobust(m, prefer_cuts=cuts)
+    status = solve(m, prefer_cuts=cuts)
     @test_approx_eq getValue(x[1]) 0.0
     @test_approx_eq getValue(x[2]) 3.0
 end
@@ -62,7 +62,7 @@ function BSTest3(cuts)
 
     addConstraint(m, sum([u[i]*x[i] for i=1:n]) >= -21, BertSimOracle(1))
     
-    status = solveRobust(m, prefer_cuts=cuts)
+    status = solve(m, prefer_cuts=cuts)
     @test_approx_eq getValue(x[1]) 0.0
     @test_approx_eq getValue(x[2]) -3.0
 end
@@ -85,7 +85,7 @@ function BSTest4(cuts)
 
     addConstraint(m, sum([u[i]*x[i] for i=1:n]) <= 21, BertSimOracle(1))
     
-    status = solveRobust(m, prefer_cuts=cuts)
+    status = solve(m, prefer_cuts=cuts)
     @test_approx_eq getValue(x[1]) 0.0
     @test_approx_eq getValue(x[2]) -3.0
 end

@@ -65,7 +65,7 @@ context("Test 1 - 1 var, 1 lhs unc") do
     !flip && addConstraint(m,  u*x <=  7)
      flip && addConstraint(m, -u*x >= -7)
     addEllipseConstraint(m, [1.0*u - 5], 2)  # 5 <= u <= 7
-    solveRobust(m, suppress_warnings=true, prefer_cuts=cuts)
+    solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x) => roughly(1.0,1e-6)
 end
 context("Test 2 - 5 var, 5 unc") do
@@ -76,7 +76,7 @@ context("Test 2 - 5 var, 5 unc") do
     !flip && addConstraint(m,  sum([ u[i]*x[i] for i=1:5 ]) <=  100)
      flip && addConstraint(m, -sum([ u[i]*x[i] for i=1:5 ]) >= -100)
     addEllipseConstraint(m, [3.0*u[1]-5, 1.0*u[5]-5, 2.0*u[4]-5], 1)
-    solveRobust(m, suppress_warnings=true, prefer_cuts=cuts)
+    solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x[1]) => roughly(2.0,1e-6)
     @fact getValue(x[2]) => roughly(4.0,1e-6)
     @fact getValue(x[3]) => roughly(6.0,1e-6)
@@ -95,7 +95,7 @@ context("Test 3 - Polyhedral + ellipse") do
     @addConstraint(m, u[1] == 5.0*z[1]            + 10.0)
     @addConstraint(m, u[2] == 3.0*z[1] - 2.0*z[2] +  3.0)
     addEllipseConstraint(m, [z[1],z[2]], 1)
-    solveRobust(m, suppress_warnings=true, prefer_cuts=cuts)
+    solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x[1]) => roughly(1.000, 1e-3)
     @fact getValue(x[2]) => roughly(0.000, 1e-3)
 end
@@ -107,7 +107,7 @@ context("Test 4 - 1 var, 1 rhs unc") do
     !flip && addConstraint(m,  x >=  u)
      flip && addConstraint(m, -x <= -u)
     addEllipseConstraint(m, [1.0*u - 5], 2)  # 5 <= u <= 7
-    solveRobust(m, suppress_warnings=true, prefer_cuts=cuts)
+    solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x) => roughly(7.0, 1e-6)
 end
 context("Test 5 - 2 var, 2 unc, 2 ellipse") do
@@ -123,7 +123,7 @@ context("Test 5 - 2 var, 2 unc, 2 ellipse") do
      flip && addConstraint(m, -u*x - w*y >= -10)
     addEllipseConstraint(m, [u - 5], 2)  # 5 <= u <= 7
     addEllipseConstraint(m, [w - 3], 1)  # 2 <= w <= 4
-    solveRobust(m, suppress_warnings=true, prefer_cuts=cuts)
+    solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x) => roughly((10-4*2)/7, 1e-5)
     @fact getValue(y) => roughly(2.0, 1e-5)
 end
@@ -143,7 +143,7 @@ context("Test 6 - dfagnan provided") do
     end
     @addConstraint(m, u[1] == 1)
     addEllipseConstraint(m,[u[2]-1.2],0.01)
-    solveRobust(m, suppress_warnings=true, prefer_cuts=cuts)
+    solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(obj) => roughly(1.19, 1e-6)
 end
 end # outer context

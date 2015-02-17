@@ -73,7 +73,7 @@ function solve_master(samples; silent=false, cuts=false)
     end
     express_time = toq()
     !silent && println("Express time ", express_time)
-    solveRobust(master, report=!silent, prefer_cuts=cuts)
+    solve(master, report=!silent, prefer_cuts=cuts)
 end
 
 

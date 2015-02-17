@@ -6,7 +6,7 @@ function Test1(pref)
     setObjective(m, :Max, x[1] + x[2])
     addConstraint(m, u*x[1] + 1*x[2] <= 2.)
     addConstraint(m, 1*x[1] + 1*x[2] <= 6.)
-    status = solveRobust(m, prefer_cuts=pref)
+    status = solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(x[1]) 4.0
     @test_approx_eq getValue(x[2]) 0.0
 end
@@ -20,7 +20,7 @@ function Test2(pref)
     setObjective(m, :Max, x[1] + x[2])
     addConstraint(m, u1*x[1] + 1*x[2] <= 2.)
     addConstraint(m, u2*x[1] + 1*x[2] <= 6.)
-    status = solveRobust(m, prefer_cuts=pref)
+    status = solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(x[1]) (2.0+2.0/3.0)
     @test_approx_eq getValue(x[2]) (    2.0/3.0)
 end
@@ -34,7 +34,7 @@ function Test2Flip(pref)
     setObjective(m, :Max, x[1] + x[2])
     addConstraint(m, -1*u1*x[1] + -1*x[2] >= -2.)
     addConstraint(m, -1*u2*x[1] + -1*x[2] >= -6.)
-    status = solveRobust(m, prefer_cuts=pref)
+    status = solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(x[1]) (2.0+2.0/3.0)
     @test_approx_eq getValue(x[2]) (    2.0/3.0)
 end
@@ -48,7 +48,7 @@ function Test2IP(pref)
     setObjective(m, :Max, 1.1*x[1] + x[2])
     addConstraint(m, u1*x[1] + 1*x[2] <= 2.)
     addConstraint(m, u2*x[1] + 1*x[2] <= 6.)
-    status = solveRobust(m, prefer_cuts=pref)
+    status = solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(x[1]) 3.0
     @test_approx_eq getValue(x[2]) 0.0
 end
@@ -64,7 +64,7 @@ function Test3(pref)
     addConstraint(m, u2*x[2] <= 1)
     addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) <= +1)
     addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) >= -1)
-    status = solveRobust(m, prefer_cuts=pref)
+    status = solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(x[1]) (2.0)
     @test_approx_eq getValue(x[2]) (10.0/11.0)
 end
@@ -80,7 +80,7 @@ function Test3IP(pref)
     addConstraint(m, u2*x[2] <= 1)
     addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) <= +1)
     addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) >= -1)
-    status = solveRobust(m, prefer_cuts=pref)
+    status = solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(x[1]) 2.0
     @test_approx_eq getValue(x[2]) 0.0
 end
@@ -93,7 +93,7 @@ function Test4(pref)
     @addConstraint(m, u >= 3.0)
     @setObjective(m, Max, 1.0x)
     @addConstraint(m, x <= u)
-    status = solveRobust(m, prefer_cuts=pref)
+    status = solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(x) 3.0
 end
 
@@ -108,7 +108,7 @@ function Test5(pref)
     @defVar(m, t)
     addConstraint(m, t >= sum(u[:]))
     @setObjective(m, Min, t)
-    solveRobust(m, prefer_cuts=pref)
+    solve(m, prefer_cuts=pref)
     @test_approx_eq getObjectiveValue(m) 5.0
 end
 
@@ -128,7 +128,7 @@ function Test6(pref, variant)
     variant == 5 && addConstraint(rm, 3.46 <= -x + u + shed)
     variant == 6 && addConstraint(rm, 3.46 - shed <= -x + u)
     variant == 7 && addConstraint(rm, 3.46 + x <= shed + u)
-    solveRobust(rm, prefer_cuts=pref)
+    solve(rm, prefer_cuts=pref)
     @test_approx_eq getObjectiveValue(rm) 3.46
 end
 
@@ -139,7 +139,7 @@ function TestIntSet()
     @defUnc(rm, 0.5 <= u <= 1.5, Int)
     @setObjective(rm, Max, x)
     addConstraint(rm, x <= u)
-    solveRobust(rm, prefer_cuts=true)
+    solve(rm, prefer_cuts=true)
     @test_approx_eq getValue(x) 1.0
 end
 
@@ -150,7 +150,7 @@ function Test7(pref)
     @defUnc(m, 0.5 <= u <= 0.5)
     @setObjective(m, Max, x)
     @addConstraint(m, u*x + u <= 2)
-    status = solveRobust(m, prefer_cuts=pref)
+    status = solve(m, prefer_cuts=pref)
     @test_approx_eq getValue(x) 3.0
 end
 

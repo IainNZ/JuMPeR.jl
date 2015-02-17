@@ -21,10 +21,10 @@ ret = JuMPeR.detect_components(r.numUncs, r.uncertaintyset)
 setDefaultOracle!(m, JuMPeR.GeneralGraphOracle())
 addConstraint(m, x[1] >= u[1,1])
 addConstraint(m, x[2] >= u[1,4])
-solveRobust(m, prefer_cuts=true)    # CUTS
+solve(m, prefer_cuts=true)    # CUTS
 @test_approx_eq getValue(x[1]) 1.0
 @test_approx_eq getValue(x[2]) 1.0
-solveRobust(m, prefer_cuts=false)   # REFORM
+solve(m, prefer_cuts=false)   # REFORM
 @test_approx_eq getValue(x[1]) 1.0
 @test_approx_eq getValue(x[2]) 1.0
 
@@ -45,10 +45,10 @@ ret = JuMPeR.detect_components(r.numUncs, r.uncertaintyset)
 setDefaultOracle!(m, JuMPeR.GeneralGraphOracle())
 addConstraint(m, x[1] <= u[1])
 addConstraint(m, x[2] <= u[3])
-solveRobust(m, prefer_cuts=true)    # CUTS
+solve(m, prefer_cuts=true)    # CUTS
 @test_approx_eq getValue(x[1]) 2.0
 @test_approx_eq getValue(x[2]) 2.0
-solveRobust(m, prefer_cuts=false)   # REFORM
+solve(m, prefer_cuts=false)   # REFORM
 @test_approx_eq getValue(x[1]) 2.0
 @test_approx_eq getValue(x[2]) 2.0
 
@@ -71,9 +71,9 @@ ret = JuMPeR.detect_components(r.numUncs, r.uncertaintyset)
 setDefaultOracle!(m, JuMPeR.GeneralGraphOracle())
 addConstraint(m, x[1] >= u[1])
 addConstraint(m, x[2] >= u[4])
-solveRobust(m, prefer_cuts=true)    # CUTS
+solve(m, prefer_cuts=true)    # CUTS
 @test_approx_eq getValue(x[1]) 1.0
 @test_approx_eq getValue(x[2]) 5.0
-solveRobust(m, prefer_cuts=false)   # REFORM
+solve(m, prefer_cuts=false)   # REFORM
 @test_approx_eq getValue(x[1]) 1.0
 @test_approx_eq getValue(x[2]) 5.0
