@@ -238,5 +238,14 @@ function _solve_robust(rm::Model;
     rm.internalModelLoaded = true
 
     # Return solve status
+    if master_status == :Unbounded && prefs[:prefer_cuts]
+        Base.warn("""
+Problem was unbounded and cutting planes were used.
+Unboundedness may be due to master problem being
+unbounded before any cuts are added - try using the
+add_box option to solve to ensure master problem is
+bounded, or add bounds to variables manually.
+""")
+    end
     return master_status
 end
