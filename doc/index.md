@@ -155,17 +155,49 @@ knap = RobustModel()
 @addConstraint(knap, sum{(w[i]+σ[i]*z[i])*x[i], i=1:n} <= C)
 ```
 
-TODO: Ellipsodial constraints
+#### Ellipsoidal Constraints
 
+JuMP doesn't provide a convenient syntax to express "ellipsoidal constraints", i.e.
+
+$$
+\begin{alignat}{2}
+\| \mathbf{x} \|_2 & \leq \Gamma
+\end{alignat}
+$$
+
+but ellipsoidal uncertainty sets are popular. We address this by providing `addEllipseConstraint`. This function takes 3 arguments: a `RobustModel`, a vector of `Uncertain`s or affine expressions of them, and a **constant** right-hand-side that the norm of this vector should be less than. For example:
+
+```{.julia execute="false"}
+# A trivial ellipse: 5 <= v <= 7
+@defUnc(m, v)
+addEllipseConstraint(m, [v], 2)
+
+# An sphere centered at (1,2,3,4,5) with a radius
+# of 1 in each dimension
+@defUnc(m, u[1:5])
+addEllipseConstraint(m, [(u-i) for i in 1:5], 1)
+
+# A more complicated ellipse
+@defUnc(m, w[1:5])
+addEllipseConstraint(m, [3.0*w[1]-5, 1.0*w[5]-5, 2.0*w[4]-5], 2)
+```
 
 ## Solving
 
-By default, JuMPeR will use duality to reformulate the uncertain problem into a deterministic robust counterpart. However you can signal that you want cuts with the `prefer_cuts` option. You can also get a summary report of how the model was solved and how long the different solve components took by setting the `report` option.
+By default, JuMPeR will use duality to reformulate the uncertain problem into a deterministic robust counterpart. However there are a couple of options to customize the solve, not to mention any options you provide to the oracle (more on that later).
+
+* You can signal that you want cuts with the `prefer_cuts` option.
+* If the problem is unbounded before any cuts are added, you can automatically add upper and lower bounds to variables that don't have them already using `add_box`.
+* You can get a summary report of how the model was solved and how long the different solve components took by setting the `report` option.
 
 ```{.julia execute="false"}
 solve(rm)  # Will use default, which is reformulation
 solve(rm, prefer_cuts=true)  # Use cuts if possible
-solve(rm, report=true)  # Get some information about the solution process
+solve(rm, report=true)       # Get some information about the
+                             # solution process at the end
+solve(rm, add_box=1e3)       # Provide an upper and lower bound of
+                             # 1e3 (or whatever) for all variables
+                             # that don't otherwise have them.
 ```
 
 Note that the solution methods available depends on the chosen oracle's capabilities. The default oracle supports both, but some uncertainty sets may only support one or the other.
@@ -186,7 +218,40 @@ JuMPeR currently comes with three oracles:
  * `GeneralGraphOracle`, a variation on `GeneralOracle`. This oracle attempts to discover if the uncertain parameters actually belong to seperate, disjunct uncertainty sets. This allows it to generate smaller reformulations, and a seperator cut generator for each set if using cutting-planes.
  * `BertSimOracle`, implements the uncertainty set described in the 2004 paper *The Price of Robustness* by Bertsimas and Sim. Will generate cutting-planes efficiently using sorting instead of solving an LP. The `GeneralOracle` should be used if a reformulation is desired.
 
-TODO: set default oracle, attaching oracles to constraints.
+To set the oracle for all constraints, use the `setDefaultOracle!` command, e.g.
+
+```{.julia execute=false}
+n           = 3
+weight_low  = [1.0, 3.0, 2.0]
+weight_high = [3.0, 9.0, 6.0]
+values      = [5.0, 6.0, 4.0]
+
+# Create the model...
+m = RobustModel()
+# ... and set all constraints to use the Bertsimas-Sim set
+setDefaultOracle!(m, BertSimOracle(1))
+
+# Setup our problem
+@defVar(m, x[1:n], Bin)
+@defUnc(m, weight_low[i] <= u[i=1:n] <= weight_high[i])
+@setObjective(m, Max, sum{values[i] * x[i], i=1:n})
+
+# Notice we haven't provided an explicit uncertainty set,
+# apart from the ranges on the uncertain values?
+# The BertSimOracle looks at the range, and treats the
+# nominal value for each uncertain parameter as the
+# midpoint of the range. The parameter we passed is the
+# number of uncertain parameters that can deviate from
+# this nominal value. In other words:
+#   |u - 4|/1  +  |u - 6|/3  +  |u - 4|/2  <=  1
+#   |u - 4|/1  <=  1
+#   |u - 6|/3  <=  1
+#   |u - 4|/2  <=  1
+@addConstraint(m, sum{u[i]*x[i], i=1:n} <= 8)
+
+solve(m, prefer_cuts=true)
+```
+
 
 ## Making an oracle
 
@@ -243,7 +308,7 @@ generateCut(ab::AbstractOracle, master::Model, rm::Model, inds::Vector{Int}, act
 
 ## Oracle design advice
 
-Yet to come.
+Stay tuned, watch this space, etc.
 
 [Julia programming language]: http://julialang.org/
 [JuMP]: https://github.com/JuliaOpt/JuMP.jl
