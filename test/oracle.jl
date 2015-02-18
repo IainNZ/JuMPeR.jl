@@ -1,21 +1,34 @@
+#############################################################################
+# JuMPeR
+# Julia for Mathematical Programming - extension for Robust Optimization
+# See http://github.com/IainNZ/JuMPeR.jl
+#############################################################################
+# test/oracle.jl
+# Test oracle interface & tools
+#############################################################################
+
 using JuMP, JuMPeR
-using Base.Test
+using FactCheck
+
+if !(:lp_solvers in names(Main))
+    println("Loading solvers...")
+    include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
+end
 
 type IncompleteOracle <: AbstractOracle end
+
+facts("[oracle] Check interface throws") do
+    @fact_throws registerConstraint(IncompleteOracle(), RobustModel(), 1, nothing)
+    @fact_throws setup(IncompleteOracle(), RobustModel(), nothing)
+    @fact_throws generateReform(IncompleteOracle(), Model(), RobustModel(), Int[])
+    @fact_throws generateCut(IncompleteOracle(), Model(), RobustModel(), Int[])
+end
 
 # build_cut_objective
 # build_cut_objective_sparse
 # build_certain_constraint
 # is_constraint_violated
-let
-
-    @test_throws ErrorException registerConstraint(IncompleteOracle(), RobustModel(), 1, nothing)
-    @test_throws ErrorException setup(IncompleteOracle(), RobustModel(), nothing)
-    @test_throws ErrorException generateReform(IncompleteOracle(), Model(), RobustModel(), Int[])
-    @test_throws ErrorException generateCut(IncompleteOracle(), Model(), RobustModel(), Int[])
-
-
-    # -------------------
+facts("[oracle] Test oracle utilities") do
     rm = RobustModel()
     @defVar(rm, x[1:4] >= 0)
     @defUnc(rm, u[1:5])
@@ -28,47 +41,47 @@ let
 
     # -------------------
     sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective(rm, unc_con, col_val)
-    @test sense == :Max
-    @test_approx_eq unc_coeffs[1] 3.0*2.0+4.0
-    @test_approx_eq unc_coeffs[2] 3.0
-    @test_approx_eq unc_coeffs[3] 4.0+5.0
-    @test_approx_eq unc_coeffs[4] 2*5.0
-    @test_approx_eq unc_coeffs[5] -1.0
-    @test_approx_eq lhs_const     2.0*2.0-1.0*3.0
+    @fact sense => :Max
+    @fact unc_coeffs[1] => roughly(3.0*2.0+4.0, 1e-6)
+    @fact unc_coeffs[2] => roughly(3.0, 1e-6)
+    @fact unc_coeffs[3] => roughly(4.0+5.0, 1e-6)
+    @fact unc_coeffs[4] => roughly(2*5.0, 1e-6)
+    @fact unc_coeffs[5] => roughly(-1.0, 1e-6)
+    @fact lhs_const     => roughly(2.0*2.0-1.0*3.0, 1e-6)
 
     # -------------------
     sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective_sparse(unc_con, col_val)
     sort!(unc_coeffs)
     
-    @test sense == :Max
+    @fact sense => :Max
     for i = 1:5
-        @test unc_coeffs[i][1] == i
+        @fact unc_coeffs[i][1] => i
     end
-    @test_approx_eq  unc_coeffs[1][2]  3.0*2.0+4.0
-    @test_approx_eq  unc_coeffs[2][2]  3.0
-    @test_approx_eq  unc_coeffs[3][2]  4.0+5.0
-    @test_approx_eq  unc_coeffs[4][2]  2*5.0
-    @test_approx_eq  unc_coeffs[5][2]  -1.0
-    @test_approx_eq  lhs_const         2.0*2.0-1.0*3.0
+    @fact unc_coeffs[1][2] => roughly(3.0*2.0+4.0, 1e-6)
+    @fact unc_coeffs[2][2] => roughly(3.0, 1e-6)
+    @fact unc_coeffs[3][2] => roughly(4.0+5.0, 1e-6)
+    @fact unc_coeffs[4][2] => roughly(2*5.0, 1e-6)
+    @fact unc_coeffs[5][2] => roughly(-1.0, 1e-6)
+    @fact lhs_const        => roughly(2.0*2.0-1.0*3.0, 1e-6)
 
     # -------------------
     unc_val = [1.0, 2.0, 3.0, 4.0, 5.0]
     new_con = JuMPeR.build_certain_constraint(rm, unc_con, unc_val)
-    @test conToStr(new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+    @fact conToStr(new_con) => "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
 
     # Bit of a hack to test build from JuMPDict
-    inner_m = Model()
+    inner_m = Model(solver=lp_solvers[1])
     @defVar(inner_m, i <= inner_u[i=1:5] <= i)
     @setObjective(inner_m, Max, sum(inner_u))
     solve(inner_m)
     new_con = JuMPeR.build_certain_constraint(rm, unc_con, getValue(inner_u))
-    @test conToStr(new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+    @fact conToStr(new_con) => "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
 
     # -------------------
     lhs_val = dot([5,1,4,11],[2,3,4,5])
-    @test JuMPeR.check_cut_status(new_con, lhs_val, 1e-6) == :Violate
+    @fact JuMPeR.check_cut_status(new_con, lhs_val, 1e-6) => :Violate
     lhs_val = dot([5,1,4,11],[2,0,0,0])
-    @test JuMPeR.check_cut_status(new_con, lhs_val, 1e+6) == :Active
+    @fact JuMPeR.check_cut_status(new_con, lhs_val, 1e+6) => :Active
     lhs_val = dot([5,1,4,11],[0,0,0,0])
-    @test JuMPeR.check_cut_status(new_con, lhs_val, 1e-6) == :Slack
+    @fact JuMPeR.check_cut_status(new_con, lhs_val, 1e-6) => :Slack
 end

@@ -1,29 +1,22 @@
 using JuMP, JuMPeR
-using Base.Test
-using FactCheck
+using Base.Test, FactCheck
+FactCheck.setstyle(:compact)
 
-# Use Gurobi it at all possible
-solver = JuMPeR.JuMP.UnsetSolver()
-if Pkg.installed("Gurobi") != nothing
-    using Gurobi
-    solver = GurobiSolver(OutputFlag=0)
-    println("Selected Gurobi as solver")
-end
+# Create list of solvers using JuMP's code
+println("Loading solvers...")
+include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 
-tests =["operators.jl",
+tests=[ "operators.jl",
         "print.jl",
         "macro.jl",
-            "polyhedral.jl",
-            "bertsim.jl",
-            "oracle.jl",
-        "ellipse.jl",
-            "scenario.jl",
-            "resolve.jl",
-            "graph.jl"]
+        "oracle.jl",
+        "oracle_general.jl",
+        "oracle_bertsim.jl",
+        "oracle_general_graph.jl",
+        "scenario.jl"]
 
 println("Running tests...")
 for curtest in tests
-    println("Test: $curtest")
     include(curtest)
 end
 

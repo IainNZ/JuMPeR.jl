@@ -4,7 +4,7 @@
 # See http://github.com/IainNZ/JuMPeR.jl
 #############################################################################
 # test/operators.jl
-# Testing for all operator overloads
+# Testing for all operator overloads and ellipse construction
 #############################################################################
 
 using JuMP, JuMPeR
@@ -277,4 +277,39 @@ context("dot()") do
     @fact_throws dot(A, u)
 end
 
+end
+
+facts("[operators] Check ellipse construction") do
+    rm = RobustModel()
+    @defUnc(rm, u[1:5])
+
+    vec = [1.0*u[1]+2.0*u[2]+1.0, 5.0*u[5]+1.0*u[1]+5.0, 4.0*u[4]+4.0]
+    con = JuMPeR.build_ellipse_constraint(rm, vec, 2.0)
+    @fact con.F => [1.0 2.0 0.0 0.0;
+                    1.0 0.0 5.0 0.0;
+                    0.0 0.0 0.0 4.0]
+    @fact con.u => [  1,  2,  5,  4]
+    @fact con.g => [1.0, 5.0, 4.0]
+    @fact con.Gamma => 2.0
+
+    vec = [u[5], u[3], u[1] + 9.0]
+    con = JuMPeR.build_ellipse_constraint(rm, vec, 1.0)
+    @fact con.F => [1.0 0.0 0.0;
+                    0.0 1.0 0.0;
+                    0.0 0.0 1.0]
+    @fact con.u => [  5,  3,  1]
+    @fact con.g => [ 0., 0., 9.]
+    @fact con.Gamma => 1.0
+
+    vec = [1.0*u[1]-5]
+    con = JuMPeR.build_ellipse_constraint(rm, vec, 3.0)
+    @fact con.F => ones(1,1)
+    @fact con.u =>[  1]
+    @fact con.g =>[-5.]
+    @fact con.Gamma => 3.0
+
+    vec = [2.0, 0.0]
+    @fact_throws JuMPeR.build_ellipse_constraint(rm, vec, 0.0)
+
+    addEllipseConstraint(rm, [u[5], u[3], u[1] + 9.0], 1.0)
 end

@@ -58,6 +58,7 @@ Subject to
  vars[i] free for all i in {1,2..9,10}
 Uncertain constraints:
 a vars[5] $le 5
+Uncertainty set:
 b + a $le 2
 || 1.0 a + 0.0 ||
 || 1.0 b + 0.0 || <= 1.0

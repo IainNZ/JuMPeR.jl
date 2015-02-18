@@ -8,8 +8,6 @@
 # oracles to build and solve the robust counterpart.
 #############################################################################
 
-const BOXSIZE = 1e6
-
 # Utility functions for moving an expression to a new model
 copy_quad(old_quad::QuadExpr, new_vars) =
     QuadExpr(   Variable[new_vars[v.col] for v in old_quad.qvars1],
@@ -31,7 +29,11 @@ solveRobust() has been deprecated in favour of solve().
 solveRobust() will be removed in JuMPeR v0.2""")
     _solve_robust(rm; kwargs...)
 end
-function _solve_robust(rm::Model; report=false, active_cuts=false, kwargs...)
+function _solve_robust(rm::Model;
+                        report=false,
+                        active_cuts=false,
+                        add_box=false,
+                        kwargs...)
     robdata = getRobust(rm)
 
     # Pull out extra keyword arguments that we will pas through to oracles
@@ -77,13 +79,15 @@ function _solve_robust(rm::Model; report=false, active_cuts=false, kwargs...)
         end
     end
 
-    # Put box around original solution. Really should be doing something
-    # smarter, only need this to deal with an unbounded initial solution
-    # in the cutting plane process.
-    # TODO: relax this later in solve process
-    # TODO: even better, eliminate
-    map!(v -> v == -Inf ? -BOXSIZE : v, master.colLower)
-    map!(v -> v ==  Inf ?  BOXSIZE : v, master.colUpper)
+    # Put box around original solution.
+    # Really should be doing something smarter, only need this
+    # to deal with an unbounded initial solution in the cutting
+    # plane process. Can cause numerical problems, so its optional.
+    if add_box != false
+        !(isa(add_box, Real)) && error("add_box option should be false or a number")
+        map!(v -> v == -Inf ? -add_box : v, master.colLower)
+        map!(v -> v ==  Inf ?  add_box : v, master.colUpper)
+    end
 
     master_init_time = time() - start_time
 

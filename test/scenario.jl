@@ -1,13 +1,29 @@
-using JuMP, JuMPeR
-using Base.Test
+#############################################################################
+# JuMPeR
+# Julia for Mathematical Programming - extension for Robust Optimization
+# See http://github.com/IainNZ/JuMPeR.jl
+#############################################################################
+# test/scenario.jl
+# Test active scenario code (still undocumented)
+#############################################################################
 
-let
-    rm = RobustModel()
+using JuMP, JuMPeR
+using FactCheck
+
+if !(:lp_solvers in names(Main))
+    println("Loading solvers...")
+    include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
+end
+
+facts("[scenario] Test providing scenarios") do
+for solver in lp_solvers, cuts in [true,false]
+context("$(typeof(solver)), cuts=$cuts") do
+    rm = RobustModel(solver=solver)
     @defVar(rm, x >= 0)
     @defUnc(rm, 3 <= u <= 5)
     @defUnc(rm, 1 <= v <= 1)
     @setObjective(rm, Max, x)
-    addConstraint(rm, v*x <= u)
+    @addConstraint(rm, v*x <= u)
 
     # Now we get tricky and add a scenario that is actually
     # outside the uncertainty set - but we don't check that
@@ -17,26 +33,27 @@ let
     # able to complete define a constraint
     addScenario(rm, [v => 9999.0])
 
-    solve(rm)
-    @test_approx_eq getValue(x) 0.5
-end
+    @fact solve(rm, prefer_cuts=cuts) => :Optimal
+    @fact getValue(x) => roughly(0.5, 1e-6)
+end; end; end
 
-let
-    # Test retrieval of active cuts
-    rm = RobustModel()
-    @defVar(rm, x >= 0)
+facts("[scenario] Test retrieval of active cuts") do
+for solver in lp_solvers
+context("$(typeof(solver))") do
+    rm = RobustModel(solver=solver)
+    @defVar(rm, 0 <= x <= 100)
     @defUnc(rm, 3 <= u <= 5)
     @defUnc(rm, 1 <= v <= 1)
     @setObjective(rm, Max, x)
-    mycon = addConstraint(rm, v*x <= u)
-    myloosecon = addConstraint(rm, u*x <= 10000)
+    mycon      = @addConstraint(rm, v*x <= u)
+    myloosecon = @addConstraint(rm, u*x <= 10000)
     solve(rm, prefer_cuts=true, active_cuts=true)
     ascen = getScenario(mycon)
-    @test_approx_eq getUncValue(ascen, u) 3.0
-    @test_approx_eq getUncValue(ascen, v) 1.0
-    @test isBinding(ascen)
+    @fact getUncValue(ascen, u) => roughly(3.0, 1e-6)
+    @fact getUncValue(ascen, v) => roughly(1.0, 1e-6)
+    @fact isBinding(ascen) => true
     bscen = getScenario(myloosecon)
-    @test_approx_eq getUncValue(bscen, u) 5.0
-    @test_approx_eq getUncValue(bscen, v) 1.0
-    @test !isBinding(bscen)
-end
+    @fact getUncValue(bscen, u) => roughly(5.0, 1e-6)
+    @fact getUncValue(bscen, v) => roughly(1.0, 1e-6)
+    @fact isBinding(bscen) => false
+end; end; end

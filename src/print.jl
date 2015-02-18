@@ -48,7 +48,7 @@ function _print_robust(io::IO, m::Model)
     for uc in rd.uncertainconstr
         println(io, uc)
     end
-    println("Uncertainty set:")
+    println(io, "Uncertainty set:")
     for us in rd.uncertaintyset
         println(io, us)
     end
