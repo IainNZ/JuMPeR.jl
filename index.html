@@ -147,12 +147,40 @@ knap = RobustModel()
 <span class="co"># Type 3 constraint: both variables and uncertain parameters</span>
 <span class="co">#   &quot;the total uncertain weight of items is less than capacity&quot;</span>
 @addConstraint(knap, sum{(w[i]+σ[i]*z[i])*x[i], i=<span class="fl">1</span>:n} &lt;= C)</code></pre>
-<p>TODO: Ellipsodial constraints</p>
+<h4 id="ellipsoidal-constraints">Ellipsoidal Constraints</h4>
+<p>JuMP doesn't provide a convenient syntax to express &quot;ellipsoidal constraints&quot;, i.e.</p>
+<p><br /><span class="math">$$
+\begin{alignat}{2}
+\| \mathbf{x} \|_2 &amp; \leq \Gamma
+\end{alignat}
+$$</span><br /></p>
+<p>but ellipsoidal uncertainty sets are popular. We address this by providing <code>addEllipseConstraint</code>. This function takes 3 arguments: a <code>RobustModel</code>, a vector of <code>Uncertain</code>s or affine expressions of them, and a <strong>constant</strong> right-hand-side that the norm of this vector should be less than. For example:</p>
+<pre class="sourceCode julia julia" execute="false"><code class="sourceCode julia"><span class="co"># A trivial ellipse: 5 &lt;= v &lt;= 7</span>
+@defUnc(m, v)
+addEllipseConstraint(m, [v], <span class="fl">2</span>)
+
+<span class="co"># An sphere centered at (1,2,3,4,5) with a radius</span>
+<span class="co"># of 1 in each dimension</span>
+@defUnc(m, u[<span class="fl">1</span>:<span class="fl">5</span>])
+addEllipseConstraint(m, [(u-i) <span class="kw">for</span> i <span class="kw">in</span> <span class="fl">1</span>:<span class="fl">5</span>], <span class="fl">1</span>)
+
+<span class="co"># A more complicated ellipse</span>
+@defUnc(m, w[<span class="fl">1</span>:<span class="fl">5</span>])
+addEllipseConstraint(m, [<span class="fl">3.0</span>*w[<span class="fl">1</span>]-<span class="fl">5</span>, <span class="fl">1.0</span>*w[<span class="fl">5</span>]-<span class="fl">5</span>, <span class="fl">2.0</span>*w[<span class="fl">4</span>]-<span class="fl">5</span>], <span class="fl">2</span>)</code></pre>
 <h2 id="solving">Solving</h2>
-<p>By default, JuMPeR will use duality to reformulate the uncertain problem into a deterministic robust counterpart. However you can signal that you want cuts with the <code>prefer_cuts</code> option. You can also get a summary report of how the model was solved and how long the different solve components took by setting the <code>report</code> option.</p>
+<p>By default, JuMPeR will use duality to reformulate the uncertain problem into a deterministic robust counterpart. However there are a couple of options to customize the solve, not to mention any options you provide to the oracle (more on that later).</p>
+<ul>
+<li>You can signal that you want cuts with the <code>prefer_cuts</code> option.</li>
+<li>If the problem is unbounded before any cuts are added, you can automatically add upper and lower bounds to variables that don't have them already using <code>add_box</code>.</li>
+<li>You can get a summary report of how the model was solved and how long the different solve components took by setting the <code>report</code> option.</li>
+</ul>
 <pre class="sourceCode julia julia" execute="false"><code class="sourceCode julia">solve(rm)  <span class="co"># Will use default, which is reformulation</span>
 solve(rm, prefer_cuts=true)  <span class="co"># Use cuts if possible</span>
-solve(rm, report=true)  <span class="co"># Get some information about the solution process</span></code></pre>
+solve(rm, report=true)       <span class="co"># Get some information about the</span>
+                             <span class="co"># solution process at the end</span>
+solve(rm, add_box=<span class="fl">1e3</span>)       <span class="co"># Provide an upper and lower bound of</span>
+                             <span class="co"># 1e3 (or whatever) for all variables</span>
+                             <span class="co"># that don&#39;t otherwise have them.</span></code></pre>
 <p>Note that the solution methods available depends on the chosen oracle's capabilities. The default oracle supports both, but some uncertainty sets may only support one or the other.</p>
 <p><a id="oracles"></a></p>
 <h1 id="oracles">Oracles</h1>
@@ -165,7 +193,36 @@ solve(rm, report=true)  <span class="co"># Get some information about the soluti
 <li><code>GeneralGraphOracle</code>, a variation on <code>GeneralOracle</code>. This oracle attempts to discover if the uncertain parameters actually belong to seperate, disjunct uncertainty sets. This allows it to generate smaller reformulations, and a seperator cut generator for each set if using cutting-planes.</li>
 <li><code>BertSimOracle</code>, implements the uncertainty set described in the 2004 paper <em>The Price of Robustness</em> by Bertsimas and Sim. Will generate cutting-planes efficiently using sorting instead of solving an LP. The <code>GeneralOracle</code> should be used if a reformulation is desired.</li>
 </ul>
-<p>TODO: set default oracle, attaching oracles to constraints.</p>
+<p>To set the oracle for all constraints, use the <code>setDefaultOracle!</code> command, e.g.</p>
+<pre class="sourceCode julia julia" execute="false"><code class="sourceCode julia">n           = <span class="fl">3</span>
+weight_low  = [<span class="fl">1.0</span>, <span class="fl">3.0</span>, <span class="fl">2.0</span>]
+weight_high = [<span class="fl">3.0</span>, <span class="fl">9.0</span>, <span class="fl">6.0</span>]
+values      = [<span class="fl">5.0</span>, <span class="fl">6.0</span>, <span class="fl">4.0</span>]
+
+<span class="co"># Create the model...</span>
+m = RobustModel()
+<span class="co"># ... and set all constraints to use the Bertsimas-Sim set</span>
+setDefaultOracle!(m, BertSimOracle(<span class="fl">1</span>))
+
+<span class="co"># Setup our problem</span>
+@defVar(m, x[<span class="fl">1</span>:n], Bin)
+@defUnc(m, weight_low[i] &lt;= u[i=<span class="fl">1</span>:n] &lt;= weight_high[i])
+@setObjective(m, Max, sum{values[i] * x[i], i=<span class="fl">1</span>:n})
+
+<span class="co"># Notice we haven&#39;t provided an explicit uncertainty set,</span>
+<span class="co"># apart from the ranges on the uncertain values?</span>
+<span class="co"># The BertSimOracle looks at the range, and treats the</span>
+<span class="co"># nominal value for each uncertain parameter as the</span>
+<span class="co"># midpoint of the range. The parameter we passed is the</span>
+<span class="co"># number of uncertain parameters that can deviate from</span>
+<span class="co"># this nominal value. In other words:</span>
+<span class="co">#   |u - 4|/1  +  |u - 6|/3  +  |u - 4|/2  &lt;=  1</span>
+<span class="co">#   |u - 4|/1  &lt;=  1</span>
+<span class="co">#   |u - 6|/3  &lt;=  1</span>
+<span class="co">#   |u - 4|/2  &lt;=  1</span>
+@addConstraint(m, sum{u[i]*x[i], i=<span class="fl">1</span>:n} &lt;= <span class="fl">8</span>)
+
+solve(m, prefer_cuts=true)</code></pre>
 <h2 id="making-an-oracle">Making an oracle</h2>
 <p>To make an oracle, we first need to understand what happens when you call <code>solve</code> on a <code>RobustModel</code>:</p>
 <ol type="1">
@@ -217,14 +274,14 @@ solve(rm, report=true)  <span class="co"># Get some information about the soluti
 <span class="co"># the active scenarios at optimality. This is still experimental!</span>
 generateCut(ab::AbstractOracle, master::Model, rm::Model, inds::<span class="dt">Vector</span>{<span class="dt">Int</span>}, active=false)</code></pre>
 <h2 id="oracle-design-advice">Oracle design advice</h2>
-<p>Yet to come.</p>
+<p>Stay tuned, watch this space, etc.</p>
         <hr>
       </div>
       </div>
     </div>
 
   <footer class="col-sm-12">
-    <p class="muted">File created Sun Feb 15 22:52:02 EST 2015 with
+    <p class="muted">File created Wed Feb 18 00:18:53 EST 2015 with
     <a href="https://github.com/dcjones/Judo.jl">Judo</a>.</p>
   </footer>
 
