@@ -126,7 +126,7 @@ solve(rm)
 
 ## Expressions and Constraints
 
-In JuMP we have only data and variables, with one type of expression and one type constraint (mostly). In JuMPeR we have three types of expression, each with are corresponding type of constraint:
+In JuMP we have only data and variables, with one type of expression and one type of constraint (mostly). In JuMPeR we have three types of expression, each with are corresponding type of constraint:
 
 1. Just data and variables (internally: `AffExpr`)
 2. Just data and uncertain parameters (internally: `UAffExpr`)
