@@ -15,6 +15,7 @@ if !(:lp_solvers in names(Main))
     include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 end
 
+
 facts("[oracle_gen_poly] Test 1") do
 for solver in lp_solvers, cuts in [true,false]
 context("$(typeof(solver)), cuts=$cuts") do
@@ -174,6 +175,111 @@ context("$(typeof(solver)), cuts=$cuts") do
     @addConstraint(m, u*x + u <= 2)
     @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) => :Optimal
     @fact getValue(x) => roughly(3.0,1e-6)
+end; end; end
+
+
+facts("[oracle_gen_poly] Test 9 (infeasible LP)") do
+for solver in lp_solvers, cuts in [true,false]
+# Exemptions:
+# - IpoptSolver reports UserLimit, which isn't too helpful.
+"$(typeof(solver))"=="IpoptSolver" && continue
+# - ECOSSolver has a bug, it reports Unbounded
+"$(typeof(solver))"=="ECOSSolver" && continue
+
+context("$(typeof(solver)), cuts=$cuts") do
+    m = RobustModel(solver=solver)
+    @defVar(m, x)
+    @defUnc(m, 8 <= u <= 9)
+    @setObjective(m, Max, x)
+    @addConstraint(m, x == 3)
+    @addConstraint(m, u*x <= 25)
+    @fact solve(m, prefer_cuts=cuts, suppress_warnings=true) => :Infeasible
+end; end; end
+
+
+facts("[oracle_gen_poly] Test 10 (infeasible MILP)") do
+for solver in lazy_solvers, cuts in [true,false]
+context("$(typeof(solver)), cuts=$cuts") do
+    m = RobustModel(solver=solver)
+    @defVar(m, x, Int)
+    @defUnc(m, 8 <= u <= 9)
+    @setObjective(m, Max, x)
+    @addConstraint(m, x == 3)
+    @addConstraint(m, u*x <= 25)
+    @fact solve(m, prefer_cuts=cuts, suppress_warnings=true) => :Infeasible
+end; end; end
+
+
+facts("[oracle_gen_poly] Test 11 (unbounded LP)") do
+for solver in lp_solvers, cuts in [true,false]
+context("$(typeof(solver)), cuts=$cuts") do
+    m = RobustModel(solver=solver)
+    @defVar(m, x >= 0)
+    @defUnc(m, 8 <= u <= 9)
+    @setObjective(m, Max, x)
+    @addConstraint(m, u*x >= 25)
+    @fact solve(m, prefer_cuts=cuts, suppress_warnings=true) => :Unbounded
+end; end; end
+
+
+facts("[oracle_gen_poly] Test 12 (unbounded MILP)") do
+for solver in lazy_solvers, cuts in [true,false]
+context("$(typeof(solver)), cuts=$cuts") do
+    m = RobustModel(solver=solver)
+    @defVar(m, x >= 0, Int)
+    @defUnc(m, 8 <= u <= 9)
+    @setObjective(m, Max, x)
+    @addConstraint(m, u*x >= 25)
+    @fact solve(m, prefer_cuts=cuts, suppress_warnings=true) => :Unbounded
+end; end; end
+
+
+facts("[oracle_gen_poly] Test 13 (empty uncertainty set)") do
+for solver in lp_solvers, cuts in [true,false]
+context("$(typeof(solver)), cuts=$cuts") do
+    m = RobustModel(solver=solver)
+    @defVar(m, x >= 0)
+    @defUnc(m, 8 <= u <= 7)
+    @setObjective(m, Min, x)
+    @addConstraint(m, u*x >= 25)
+    if cuts
+        # Should fail!
+        failed = false
+        try
+            solve(m, prefer_cuts=cuts)
+        catch
+            failed = true
+        end
+        @fact failed => true
+    else
+        @fact solve(m, prefer_cuts=cuts) => :Optimal
+    end
+end; end; end
+
+
+facts("[oracle_gen_poly] Test 14 (unbounded uncertainty set)") do
+for solver in lp_solvers, cuts in [true,false]
+# Exemptions:
+# - IpoptSolver reports UserLimit, which isn't too helpful.
+"$(typeof(solver))"=="IpoptSolver" && continue
+context("$(typeof(solver)), cuts=$cuts") do
+    m = RobustModel(solver=solver)
+    @defVar(m, x >= 1)
+    @defUnc(m, u <= 7)
+    @setObjective(m, Min, x)
+    @addConstraint(m, u*x >= 25)
+    if cuts
+        # Should fail!
+        failed = false
+        try
+            solve(m, prefer_cuts=true)
+        catch
+            failed = true
+        end
+        @fact failed => true
+    else
+        @fact solve(m, prefer_cuts=false, suppress_warnings=true) => :Infeasible
+    end
 end; end; end
 
 

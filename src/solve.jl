@@ -30,6 +30,7 @@ solveRobust() will be removed in JuMPeR v0.2""")
     _solve_robust(rm; kwargs...)
 end
 function _solve_robust(rm::Model;
+                        suppress_warnings=false,
                         report=false,
                         active_cuts=false,
                         add_box=false,
@@ -159,10 +160,25 @@ function _solve_robust(rm::Model;
         # Solve master. Terminate when we have an optimal integer solution
         # and no lazy constraints are added
         tic()
-        master_status = solve(master,
-                              suppress_warnings = get(prefs, :suppress_warnings, false))
+        master_status = solve(master, suppress_warnings=true)
         master_time = toq() - cut_time
+        if master_status == :Infeasible
+            !suppress_warnings && Base.warn("JuMPeR: master problem (integer) is infeasible.")
+        elseif master_status == :Unbounded
+            !suppress_warnings && Base.warn("""JuMPeR: master problem (integer) is unbounded.
+                                               This may be due to:
+                                               * the problem requiring additional cutting planes for it to
+                                                 become bounded. Consider adding bounds to variables
+                                                 or use the add_box option to solve.
+                                               * the uncertainty set being empty. Check the uncertainty
+                                                 set has at least one value.
+                                               * the problem actually being unbounded.""")
+        end
     else
+        # In the event of unboundedness, and if we have a ray, we will see if we get the
+        # same ray twice. To do so, we will store the ray on the first iteration and
+        # check against it in the next iteration.
+        unbound_ray = Float64[]
         # Begin main solve loop
         while true
             cutting_rounds += 1
@@ -170,9 +186,72 @@ function _solve_robust(rm::Model;
             
             # Solve master
             tic()
-            master_status = solve(master,
-                                  suppress_warnings = get(prefs, :suppress_warnings, false))
+            master_status = solve(master, suppress_warnings=true)
             master_time += toq()
+
+            # If master is infeasible, we should stop now
+            if master_status == :Infeasible
+                !suppress_warnings && Base.warn("JuMPeR: master problem (continuous) is infeasible.")
+                break
+            end
+
+            # If master is unbounded, we are in one of these situations:
+            # 1. Problem is bounded, just needs cuts. We have a ray.
+            # 2. Problem is bounded, just needs cuts. We don't have a ray.
+            # 3. Problem is unbounded, we have a ray.
+            # 4. Problem is unbounded, we don't have a ray.
+            # First step is to look at ray situation
+            if master_status == :Unbounded
+                if (length(master.colVal) >0 && isnan(master.colVal[1])) ||
+                   (length(master.colVal)==0)
+                    # No ray available (2 or 4) - we can't add a cut even if
+                    # we wanted to.
+                    !suppress_warnings &&
+                    Base.warn("""JuMPeR: master problem (continuous) is unbounded and
+                                 no ray is available. Lack of a ray is due to the particular
+                                 solver selected, but the unboundedness may be due to:
+                                 * the problem requiring additional cutting planes for it to
+                                   become bounded. Consider adding bounds to variables
+                                   or use the add_box option to solve.
+                                 * the uncertainty set being empty. Check the uncertainty
+                                   set has at least one value.
+                                 * the problem actually being unbounded.""")
+                    break
+                else
+                    # We have a ray (1 or 3) - we don't know for sure what is
+                    # happening. We will use a heuristic: if we get the same
+                    # solution twice in a row, we will assume it is unbounded-unbounded.
+                    if length(unbound_ray) == 0
+                        # We haven't been unbounded yet, lets see if we get same ray
+                        # twice before giving up
+                        unbound_ray = copy(master.colVal)
+                    else
+                        # Compare with previous ray. Not clear what the tolerance
+                        # should be, but lets just go with something simple until
+                        # it goes haywire somewhere
+                        if norm(unbound_ray .- master.colVal) <= 1e-6
+                            # Same ray again
+                            !suppress_warnings && 
+                            Base.warn("""JuMPeR: master problem (continuous) is unbounded, but
+                                         ray is available. Attempted to add cuts using this ray, but same
+                                         ray was returned by solver again, so assuming problem is
+                                         unbounded and terminating. Unboundedness may be due to:
+                                         * the problem requiring additional cutting planes for it to
+                                           become bounded. Consider adding bounds to variables
+                                           or use the add_box option to solve.
+                                         * the uncertainty set being empty. Check the uncertainty
+                                           set has at least one value.
+                                         * the problem actually being unbounded.""")
+                            break
+                        else
+                            # Different ray, update ray in case we get same thing
+                            # Note that this will fail if it cycles, but that is
+                            # a really pathological case.
+                            unbound_ray = copy(master.colVal)
+                        end
+                    end
+                end
+            end
 
             # Generate cuts
             cut_added = false
@@ -187,16 +266,30 @@ function _solve_robust(rm::Model;
             end
             cut_time += toq()
 
-            # Terminate solve loop when no more cuts added
-            if !cut_added
-                break
+            # Terminate solve loop when no more cuts added, with one caveat:
+            # if we are unbounded, have a ray, and either
+            # * using reformulation
+            # * or no cuts were generated from the ray
+            # then we'll never display a message from the code above.
+            if master_status == :Unbounded && !cut_added
+                !suppress_warnings && 
+                Base.warn("""JuMPeR: master problem (continuous) is unbounded, but
+                             ray is available. No cuts were added by oracles, so assuming
+                             problem is unbounded and terminating. Unboundedness may be due to:
+                             * the problem requiring additional cutting planes for it to
+                               become bounded. Consider adding bounds to variables
+                               or use the add_box option to solve.
+                             * the uncertainty set being empty. Check the uncertainty
+                               set has at least one value.
+                             * the problem actually being unbounded.""")
             end
+            !cut_added && break
         end
     end
 
     # Return solution
     total_time = time() - start_time
-    rm.colVal = master.colVal[1:rm.numCols]
+    rm.colVal = copy(master.colVal)
     rm.objVal = master.objVal
 
     # DEBUG: If user wants it, print final model
@@ -238,14 +331,5 @@ function _solve_robust(rm::Model;
     rm.internalModelLoaded = true
 
     # Return solve status
-    if master_status == :Unbounded && prefs[:prefer_cuts]
-        Base.warn("""
-Problem was unbounded and cutting planes were used.
-Unboundedness may be due to master problem being
-unbounded before any cuts are added - try using the
-add_box option to solve to ensure master problem is
-bounded, or add bounds to variables manually.
-""")
-    end
     return master_status
 end
