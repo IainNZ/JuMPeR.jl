@@ -345,7 +345,8 @@ function generateCut(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Ve
         @setObjective(cut_model, cut_sense, cut_obj)
 
         cut_solve_status = solve(cut_model) #, suppress_warnings=true)
-        cut_solve_status != :Optimal && error("Cutting plane problem infeasible or unbounded!")
+        cut_solve_status != :Optimal &&
+            error("GeneralGraphOracle: Cutting plane problem infeasible or unbounded!")
         lhs_of_cut = getObjectiveValue(cut_model) + lhs_const
         
         # Expand cut solution to full uncertainty set space
