@@ -182,9 +182,9 @@ facts("[oracle_gen_poly] Test 9 (infeasible LP)") do
 for solver in lp_solvers, cuts in [true,false]
 # Exemptions:
 # - IpoptSolver reports UserLimit, which isn't too helpful.
-"$(typeof(solver))"=="IpoptSolver" && continue
+contains("$(typeof(solver))","IpoptSolver") && continue
 # - ECOSSolver has a bug, it reports Unbounded
-"$(typeof(solver))"=="ECOSSolver" && continue
+contains("$(typeof(solver))","ECOSSolver") && continue
 
 context("$(typeof(solver)), cuts=$cuts") do
     m = RobustModel(solver=solver)
@@ -261,7 +261,7 @@ facts("[oracle_gen_poly] Test 14 (unbounded uncertainty set)") do
 for solver in lp_solvers, cuts in [true,false]
 # Exemptions:
 # - IpoptSolver reports UserLimit, which isn't too helpful.
-"$(typeof(solver))"=="IpoptSolver" && continue
+contains("$(typeof(solver))","IpoptSolver") && continue
 context("$(typeof(solver)), cuts=$cuts") do
     m = RobustModel(solver=solver)
     @defVar(m, x >= 1)

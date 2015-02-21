@@ -75,7 +75,7 @@ end
 # TODO: Relax assumption of one uncertain per variable?
 function generateCut(bs::BertSimOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)
     master_sol = master.colVal
-    new_cons = {}
+    new_cons = Any[]
 
     for con_ind in inds
         absx_devs = Float64[]       # kth term is x[j]*devs[i]

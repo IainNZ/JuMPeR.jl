@@ -105,7 +105,7 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
     if !gen.use_cuts
         for comp = 1:num_components
             # Get constraints for this component
-            comp_uncset = {}
+            comp_uncset = Any[]
             for ci = 1:length(rd.uncertaintyset)
                 if gen.con_to_comp[ci] == comp
                     push!(comp_uncset, rd.uncertaintyset[ci])
@@ -301,11 +301,11 @@ end
 
 function generateCut(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)
     # If not doing cuts...
-    (!gen.use_cuts && !active) && return {}
+    (!gen.use_cuts && !active) && return Any[]
 
     rd = getRobust(rm)
     master_sol = master.colVal
-    new_cons = {}
+    new_cons = Any[]
 
     for con_ind in inds
         con = get_uncertain_constraint(rm, con_ind)

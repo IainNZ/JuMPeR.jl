@@ -66,8 +66,8 @@ end
 RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
                             0,String[],Float64[],Float64[],Symbol[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
-                            GeneralOracle(), {},
-                            cutsolver,{},{},0.0)
+                            GeneralOracle(), Any[],
+                            cutsolver,JuMP.JuMPContainer[],Any[], 0.0)
 
 function RobustModel(;solver=JuMP.UnsetSolver(),cutsolver=JuMP.UnsetSolver())
     m = Model(solver=solver)
@@ -158,7 +158,7 @@ function addConstraint(m::Model, c::UncConstraint, w=nothing)
     # Just a regular old constraint
     push!(rd.uncertainconstr,c)
     push!(rd.oracles, w)
-    push!(rd.activecuts, {})
+    push!(rd.activecuts, Any[])
     return ConstraintRef{UncConstraint}(m,length(rd.uncertainconstr))
 end
 

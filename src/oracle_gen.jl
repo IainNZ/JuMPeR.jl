@@ -233,11 +233,11 @@ end
 
 function generateCut(gen::GeneralOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)
     # If not doing cuts...
-    (!gen.use_cuts && !active) && return {}
+    (!gen.use_cuts && !active) && return Any[]
 
     rd = getRobust(rm)
     master_sol = master.colVal
-    new_cons = {}
+    new_cons = Any[]
 
     for con_ind in inds
         con = get_uncertain_constraint(rm, con_ind)

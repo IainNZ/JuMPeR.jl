@@ -5,6 +5,7 @@ notifications:
     email: false
 env:
     - JULIAVERSION="juliareleases"
+    - JULIAVERSION="julianightlies"
 before_install:
     - sudo add-apt-repository ppa:staticfloat/julia-deps -y
     - sudo add-apt-repository ppa:staticfloat/${JULIAVERSION} -y
@@ -16,7 +17,7 @@ before_install:
 script:
     - julia -e 'versioninfo(); Pkg.init(); Pkg.clone(pwd())'
     - julia -e 'Pkg.test("JuMPeR", coverage=true)'
-    - julia -e 'Pkg.clone("https://github.com/vgupta1/DDUS.jl.git")'
-    - julia -e 'Pkg.test("DDUS")'
+    - if [ $JULIAVERSION = "juliareleases" ]; then julia -e 'Pkg.clone("https://github.com/vgupta1/DDUS.jl.git")'; fi
+    - if [ $JULIAVERSION = "juliareleases" ]; then julia -e 'Pkg.test("DDUS")'; fi
 after_success:
     - julia -e 'cd(Pkg.dir("JuMPeR")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'

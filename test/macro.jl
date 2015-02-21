@@ -61,7 +61,11 @@ facts("[macro] Uncertain constraints") do
     @fact lastuc(rm) => "-u x $le -5"
 
     @addConstraint(rm, (u+w)*x + 2 + w*x <= u*z + 3)
-    @fact lastuc(rm) => "(u + w) x + w x + -u z $le 1"
+    if VERSION > v"0.4.0-"
+        @fact lastuc(rm) => "u x + w x + w x + -u z $le 1"
+    else
+        @fact lastuc(rm) => "(u + w) x + w x + -u z $le 1"
+    end
 
     @addConstraint(rm, sum{v[i]*y[i], i=1:5; i!=3} <= 9)
     @fact lastuc(rm) => "v[1] y[1] + v[2] y[2] + v[4] y[4] + v[5] y[5] $le 9"
