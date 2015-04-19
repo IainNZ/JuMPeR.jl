@@ -32,12 +32,12 @@ facts("[oracle] Test oracle utilities") do
     rm = RobustModel()
     @defVar(rm, x[1:4] >= 0)
     @defUnc(rm, u[1:5])
-    unc_con = (3*u[1] + 2.0) * x[1] +
-              (  u[2] - 1.0) * x[2] +
-              (u[1] +  u[3]) * x[3] +
-              (u[3] +2*u[4]) * x[4] <=
-              5.0 + u[5]
+    @addConstraint(rm,  (3*u[1] + 2.0) * x[1] +
+                        (  u[2] - 1.0) * x[2] +
+                        (u[1] +  u[3]) * x[3] +
+                        (u[3] +2*u[4]) * x[4] <= 5.0 + u[5])
     col_val = [2.0, 3.0, 4.0, 5.0]
+    unc_con = JuMPeR.getRobust(rm).uncertainconstr[end]
 
     # -------------------
     sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective(rm, unc_con, col_val)
@@ -67,7 +67,11 @@ facts("[oracle] Test oracle utilities") do
     # -------------------
     unc_val = [1.0, 2.0, 3.0, 4.0, 5.0]
     new_con = JuMPeR.build_certain_constraint(rm, unc_con, unc_val)
-    @fact conToStr(new_con) => "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+    if VERSION > v"0.4.0-"
+        @fact conToStr(new_con) => "x[2] + 5 x[1] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+    else
+        @fact conToStr(new_con) => "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+    end
 
     # Bit of a hack to test build from JuMPDict
     inner_m = Model(solver=lp_solvers[1])
@@ -75,7 +79,11 @@ facts("[oracle] Test oracle utilities") do
     @setObjective(inner_m, Max, sum(inner_u))
     solve(inner_m)
     new_con = JuMPeR.build_certain_constraint(rm, unc_con, getValue(inner_u))
-    @fact conToStr(new_con) => "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+    if VERSION > v"0.4.0-"
+        @fact conToStr(new_con) => "x[2] + 5 x[1] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+    else
+        @fact conToStr(new_con) => "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+    end
 
     # -------------------
     lhs_val = dot([5,1,4,11],[2,3,4,5])
