@@ -88,13 +88,13 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
                 Fug = AffExpr(Variable[gen.cut_vars[i] for i in el_c.u],
                               Float64[el_c.F[term_ind,i] for i in 1:num_uncs],
                               el_c.g[term_ind])
-                addConstraint(gen.cut_model, y == Fug)
+                @addConstraint(gen.cut_model, y == Fug)
                 push!(yty.qvars1, y)
                 push!(yty.qvars2, y)
                 push!(yty.qcoeffs, 1.0)
             end
             # Normally we'd do
-            # addConstraint(gen.cut_model, yty <= el_c.Gamma^2)
+            # @addConstraint(gen.cut_model, yty <= el_c.Gamma^2)
             # But unfortunately this isn't a SOC constraint so ECOS
             # won't like it (Gurobi can handle it). We just need
             # an auxiliary variable set to equal the RHS.
@@ -405,7 +405,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
     gen.debug_printreform && println("DEBUG new_lhs ", new_lhs)
 
     # Add the new constraint which "replaces" the original constraint
-    addConstraint(master, new_lhs <= new_rhs)
+    @addConstraint(master, new_lhs <= new_rhs)
 
     # Add the additional new constraints
     # - If the uncertainty wasn't involved in an ellipse, its just dual_A
@@ -437,11 +437,11 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
 
         dualtype = dual_contype[unc]
         if     dualtype == :(==)
-            addConstraint(master, new_lhs == dual_rhs[unc])
+            @addConstraint(master, new_lhs == dual_rhs[unc])
         elseif dualtype == :(<=)
-            addConstraint(master, new_lhs <= dual_rhs[unc])
+            @addConstraint(master, new_lhs <= dual_rhs[unc])
         else
-            addConstraint(master, new_lhs >= dual_rhs[unc])
+            @addConstraint(master, new_lhs >= dual_rhs[unc])
         end
     end
 

@@ -276,7 +276,7 @@ function generateReform(gen::GeneralGraphOracle, master::Model, rm::Model, inds:
         end
 
 
-        addConstraint(master, new_lhs <= new_rhs)
+        @addConstraint(master, new_lhs <= new_rhs)
 
         for unc = 1:num_dualcon
             new_lhs = AffExpr()
@@ -287,11 +287,11 @@ function generateReform(gen::GeneralGraphOracle, master::Model, rm::Model, inds:
 
             dualtype = dual_contype[unc]
             if     dualtype == :(==)
-                addConstraint(master, new_lhs == dual_rhs[unc])
+                @addConstraint(master, new_lhs == dual_rhs[unc])
             elseif dualtype == :(<=)
-                addConstraint(master, new_lhs <= dual_rhs[unc])
+                @addConstraint(master, new_lhs <= dual_rhs[unc])
             else
-                addConstraint(master, new_lhs >= dual_rhs[unc])
+                @addConstraint(master, new_lhs >= dual_rhs[unc])
             end
         end
     end
