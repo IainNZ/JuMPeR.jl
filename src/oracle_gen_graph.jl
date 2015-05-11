@@ -19,7 +19,7 @@ type GeneralGraphOracle <: AbstractOracle
     # Reformulation (see setup() for details)
     comp_num_dualvar::Vector{Int}
     comp_num_dualcon::Vector{Int}
-    comp_dual_A::Vector{Vector{Vector{(Int,Float64)}}}
+    comp_dual_A::Vector{Vector{Vector{@compat Tuple{Int,Float64}}}}
     comp_dual_objs::Vector{Vector{Float64}}
     comp_dual_vartype::Vector{Vector{Symbol}}
     comp_dual_contype::Vector{Vector{Symbol}}
@@ -35,7 +35,7 @@ end
 # Default constructor
 GeneralGraphOracle() = 
     GeneralGraphOracle( Model[], Vector{Variable}[], 0.0, false,
-                        Int[], Int[], Vector{Vector{(Int,Float64)}}[], Vector{Float64}[],
+                        Int[], Int[], Vector{Vector{@compat Tuple{Int,Float64}}}[], Vector{Float64}[],
                         Vector{Symbol}[], Vector{Symbol}[],
                         Int[], Vector{Int}[], Int[],
                         false)
@@ -122,7 +122,7 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
 
             num_dualvar = length(comp_uncset)       # WAS: length(rd.uncertaintyset)
             num_dualcon = pos                       # WAS: rd.numUncs
-            dual_A      = [(Int,Float64)[] for i = 1:num_dualcon]   # WAS: rd.numUncs
+            dual_A      = [(@compat Tuple{Int,Float64})[] for i = 1:num_dualcon]   # WAS: rd.numUncs
             dual_objs   = zeros(num_dualvar)
             dual_vartype = [:>= for i = 1:num_dualvar]
             dual_contype = [:>= for i = 1:num_dualcon]

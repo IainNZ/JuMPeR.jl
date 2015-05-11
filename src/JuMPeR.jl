@@ -6,6 +6,8 @@
 
 module JuMPeR
 
+using Compat
+
 # Import everything we need from JuMP, so we can build on it
 importall JuMP
 import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint

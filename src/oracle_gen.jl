@@ -19,7 +19,7 @@ type GeneralOracle <: AbstractOracle
 
     # Reformulation (see setup() for details)
     num_dualvar::Int
-    dual_A::Vector{Vector{(Int,Float64)}}
+    dual_A::Vector{Vector{@compat Tuple{Int,Float64}}}
     dual_objs::Vector{Float64}
     dual_vartype::Vector{Symbol}
     dual_contype::Vector{Symbol}
@@ -34,7 +34,7 @@ end
 GeneralOracle() = 
     GeneralOracle(  false,
                     Model(), Variable[], 0.0, # Cutting plane
-                    0, Vector{(Int,Float64)}[], Float64[], Symbol[], Symbol[], 
+                    0, Vector{@compat Tuple{Int,Float64}}[], Float64[], Symbol[], Symbol[], 
                     Vector{Int}[], Int[],
                     false, false)
 
@@ -139,7 +139,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
         num_dualcon = rd.numUncs
         # Sparse representation of the transpose of the matrix defining
         # the linear constraints
-        dual_A       = [(Int,Float64)[] for i = 1:rd.numUncs]
+        dual_A       = [(@compat Tuple{Int,Float64})[] for i = 1:rd.numUncs]
         # Objective coefficient in dual obj
         dual_objs    = zeros(num_dualvar)
         # Primal constr. sense -> dual variable sense, >=0, <=0, free (:==)
