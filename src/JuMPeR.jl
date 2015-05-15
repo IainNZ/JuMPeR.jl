@@ -108,6 +108,7 @@ end
 Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol) = Uncertain(m,lower,upper,cat,"")
 getName(u::Uncertain) = unc_str(REPLMode, u.m, u.unc)
 Base.isequal(u1::Uncertain, u2::Uncertain) = isequal(u1.unc, u2.unc)
+Base.promote_rule{T<:Real}(::Type{Uncertain},::Type{T}) = UAffExpr
 
 #############################################################################
 # Uncertain Affine Expression class
@@ -121,6 +122,8 @@ UAffExpr(u::Uncertain, c::Real) = UAffExpr([u],[float(c)],0.)
 UAffExpr(coeffs::Array{Float64,1}) = [UAffExpr(c) for c in coeffs]
 Base.zero(a::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
 Base.zero(a::UAffExpr) = zero(typeof(a))
+Base.convert(::Type{UAffExpr}, u::Uncertain) = UAffExpr(u)
+Base.convert(::Type{UAffExpr}, c::Number) = UAffExpr(c)
 
 #############################################################################
 # Full Affine Expression class

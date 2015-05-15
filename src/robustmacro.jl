@@ -105,21 +105,21 @@ end
 # Stuff to make JuMP macros work with Uncertains - should probably be
 # typed tighter, but seems to work OK.
 (*)(u::Uncertain) = u
-function JuMP.addToExpression(aff::GenericAffExpr, c, x)
+function JuMP.addToExpression(aff::GenericAffExpr, c::Number, x::Union(Number,UAffExpr))
     return aff + c*x
 end
-function JuMP.addToExpression(val::Real, c, x::Union(UAffExpr,FullAffExpr))
+function JuMP.addToExpression(aff::GenericAffExpr, c::Union(Number,AffExpr), x::Uncertain)
+    return aff + c*x
+end
+function JuMP.addToExpression(aff::GenericAffExpr, c::Union(Number,UAffExpr), x::Variable)
+    return aff + c*x
+end
+function JuMP.addToExpression(val::Real, c::Number, x::Union(UAffExpr,FullAffExpr))
     return val + c*x
 end
 
 function JuMP._construct_constraint!(faff::FullAffExpr, sense::Symbol)
-    sense in JuMP.valid_senses || error("Unrecognized sense $sense")
-    #=
-    println(faff)
-    (<=)(lhs::FullAffExpr, rhs::Number) = UncConstraint(lhs, -Inf,  rhs - lhs.constant.constant)
-    (==)(lhs::FullAffExpr, rhs::Number) = UncConstraint(lhs,  rhs - lhs.constant.constant,  rhs - lhs.constant.constant)
-    (>=)(lhs::FullAffExpr, rhs::Number) = UncConstraint(lhs,  rhs - lhs.constant.constant, +Inf)
-    =#
+    JuMP._canonicalize_sense(sense)
     offset = faff.constant.constant
     faff.constant.constant = 0.0
     if sense == :(<=) || sense == :≤
