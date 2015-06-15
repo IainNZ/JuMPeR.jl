@@ -72,5 +72,9 @@ facts("[macro] Uncertain constraints") do
 
     @addConstraint(rm, sum{i*(u+v[i])*(y[i]+x), i=1:2:5} <= 0)
     @fact lastuc(rm) => "(u + v[1]) y[1] + (u + v[1]) x + (3 u + 3 v[3]) y[3] + (3 u + 3 v[3]) x + (5 u + 5 v[5]) y[5] + (5 u + 5 v[5]) x $le 0"
+
+    foo = u*x
+    @addConstraint(rm, 2 * foo <= 0)
+    @fact lastuc(rm) => "(2 u) x $le 0"
 end
 

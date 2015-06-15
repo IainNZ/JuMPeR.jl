@@ -135,6 +135,7 @@ typealias FullAffExpr GenericAffExpr{UAffExpr,Variable}
 FullAffExpr() = FullAffExpr(Variable[], UAffExpr[], UAffExpr())
 Base.zero(a::Type{FullAffExpr}) = FullAffExpr()
 Base.zero(a::FullAffExpr) = zero(typeof(a))
+Base.convert(::Type{FullAffExpr}, x::Variable) = FullAffExpr([x],[UAffExpr(1)], UAffExpr())
 function Base.push!(faff::FullAffExpr, new_coeff::UAffExpr, new_var::Variable)
     push!(faff.vars, new_var)
     push!(faff.coeffs, new_coeff)

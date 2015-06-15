@@ -105,15 +105,15 @@ end
 # Stuff to make JuMP macros work with Uncertains - should probably be
 # typed tighter, but seems to work OK.
 (*)(u::Uncertain) = u
-function JuMP.addToExpression(aff::GenericAffExpr, c::Number, x::Union(Number,UAffExpr))
+function JuMP.addToExpression(aff::GenericAffExpr, c, x)
     return aff + c*x
 end
-function JuMP.addToExpression(aff::GenericAffExpr, c::Union(Number,AffExpr), x::Uncertain)
+#=function JuMP.addToExpression(aff::GenericAffExpr, c::Union(Number,AffExpr), x::Uncertain)
     return aff + c*x
 end
 function JuMP.addToExpression(aff::GenericAffExpr, c::Union(Number,UAffExpr), x::Variable)
     return aff + c*x
-end
+end=#
 function JuMP.addToExpression(val::Real, c::Number, x::Union(UAffExpr,FullAffExpr))
     return val + c*x
 end
