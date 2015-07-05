@@ -290,8 +290,8 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     @defVar(m, 0 <= x <= 10)
     @defUnc(m, 0 <= u <= 10)
     @setObjective(m, Max, 10x)
-    !flip && addConstraint(m,  u*x <=  7)
-     flip && addConstraint(m, -u*x >= -7)
+    !flip && @addConstraint(m,  u*x <=  7)
+     flip && @addConstraint(m, -u*x >= -7)
     addEllipseConstraint(m, [1.0*u - 5], 2)  # 5 <= u <= 7
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x) => roughly(1.0,1e-6)
@@ -305,8 +305,8 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     @defVar(m, 0 <= x[i=1:5] <= 2*i)
     @defUnc(m, 0 <= u[i=1:5] <= i+4)
     @setObjective(m, Max, sum{(6-i)*x[i], i=1:5})
-    !flip && addConstraint(m,  sum([ u[i]*x[i] for i=1:5 ]) <=  100)
-     flip && addConstraint(m, -sum([ u[i]*x[i] for i=1:5 ]) >= -100)
+    !flip && @addConstraint(m,  sum{u[i]*x[i], i=1:5} <=  100)
+     flip && @addConstraint(m, -sum{u[i]*x[i], i=1:5} >= -100)
     addEllipseConstraint(m, [3.0*u[1]-5, 1.0*u[5]-5, 2.0*u[4]-5], 1)
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x[1]) => roughly(2.0,1e-6)
@@ -344,8 +344,8 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     @defVar(m, 0 <= x <= 10)
     @defUnc(m, 0 <= u <= 10)
     @setObjective(m, Min, 10x)
-    !flip && addConstraint(m,  x >=  u)
-     flip && addConstraint(m, -x <= -u)
+    !flip && @addConstraint(m,  x >=  u)
+     flip && @addConstraint(m, -x <= -u)
     addEllipseConstraint(m, [1.0*u - 5], 2)  # 5 <= u <= 7
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x) => roughly(7.0, 1e-6)
@@ -363,8 +363,8 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     @defUnc(m, 0 <= w <= 10)
 
     @setObjective(m, Max, 20x + 10y)
-    !flip && addConstraint(m,  u*x + w*y <=  10)
-     flip && addConstraint(m, -u*x - w*y >= -10)
+    !flip && @addConstraint(m,  u*x + w*y <=  10)
+     flip && @addConstraint(m, -u*x - w*y >= -10)
     addEllipseConstraint(m, [u - 5], 2)  # 5 <= u <= 7
     addEllipseConstraint(m, [w - 3], 1)  # 2 <= w <= 4
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
