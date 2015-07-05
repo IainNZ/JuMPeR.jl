@@ -20,6 +20,8 @@ copy_aff(old_aff::AffExpr, new_vars) =
                 old_aff.constant)
 copy_linconstr(old_con::LinearConstraint, new_vars) =
     LinearConstraint(copy_aff(old_con.terms, new_vars), old_con.lb, old_con.ub)
+copy_quadconstr(old_con::QuadConstraint, new_vars) =
+    QuadConstraint(copy_quad(old_con.terms, new_vars), old_con.sense)
 
 #############################################################################
 
@@ -60,6 +62,7 @@ function _solve_robust(rm::Model;
     master.obj       = copy_quad(rm.obj, mastervars)
     # Certain constraints
     master.linconstr = map(con -> copy_linconstr(con, mastervars), rm.linconstr)
+    master.quadconstr = map(con -> copy_quadconstr(con, mastervars), rm.quadconstr)
     # Copy JuMPContainers over so we get good printing
     master.dictList  = copy(rm.dictList)
    
