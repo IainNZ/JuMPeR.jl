@@ -65,6 +65,8 @@ function _solve_robust(rm::Model;
     master.quadconstr = map(con -> copy_quadconstr(con, mastervars), rm.quadconstr)
     # Copy JuMPContainers over so we get good printing
     master.dictList  = copy(rm.dictList)
+    # Copy the callbacks, even though they won't all work correctly
+    master.callbacks = copy(rm.callbacks)
    
     num_unccons      = length(robdata.uncertainconstr)
 
