@@ -9,6 +9,7 @@
 
 using JuMP, JuMPeR
 using FactCheck
+using Compat
 
 if !(:lp_solvers in names(Main))
     println("Loading solvers...")
@@ -27,8 +28,8 @@ context("$(typeof(solver)), cuts=$cuts") do
         end
     end
     ret = JuMPeR.detect_components(r.numUncs, r.uncertaintyset)
-    @fact ret[1] => [1,1,1,1,2,2,2,2]
-    @fact ret[2] => [1,1,1,2,2,2]
+    @fact ret[1] --> [1,1,1,1,2,2,2,2]
+    @fact ret[2] --> [1,1,1,2,2,2]
 
     @defVar(m, x[1:2] >= 0)
     @setObjective(m, Min, sum(x))
@@ -36,8 +37,8 @@ context("$(typeof(solver)), cuts=$cuts") do
     @addConstraint(m, x[1] >= u[1,1])
     @addConstraint(m, x[2] >= u[1,4])
     solve(m, prefer_cuts=cuts)
-    @fact getValue(x[1]) => roughly(1.0, 1e-6)
-    @fact getValue(x[2]) => roughly(1.0, 1e-6)
+    @fact getValue(x[1]) --> roughly(1.0, 1e-6)
+    @fact getValue(x[2]) --> roughly(1.0, 1e-6)
 end; end; end
 
 
@@ -50,8 +51,8 @@ context("$(typeof(solver)), cuts=$cuts") do
     @addConstraint(m, u[1] + u[2]        >= 2)
     @addConstraint(m,        u[2] + u[3] >= 2)
     ret = JuMPeR.detect_components(r.numUncs, r.uncertaintyset)
-    @fact ret[1] => [1,1,1]
-    @fact ret[2] => [1,1]
+    @fact ret[1] --> [1,1,1]
+    @fact ret[2] --> [1,1]
 
     @defVar(m, 0 <= x[1:2] <= 10)
     @setObjective(m, Max, sum(x))
@@ -59,8 +60,8 @@ context("$(typeof(solver)), cuts=$cuts") do
     @addConstraint(m, x[1] <= u[1])
     @addConstraint(m, x[2] <= u[3])
     solve(m, prefer_cuts=cuts)
-    @fact getValue(x[1]) => roughly(2.0, 1e-6)
-    @fact getValue(x[2]) => roughly(2.0, 1e-6)
+    @fact getValue(x[1]) --> roughly(2.0, 1e-6)
+    @fact getValue(x[2]) --> roughly(2.0, 1e-6)
 end; end; end
 
 
@@ -75,8 +76,8 @@ context("$(typeof(solver)), cuts=$cuts") do
     @addConstraint(m,        u[2] + u[3]        == 1)
     @addConstraint(m,                      u[4] <= 5)
     ret = JuMPeR.detect_components(r.numUncs, r.uncertaintyset)
-    @fact ret[1] => [1,1,1,2]
-    @fact ret[2] => [1,1,1,2]
+    @fact ret[1] --> [1,1,1,2]
+    @fact ret[2] --> [1,1,1,2]
 
     @defVar(m, x[1:2] >= 0)
     @setObjective(m, Min, sum(x))
@@ -84,6 +85,6 @@ context("$(typeof(solver)), cuts=$cuts") do
     @addConstraint(m, x[1] >= u[1])
     @addConstraint(m, x[2] >= u[4])
     solve(m, prefer_cuts=cuts)
-    @fact getValue(x[1]) => roughly(1.0, 1e-6)
-    @fact getValue(x[2]) => roughly(5.0, 1e-6)
+    @fact getValue(x[1]) --> roughly(1.0, 1e-6)
+    @fact getValue(x[2]) --> roughly(5.0, 1e-6)
 end; end; end

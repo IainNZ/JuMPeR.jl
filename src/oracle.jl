@@ -93,8 +93,8 @@ function build_certain_constraint(  master::Model,
                                         coeff.coeffs[unc_ind]
         end
 
-    return sense(unc_con) == :(<=) ? new_lhs <= unc_con.ub :
-                                     new_lhs >= unc_con.lb
+    return sense(unc_con) == :(<=) ? @LinearConstraint(new_lhs <= unc_con.ub) :
+                                     @LinearConstraint(new_lhs >= unc_con.lb)
 end
 
 function build_certain_constraint(  master::Model,

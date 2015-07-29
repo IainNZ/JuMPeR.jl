@@ -15,6 +15,8 @@ import JuMP.sense, JuMP.rhs
 import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
 import JuMP.JuMPContainer, JuMP.JuMPDict, JuMP.JuMPArray
 import JuMP.@gendict
+import JuMP: assert_validmodel, validmodel, esc_nonconstant
+import JuMP: getloopedcode, buildrefsets, getname
 
 # JuMPeRs exported interface
 export RobustModel, getNumUncs
@@ -107,6 +109,10 @@ function Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol, name::St
 end
 Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol) = Uncertain(m,lower,upper,cat,"")
 getName(u::Uncertain) = unc_str(REPLMode, u.m, u.unc)
+Base.zero(::Type{Uncertain}) = UAffExpr()
+Base.zero(::Uncertain) = zero(Uncertain)
+Base.one(::Type{Uncertain}) = UAffExpr(1)
+Base.one(::Uncertain) = one(Uncertain)
 Base.isequal(u1::Uncertain, u2::Uncertain) = isequal(u1.unc, u2.unc)
 Base.promote_rule{T<:Real}(::Type{Uncertain},::Type{T}) = UAffExpr
 
@@ -120,8 +126,6 @@ UAffExpr(u::Uncertain) = UAffExpr([u],[1.],0.)
 UAffExpr(u::Uncertain, c::Real) = UAffExpr([u],[float(c)],0.)
 # Next is a bit weird - its basically the vectorized version of UAffExpr(c) 
 UAffExpr(coeffs::Array{Float64,1}) = [UAffExpr(c) for c in coeffs]
-Base.zero(a::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
-Base.zero(a::UAffExpr) = zero(typeof(a))
 Base.convert(::Type{UAffExpr}, u::Uncertain) = UAffExpr(u)
 Base.convert(::Type{UAffExpr}, c::Number) = UAffExpr(c)
 

@@ -117,7 +117,7 @@ function fill_unc_names(mode, uncNames, u::JuMPArray{Uncertain})
     for (ind,unc) in enumerate(u.innerArray)
         idx_strs = [string( idxsets[1][mod1(ind,lengths[1])] )]
         for i = 2:N
-            push!(idx_strs, string(idxsets[i][int(ceil(mod1(ind,cprod[i]) / cprod[i-1]))]))
+            push!(idx_strs, string(idxsets[i][@compat Int(ceil(mod1(ind,cprod[i]) / cprod[i-1]))]))
         end
         #if mode == IJuliaMode
         #    uncNames[unc.unc] = string(name, "_{", join(idx_strs,",") , "}")

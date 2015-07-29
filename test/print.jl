@@ -14,10 +14,10 @@ import JuMP.REPLMode, JuMP.IJuliaMode
 # Helper function to test IO methods work correctly
 function io_test(mode, obj, exp_str; repl=:both)
     if mode == REPLMode
-        repl != :show  && @fact sprint(print, obj) => exp_str
-        repl != :print && @fact sprint(show,  obj) => exp_str
+        repl != :show  && @fact sprint(print, obj) --> exp_str
+        repl != :print && @fact sprint(show,  obj) --> exp_str
     else
-        @fact sprint(writemime, "text/latex", obj) => "\$\$ $exp_str \$\$"
+        @fact sprint(writemime, "text/latex", obj) --> "\$\$ $exp_str \$\$"
     end
 end
 

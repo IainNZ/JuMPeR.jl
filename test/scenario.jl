@@ -9,6 +9,7 @@
 
 using JuMP, JuMPeR
 using FactCheck
+using Compat
 
 if !(:lp_solvers in names(Main))
     println("Loading solvers...")
@@ -27,14 +28,14 @@ context("$(typeof(solver)), cuts=$cuts") do
 
     # Now we get tricky and add a scenario that is actually
     # outside the uncertainty set - but we don't check that
-    addScenario(rm, [u => 1.5, v => 3.0])
+    addScenario(rm, @compat Dict(u => 1.5, v => 3.0))
     
     # This scenario shouldn't be added because it isn't
     # able to complete define a constraint
-    addScenario(rm, [v => 9999.0])
+    addScenario(rm, @compat Dict(v => 9999.0))
 
-    @fact solve(rm, prefer_cuts=cuts) => :Optimal
-    @fact getValue(x) => roughly(0.5, 1e-6)
+    @fact solve(rm, prefer_cuts=cuts) --> :Optimal
+    @fact getValue(x) --> roughly(0.5, 1e-6)
 end; end; end
 
 facts("[scenario] Test retrieval of active cuts") do
@@ -49,11 +50,11 @@ context("$(typeof(solver))") do
     myloosecon = @addConstraint(rm, u*x <= 10000)
     solve(rm, prefer_cuts=true, active_cuts=true)
     ascen = getScenario(mycon)
-    @fact getUncValue(ascen, u) => roughly(3.0, 1e-6)
-    @fact getUncValue(ascen, v) => roughly(1.0, 1e-6)
-    @fact isBinding(ascen) => true
+    @fact getUncValue(ascen, u) --> roughly(3.0, 1e-6)
+    @fact getUncValue(ascen, v) --> roughly(1.0, 1e-6)
+    @fact isBinding(ascen) --> true
     bscen = getScenario(myloosecon)
-    @fact getUncValue(bscen, u) => roughly(5.0, 1e-6)
-    @fact getUncValue(bscen, v) => roughly(1.0, 1e-6)
-    @fact isBinding(bscen) => false
+    @fact getUncValue(bscen, u) --> roughly(5.0, 1e-6)
+    @fact getUncValue(bscen, v) --> roughly(1.0, 1e-6)
+    @fact isBinding(bscen) --> false
 end; end; end

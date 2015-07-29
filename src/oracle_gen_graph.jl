@@ -83,7 +83,7 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
             m.colNames = rd.uncNames[comp_to_unc[comp]]
             m.colLower = rd.uncLower[comp_to_unc[comp]]
             m.colUpper = rd.uncUpper[comp_to_unc[comp]]
-            m.colCat   = rd.uncCat  [comp_to_unc[comp]]
+            m.colCat   = rd.uncCat[  comp_to_unc[comp]]
             cut_vars   = [Variable(m, i) for i = 1:length(comp_to_unc[comp])]
             # Polyhedral constraints only right now
             for con_ind in 1:length(rd.uncertaintyset)
@@ -330,8 +330,8 @@ function generateCut(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Ve
         end
 
         @assert comp != 0
-        cut_model       = gen.comp_cut_model[comp]
-        cut_vars        = gen.comp_cut_vars [comp]
+        cut_model       = gen.comp_cut_model[ comp]
+        cut_vars        = gen.comp_cut_vars[  comp]
         unc_to_comp_unc = gen.unc_to_comp_unc[comp]
 
         # Update the cutting plane problem's objective, and solve

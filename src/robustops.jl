@@ -196,13 +196,8 @@ end
 Base.sum(j::JuMPArray{Uncertain}) = UAffExpr(vec(j.innerArray), ones(length(j.innerArray)), 0.0)
 Base.sum(j::JuMPDict{Uncertain})  = UAffExpr(collect(values(j.tupledict)), ones(length(j.tupledict)), 0.0)
 
-
 # DOT
-function Base.dot(lhs::JuMPArray{Variable},rhs::JuMPArray{Uncertain})
-    size(lhs.innerArray) == size(rhs.innerArray) || error("Incompatible dimensions")
-    FullAffExpr(vec(lhs.innerArray), [1*u for u in rhs.innerArray], UAffExpr())
+if VERSION < v"0.4-"
+    import JuMP.vecdot
+    export vecdot
 end
-Base.dot(lhs::JuMPArray{Uncertain},rhs::JuMPArray{Variable}) = dot(rhs,lhs)
-
-Base.dot{T<:Real}(lhs::Array{T}, rhs::Array{Uncertain}) = UAffExpr(vec(rhs), vec(float(lhs)), 0.0)
-Base.dot{T<:Real}(rhs::Array{Uncertain}, lhs::Array{T}) = UAffExpr(vec(rhs), vec(float(lhs)), 0.0)
