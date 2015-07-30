@@ -114,7 +114,6 @@ Base.zero(::Uncertain) = zero(Uncertain)
 Base.one(::Type{Uncertain}) = UAffExpr(1)
 Base.one(::Uncertain) = one(Uncertain)
 Base.isequal(u1::Uncertain, u2::Uncertain) = isequal(u1.unc, u2.unc)
-Base.promote_rule{T<:Real}(::Type{Uncertain},::Type{T}) = UAffExpr
 
 #############################################################################
 # Uncertain Affine Expression class
@@ -124,8 +123,6 @@ UAffExpr() = UAffExpr(Uncertain[],Float64[],0.)
 UAffExpr(c::Real) = UAffExpr(Uncertain[],Float64[],float(c))
 UAffExpr(u::Uncertain) = UAffExpr([u],[1.],0.)
 UAffExpr(u::Uncertain, c::Real) = UAffExpr([u],[float(c)],0.)
-# Next is a bit weird - its basically the vectorized version of UAffExpr(c) 
-UAffExpr(coeffs::Array{Float64,1}) = [UAffExpr(c) for c in coeffs]
 Base.convert(::Type{UAffExpr}, u::Uncertain) = UAffExpr(u)
 Base.convert(::Type{UAffExpr}, c::Number) = UAffExpr(c)
 
