@@ -1,19 +1,25 @@
-#############################################################################
-# JuMPeR
-# Julia for Mathematical Programming - extension for Robust Optimization
-# See http://github.com/IainNZ/JuMPeR.jl
-#############################################################################
+#-----------------------------------------------------------------------
+# JuMPeR  --  JuMP Extension for Robust Optimization
+# http://github.com/IainNZ/JuMPeR.jl
+#-----------------------------------------------------------------------
+# Copyright (c) 2015: Iain Dunning
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#-----------------------------------------------------------------------
 
 module JuMPeR
 
 using Compat
+
+importall Base.Operators
 
 # Import everything we need from JuMP, so we can build on it
 importall JuMP
 import JuMP: GenericAffExpr, GenericRangeConstraint
 import JuMP: sense, rhs
 import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
-import JuMP.JuMPContainer, JuMP.JuMPDict, JuMP.JuMPArray
+import JuMP: JuMPContainer, JuMPDict, JuMPArray
 import JuMP.@gendict
 import JuMP: assert_validmodel, validmodel, esc_nonconstant
 import JuMP: getloopedcode, buildrefsets, getname

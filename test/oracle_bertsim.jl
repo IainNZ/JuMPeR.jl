@@ -15,6 +15,7 @@ if !(:lp_solvers in names(Main))
     println("Loading solvers...")
     include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 end
+lp_solvers = filter(s->(string(typeof(s))!="SCS.SCSSolver"), lp_solvers)
 
 facts("[oracle_bertsim] +x, +coeff") do
 for solver in lp_solvers, cuts in [true]
