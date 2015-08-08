@@ -10,13 +10,14 @@ using Compat
 
 # Import everything we need from JuMP, so we can build on it
 importall JuMP
-import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
-import JuMP.sense, JuMP.rhs
+import JuMP: GenericAffExpr, GenericRangeConstraint
+import JuMP: sense, rhs
 import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
 import JuMP.JuMPContainer, JuMP.JuMPDict, JuMP.JuMPArray
 import JuMP.@gendict
 import JuMP: assert_validmodel, validmodel, esc_nonconstant
 import JuMP: getloopedcode, buildrefsets, getname
+import JuMP: addVectorizedConstraint
 
 # JuMPeRs exported interface
 export RobustModel, getNumUncs
@@ -94,7 +95,7 @@ getNumUncs(m::Model) = getRobust(m).numUncs
 #############################################################################
 # Uncertain
 # Similar to JuMP.Variable, has an reference back to the model and an id num
-type Uncertain
+type Uncertain <: JuMP.AbstractJuMPScalar
     m::Model
     unc::Int
 end
@@ -114,6 +115,10 @@ Base.zero(::Uncertain) = zero(Uncertain)
 Base.one(::Type{Uncertain}) = UAffExpr(1)
 Base.one(::Uncertain) = one(Uncertain)
 Base.isequal(u1::Uncertain, u2::Uncertain) = isequal(u1.unc, u2.unc)
+# Generic matrix operators in Base expect to be able to find
+# a type to use for the result, but that type needs to have a zero
+# so we can't leave it as Any
+#Base.promote_rule{T<:Real}(::Type{Uncertain},::Type{T}) = UAffExpr
 
 #############################################################################
 # Uncertain Affine Expression class
@@ -137,6 +142,8 @@ FullAffExpr() = FullAffExpr(Variable[], UAffExpr[], UAffExpr())
 Base.zero(a::Type{FullAffExpr}) = FullAffExpr()
 Base.zero(a::FullAffExpr) = zero(typeof(a))
 Base.convert(::Type{FullAffExpr}, x::Variable) = FullAffExpr([x],[UAffExpr(1)], UAffExpr())
+Base.convert(::Type{FullAffExpr}, aff::AffExpr) =
+    FullAffExpr(aff.vars,map(UAffExpr,aff.coeffs), UAffExpr(aff.constant))
 function Base.push!(faff::FullAffExpr, new_coeff::UAffExpr, new_var::Variable)
     push!(faff.vars, new_var)
     push!(faff.coeffs, new_coeff)
@@ -150,6 +157,9 @@ end
 # UncSetConstraint      Just uncertainties
 typealias UncSetConstraint GenericRangeConstraint{UAffExpr}
 addConstraint(m::Model, c::UncSetConstraint) = push!(getRobust(m).uncertaintyset, c)
+addConstraint(m::Model, c::Array{UncSetConstraint}) =
+    error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
+addVectorizedConstraint(m::Model, v::Array{UncSetConstraint}) = map(c->addConstraint(m,c), v)
 
 # UncConstraint         Mix of variables and uncertains
 typealias UncConstraint GenericRangeConstraint{FullAffExpr}
@@ -168,6 +178,9 @@ function addConstraint(m::Model, c::UncConstraint, w=nothing)
     push!(rd.activecuts, Any[])
     return ConstraintRef{UncConstraint}(m,length(rd.uncertainconstr))
 end
+addConstraint(m::Model, c::Array{UncConstraint}) =
+    error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
+addVectorizedConstraint(m::Model, v::Array{UncConstraint}) = map(c->addConstraint(m,c), v)
 
 
 #############################################################################

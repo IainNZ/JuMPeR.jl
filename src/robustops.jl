@@ -201,3 +201,28 @@ if VERSION < v"0.4-"
     import JuMP.vecdot
     export vecdot
 end
+
+#############################################################################
+# Matrix operations
+import JuMP: _multiply_type
+# ----
+_multiply_type{R<:Real}(::Type{R},::Type{Uncertain})    = UAffExpr
+_multiply_type{R<:Real}(::Type{R},::Type{UAffExpr})     = UAffExpr
+_multiply_type{R<:Real}(::Type{R},::Type{FullAffExpr})  = FullAffExprr
+# ----
+_multiply_type(::Type{Variable},::Type{Uncertain})      = FullAffExpr
+_multiply_type(::Type{Variable},::Type{UAffExpr})       = FullAffExpr
+# ----
+_multiply_type(::Type{AffExpr}, ::Type{Uncertain})      = UAffExpr
+_multiply_type(::Type{AffExpr}, ::Type{UAffExpr})       = FullAffExpr
+_multiply_type(::Type{AffExpr}, ::Type{FullAffExpr})    = FullAffExpr
+# ----
+_multiply_type{R<:Real}(::Type{Uncertain},::Type{R})    = UAffExpr
+_multiply_type(::Type{Uncertain},::Type{Variable})      = FullAffExpr
+_multiply_type(::Type{Uncertain},::Type{AffExpr})       = FullAffExpr
+# ----
+_multiply_type{R<:Real}(::Type{UAffExpr},::Type{R})     = UAffExpr
+_multiply_type(::Type{UAffExpr},::Type{Variable})       = FullAffExpr
+_multiply_type(::Type{UAffExpr},::Type{AffExpr})        = FullAffExpr
+# ----
+_multiply_type{R<:Real}(::Type{FullAffExpr},::Type{R})  = FullAffExpr
