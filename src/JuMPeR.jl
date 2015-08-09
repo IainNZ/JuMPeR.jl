@@ -133,7 +133,7 @@ typealias UAffExpr GenericAffExpr{Float64,Uncertain}
 UAffExpr() = UAffExpr(Uncertain[],Float64[],0.)
 UAffExpr(c::Real) = UAffExpr(Uncertain[],Float64[],float(c))
 UAffExpr(u::Uncertain) = UAffExpr([u],[1.],0.)
-UAffExpr(u::Uncertain, c::Real) = UAffExpr([u],[float(c)],0.)
+UAffExpr(c::Real,u::Uncertain,constant=0) = UAffExpr([u],[float(c)],constant)
 Base.convert(::Type{UAffExpr}, u::Uncertain) = UAffExpr(u)
 Base.convert(::Type{UAffExpr}, c::Number) = UAffExpr(c)
 

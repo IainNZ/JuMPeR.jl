@@ -1,11 +1,15 @@
-#############################################################################
-# JuMPeR
-# Julia for Mathematical Programming - extension for Robust Optimization
-# See http://github.com/IainNZ/JuMPeR.jl
-#############################################################################
+#-----------------------------------------------------------------------
+# JuMPeR  --  JuMP Extension for Robust Optimization
+# http://github.com/IainNZ/JuMPeR.jl
+#-----------------------------------------------------------------------
+# Copyright (c) 2015: Iain Dunning
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#-----------------------------------------------------------------------
 # test/operators.jl
 # Testing for all operator overloads and ellipse construction
-#############################################################################
+#-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
 using FactCheck
@@ -56,7 +60,7 @@ context("Core JuMPeR type methods") do
     @fact affToStr(UAffExpr()) --> "0"
     @fact affToStr(UAffExpr(1)) --> "1"
     @fact affToStr(UAffExpr(a)) --> "a"
-    @fact affToStr(UAffExpr(a,2)) --> "2 a"
+    @fact affToStr(UAffExpr(2,a)) --> "2 a"
     @fact typeof(zero(uaff)) --> UAffExpr
     @fact affToStr(zero(UAffExpr)) --> "0"
 
@@ -205,7 +209,6 @@ context("FullAffExpr--... tests") do
     @fact affToStr(faff - 2.0) --> "(5 a + 1) x + 2 b + 1"
     @fact affToStr(faff * 2.0) --> "(10 a + 2) x + 4 b + 6"
     @fact affToStr(faff / 2.0) --> "(2.5 a + 0.5) x + b + 1.5"
-    @fact conToStr(faff == 1.0) --> "(5 a + 1) x + 2 b $eq -2"
     # FullAffExpr--Variable
     @fact affToStr(faff + y) --> "(5 a + 1) x + y + 2 b + 3"
     @fact affToStr(faff - y) --> "(5 a + 1) x - y + 2 b + 3"
@@ -222,7 +225,7 @@ context("FullAffExpr--... tests") do
     @fact_throws faff * a
     @fact_throws faff / a
     # FullAffExpr--UAffExpr (uaff = 2.3 * a + 5.5)
-    @fact affToStr(faff + uaff) --> "(5 a + 1) x + 2.3 a + 2 b + 8.5"
+    @fact affToStr(faff + uaff) --> "(5 a + 1) x + 2 b + 2.3 a + 8.5"
     @fact affToStr(faff - uaff) --> "(5 a + 1) x + 2 b - 2.3 a - 2.5"
     @fact_throws faff * uaff
     @fact_throws faff / uaff
@@ -248,8 +251,8 @@ m = RobustModel()
 @defUnc(m, w[[:foo,:bar]])
 
 context("sum()") do
-    @fact affToStr(sum(u)) --> "u[1] + u[2] + u[3]"
-    @fact affToStr(sum(U)) --> "U[1,1] + U[2,1] + U[3,1] + U[1,2] + U[2,2] + U[3,2] + U[1,3] + U[2,3] + U[3,3]"
+    @fact affToStr(sum(u)) --> "u[3] + u[1] + u[2]"
+    @fact affToStr(sum(U)) --> "U[3,3] + U[2,3] + U[1,3] + U[3,2] + U[2,2] + U[1,2] + U[3,1] + U[1,1] + U[2,1]"
     @fact affToStr(sum(w)) --> anyof("w[foo] + w[bar]", "w[bar] + w[foo]")
     @fact affToStr(sum([2.0*a, 4.0*b])) --> "2 a + 4 b"
     @fact affToStr(sum([x[1] + 2.0*a, x[2] + 4.0*b])) --> "x[1] + x[2] + 2 a + 4 b"

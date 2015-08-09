@@ -35,9 +35,9 @@ facts("[macro] Uncertainty set constraints") do
     @fact lastus(rm) --> "-u $le -5"
 
     @addConstraint(rm, u == sum{i*v[i], i=1:3})
-    @fact lastus(rm) --> "-3 v[3] - 2 v[2] - v[1] + u $eq 0"
+    @fact lastus(rm) --> "u - v[1] - 2 v[2] - 3 v[3] $eq 0"
     @addConstraint(rm, sum{i*v[i], i=1:3} + u >= 10)
-    @fact lastus(rm) --> "u + 3 v[3] + 2 v[2] + v[1] $ge 10"
+    @fact lastus(rm) --> "v[1] + 2 v[2] + 3 v[3] + u $ge 10"
 end
 
 

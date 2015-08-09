@@ -59,7 +59,7 @@ Subject to
 Uncertain constraints:
 a vars[5] $le 5
 Uncertainty set:
-b + a $le 2
+a + b $le 2
 || 1.0 a + 0.0 ||
 || 1.0 b + 0.0 || <= 1.0
 bnd_free[i] free for all i in {2,3,4,5}

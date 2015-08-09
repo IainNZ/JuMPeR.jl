@@ -75,28 +75,10 @@ macro defUnc(args...)
     extra = filter(ex->!isexpr(ex,:kw), extra)
 
     # process keyword arguments
-    value = NaN
-    obj = nothing
-    inconstraints = nothing
-    coefficients = nothing
-    for ex in kwargs
-        if ex.args[1] == :start
-            value = esc(ex.args[2])
-        elseif ex.args[1] == :objective
-            obj = esc(ex.args[2])
-        elseif ex.args[1] == :inconstraints
-            inconstraints = esc(ex.args[2])
-        elseif ex.args[1] == :coefficients
-            coefficients = esc(ex.args[2])
-        else
-            error("in @defUnc ($unc): Unrecognized keyword argument $(ex.args[1])")
-        end
-    end
-
     #------------------------------------------------------------------
     # MODIFIED TO DISABLE COLUMN GENERATION
-    if obj != nothing || inconstraints != nothing || coefficients != nothing
-        error("in @defUnc ($var): Column-wise modeling not supported.")
+    for ex in kwargs
+        error("in @defUnc ($unc): Unrecognized keyword argument $(ex.args[1])")
     end
     #------------------------------------------------------------------
 
