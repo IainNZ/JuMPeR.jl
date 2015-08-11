@@ -8,6 +8,7 @@ println("Loading solvers...")
 include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 
 tests=[ "operators.jl",
+        "matrixops.jl",
         "print.jl",
         "macro.jl",
         "oracle.jl",

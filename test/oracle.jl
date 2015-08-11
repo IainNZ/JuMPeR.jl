@@ -72,7 +72,7 @@ facts("[oracle] Test oracle utilities") do
     if VERSION < v"0.4.0-"
         @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
     else
-        @fact conToStr(new_con) --> "x[2] + 5 x[1] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
     end
 
     # Bit of a hack to test build from JuMPDict
@@ -84,7 +84,7 @@ facts("[oracle] Test oracle utilities") do
     if VERSION < v"0.4.0-"
         @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
     else
-        @fact conToStr(new_con) --> "x[2] + 5 x[1] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
     end
 
     # -------------------

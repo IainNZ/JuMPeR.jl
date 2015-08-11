@@ -155,10 +155,7 @@ macro defUnc(args...)
 end
 
 
-# Required for macros
-(*)(u::Uncertain) = u
-
-function JuMP._construct_constraint!(faff::FullAffExpr, sense::Symbol)
+function JuMP.constructconstraint!(faff::FullAffExpr, sense::Symbol)
     JuMP._canonicalize_sense(sense)
     offset = faff.constant.constant
     faff.constant.constant = 0.0

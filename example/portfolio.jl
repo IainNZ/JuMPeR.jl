@@ -1,24 +1,30 @@
-#############################################################################
-# JuMPeR
-# Julia for Mathematical Programming - extension for Robust Optimization
-# See http://github.com/IainNZ/JuMPeR.jl
-#############################################################################
-# portfolio.jl
+#-----------------------------------------------------------------------
+# JuMPeR  --  JuMP Extension for Robust Optimization
+# http://github.com/IainNZ/JuMPeR.jl
+#-----------------------------------------------------------------------
+# Copyright (c) 2015: Iain Dunning
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#-----------------------------------------------------------------------
+# example/portfolio.jl
 # Solve a robust portfolio optimization problem. Can choose between:
 # - Polyhedral or ellipsoidal uncertainty sets
 # - Reformulation or cutting planes
-#############################################################################
+#-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
+using Gurobi
 using Distributions
 using Compat
 
 # Number of stocks
-const NUM_ASSET = 5
+const NUM_ASSET = 10
 # Number of samples of past returns
 const NUM_SAMPLES = 1000
 # Uncertainty set type (:Polyhedral or :Ellipsoidal)
-const UNCERTAINY_SET = :Polyhedral
+#const UNCERTAINY_SET = :Polyhedral
+const UNCERTAINY_SET = :Ellipsoidal
 
 # Seed the RNG for reproducibilities sake
 srand(1234)
@@ -68,7 +74,7 @@ end
 #     }
 function solve_portfolio(past_returns, Γ)
     # Setup the robust optimization model
-    m = RobustModel()
+    m = RobustModel(solver=GurobiSolver(OutputFlag=0))
 
     # Each asset is a share of the money to invest...
     @defVar(m, 0 <= x[1:NUM_ASSET] <= 1)
@@ -105,6 +111,8 @@ function solve_portfolio(past_returns, Γ)
             @addConstraint(m, zabs[i] >= -z[i])
         end
         @addConstraint(m, sum(zabs) <= Γ)
+    else
+        addEllipseConstraint(m, z[:], Γ)
     end
 
     # The objective function: the worst-case return

@@ -128,8 +128,7 @@ function fill_unc_names(mode, uncNames, u::JuMPArray{Uncertain})
 end
 function fill_unc_names(mode, uncNames, u::JuMPDict{Uncertain})
     name = u.name
-    for tmp in u
-        ind, unc = tmp[1:end-1], tmp[end]
+    for (ind,unc) in zip(keys(u),values(u))
         #if mode == IJuliaMode
         #    uncNames[unc.unc] = string(name, "_{", join([string(i) for i in ind],","), "}")
         #else
@@ -202,7 +201,7 @@ function cont_str(mode, j::JuMPContainer{Uncertain}, leq, eq, geq,
     #end
 
     # 4. Bounds and category, if possible, and return final string
-    a_var = first(j)[end]
+    a_var = first(values(j))
     rd = getRobust(a_var.m)
     unc_cat = rd.uncCat[a_var.unc]
     unc_lb  = rd.uncLower[a_var.unc]
@@ -212,8 +211,7 @@ function cont_str(mode, j::JuMPContainer{Uncertain}, leq, eq, geq,
     # creation, which we'd never be able to handle.
     all_same_lb = true
     all_same_ub = true
-    for iter in j
-        unc = iter[end]
+    for unc in values(j)
         all_same_lb &= rd.uncLower[unc.unc] == unc_lb
         all_same_ub &= rd.uncUpper[unc.unc] == unc_ub
     end
