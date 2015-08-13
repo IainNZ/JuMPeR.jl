@@ -13,19 +13,24 @@
 # three new types:
 # 1. Number
 # 2. Variable
-# 3. AffExpr
-# 4. QuadExpr <- We don't support any interactions with QuadExpr
-# 5. Uncertain
-# 6. UAffExpr
-# 7. FullAffExpr
+# 3. [Generic]Norm
+# 4. [Generic]AffExpr
+# 5. QuadExpr <- We don't support any interactions with QuadExpr
+# 6. [Generic]NormExpr
+# 7. Uncertain
+# 8. UAffExpr
+# 9. FullAffExpr
 #-----------------------------------------------------------------------
 
+# Define error message names for the sake of consistency
 const AFF = "an affine function of variables"
 const UNC = "an uncertain parameter"
 const UAE = "an affine function of uncertain parameters"
 const FAE = "an affine function of variables and uncertain parameters"
+const UNM = "a norm of uncertain parameters"
 
-# Number
+#-----------------------------------------------------------------------
+# 1. Number
 # Number--Uncertain
 (+)(lhs::Number, rhs::Uncertain) = UAffExpr(  1, rhs, lhs)
 (-)(lhs::Number, rhs::Uncertain) = UAffExpr( -1, rhs, lhs)
@@ -34,7 +39,8 @@ const FAE = "an affine function of variables and uncertain parameters"
 # Number--UAffExpr        - handled by JuMP
 # Number--FullAffExpr     - handled by JuMP
 
-# Variable
+#-----------------------------------------------------------------------
+# 2. Variable
 # Variable--Uncertain
 (+)(lhs::Variable, rhs::Uncertain) = FullAffExpr([lhs],[UAffExpr(  1)],UAffExpr( 1,rhs))
 (-)(lhs::Variable, rhs::Uncertain) = FullAffExpr([lhs],[UAffExpr(  1)],UAffExpr(-1,rhs))
@@ -51,7 +57,12 @@ const FAE = "an affine function of variables and uncertain parameters"
 (*)(lhs::Variable, rhs::FullAffExpr) = error("Cannot multiply a variable by $FAE")
 (/)(lhs::Variable, rhs::FullAffExpr) = error("Cannot divide a variable by $FAE")
 
-# AffExpr
+#-----------------------------------------------------------------------
+# 3. Norm
+
+
+#-----------------------------------------------------------------------
+# 4. AffExpr
 # AffExpr--Uncertain
 (+)(lhs::AffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars, map(UAffExpr,lhs.coeffs), UAffExpr( 1,rhs,lhs.constant))
 (-)(lhs::AffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars, map(UAffExpr,lhs.coeffs), UAffExpr(-1,rhs,lhs.constant))
@@ -73,7 +84,38 @@ const FAE = "an affine function of variables and uncertain parameters"
   lhs.constant - rhs.constant)
 (*)(lhs::AffExpr, rhs::FullAffExpr) = error("Cannot multiply $AFF by $FAE")
 (/)(lhs::AffExpr, rhs::FullAffExpr) = error("Cannot divide $AFF by $FAE")
+# AffExpr -- GenericNormExpr{Uncertain}
+(+){P}(lhs::AffExpr, rhs::GenericNormExpr{P,Float64,Uncertain}) =
+    length(lhs.vars) == 0 ? lhs.constant + rhs : error("Cannot add $AFF by $UNM")
+(-){P}(lhs::AffExpr, rhs::GenericNormExpr{P,Float64,Uncertain}) =
+    length(lhs.vars) == 0 ? lhs.constant - rhs : error("Cannot substract $AFF by $UNM")
 
+
+#-----------------------------------------------------------------------
+# 5. QuadExpr
+# Nothing additional supported
+
+
+#-----------------------------------------------------------------------
+# 6. GenericNormExpr
+# GenericNormExpr--Uncertain
+(+){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::Uncertain) = error("Cannot add $UNM to $UNC")
+(-){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::Uncertain) = error("Cannot subtract $UNM by $UNC")
+(*){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::Uncertain) = error("Cannot multiply $UNM by $UNC")
+(/){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::Uncertain) = error("Cannot divide $UNM by $UNC")
+# GenericNormExpr--UAffExpr
+(+){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::UAffExpr) = error("Cannot add $UNM to $UAE")
+(-){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::UAffExpr) = error("Cannot subtract $UNM by $UAE")
+(*){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::UAffExpr) = error("Cannot multiply $UNM by $UAE")
+(/){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::UAffExpr) = error("Cannot divide $UNM by $UAE")
+# GenericNormExpr--FullAffExpr
+(+){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::FullAffExpr) = error("Cannot add $UNM to $FAE")
+(-){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::FullAffExpr) = error("Cannot subtract $UNM by $FAE")
+(*){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::FullAffExpr) = error("Cannot multiply $UNM by $FAE")
+(/){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::FullAffExpr) = error("Cannot divide $UNM by $FAE")
+
+
+#-----------------------------------------------------------------------
 # Uncertain
 (-)(lhs::Uncertain) = UAffExpr(-1,lhs)
 # Uncertain--Number
@@ -91,6 +133,11 @@ const FAE = "an affine function of variables and uncertain parameters"
 (-)(lhs::Uncertain, rhs::AffExpr) = FullAffExpr(rhs.vars, map(UAffExpr,-rhs.coeffs), UAffExpr(1,lhs,-rhs.constant))
 (*)(lhs::Uncertain, rhs::AffExpr) = (*)(rhs, lhs)
 (/)(lhs::Uncertain, rhs::AffExpr) = error("Cannot divide $UNC by $AFF")
+# Uncertain--GenericNormExpr
+(+){P,C,V<:Uncertain}(lhs::Uncertain, rhs::GenericNormExpr{P,C,V}) = error("Cannot add $UNC to $UNM")
+(-){P,C,V<:Uncertain}(lhs::Uncertain, rhs::GenericNormExpr{P,C,V}) = error("Cannot subtract $UNC by $UNM")
+(*){P,C,V<:Uncertain}(lhs::Uncertain, rhs::GenericNormExpr{P,C,V}) = error("Cannot multiply $UNC by $UNM")
+(/){P,C,V<:Uncertain}(lhs::Uncertain, rhs::GenericNormExpr{P,C,V}) = error("Cannot divide $UNC by $UNM")
 # Uncertain--Uncertain
 (+)(lhs::Uncertain, rhs::Uncertain) = UAffExpr([lhs,rhs], Float64[1, 1], 0.0)
 (-)(lhs::Uncertain, rhs::Uncertain) = UAffExpr([lhs,rhs], Float64[1,-1], 0.0)
@@ -119,6 +166,11 @@ const FAE = "an affine function of variables and uncertain parameters"
 (-)(lhs::UAffExpr, rhs::AffExpr) = (+)(-rhs,lhs)
 (*)(lhs::UAffExpr, rhs::AffExpr) = (*)( rhs,lhs)
 (/)(lhs::UAffExpr, rhs::AffExpr) = error("Cannot divide $UAE by $AFF")
+# UAffExpr--GenericNormExpr
+(+){P,C,V<:Uncertain}(lhs::UAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot add $UAE to $UNM")
+(-){P,C,V<:Uncertain}(lhs::UAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot subtract $UAE by $UNM")
+(*){P,C,V<:Uncertain}(lhs::UAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot multiply $UAE by $UNM")
+(/){P,C,V<:Uncertain}(lhs::UAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot divide $UAE by $UNM")
 # UAffExpr--Uncertain
 (+)(lhs::UAffExpr, rhs::Uncertain) = (+)(rhs,lhs)
 (-)(lhs::UAffExpr, rhs::Uncertain) = UAffExpr(vcat(rhs,lhs.vars),vcat(-1.0,lhs.coeffs),lhs.constant)
@@ -148,6 +200,11 @@ const FAE = "an affine function of variables and uncertain parameters"
   lhs.constant - rhs.constant)
 (*)(lhs::FullAffExpr, rhs::AffExpr) = error("Cannot multiply $FAE by $AFF")
 (/)(lhs::FullAffExpr, rhs::AffExpr) = error("Cannot divide $FAE by $AFF")
+# UAffExpr--GenericNormExpr
+(+){P,C,V<:Uncertain}(lhs::FullAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot add $FAE to $UNM")
+(-){P,C,V<:Uncertain}(lhs::FullAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot subtract $FAE by $UNM")
+(*){P,C,V<:Uncertain}(lhs::FullAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot multiply $FAE by $UNM")
+(/){P,C,V<:Uncertain}(lhs::FullAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot divide $FAE by $UNM")
 # FullAffExpr--Uncertain
 (+)(lhs::FullAffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars,lhs.coeffs,lhs.constant+rhs)
 (-)(lhs::FullAffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars,lhs.coeffs,lhs.constant-rhs)

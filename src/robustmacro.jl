@@ -1,8 +1,23 @@
+#-----------------------------------------------------------------------
+# JuMPeR  --  JuMP Extension for Robust Optimization
+# http://github.com/IainNZ/JuMPeR.jl
+#-----------------------------------------------------------------------
+# Copyright (c) 2015: Iain Dunning
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#-----------------------------------------------------------------------
+# src/robustmacro.jl
 # This file attempts to use as much of the machinery provided by JuMP
 # to provide the @defUnc functionality for Uncertains, just like @defVar
 # does for variables. @defUnc is essentially a direct copy of @defVar,
 # with the differences clearly marked. If something is not marked,
 # assume it is a direct copy.
+#-----------------------------------------------------------------------
+
+import JuMP: assert_validmodel, validmodel, esc_nonconstant
+import JuMP: getloopedcode, buildrefsets, getname
+
 using Base.Meta
 
 macro defUnc(args...)
@@ -156,7 +171,6 @@ end
 
 
 function JuMP.constructconstraint!(faff::FullAffExpr, sense::Symbol)
-    JuMP._canonicalize_sense(sense)
     offset = faff.constant.constant
     faff.constant.constant = 0.0
     if sense == :(<=) || sense == :≤
@@ -167,5 +181,16 @@ function JuMP.constructconstraint!(faff::FullAffExpr, sense::Symbol)
         return UncConstraint(faff, -offset, -offset)
     else
         error("Cannot handle ranged constraint")
+    end
+end
+
+function JuMP.constructconstraint!{P}(
+    normexpr::GenericNormExpr{P,Float64,Uncertain}, sense::Symbol)
+    if sense == :(<=)
+        UncNormConstraint( normexpr)
+    elseif sense == :(>=)
+        UncNormConstraint(-normexpr)
+    else
+        error("Invalid sense $sense in norm constraint")
     end
 end

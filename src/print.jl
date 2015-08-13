@@ -7,13 +7,11 @@
 # All "pretty printers" for JuMPeR types.
 #############################################################################
 
-import JuMP.REPLMode
-import JuMP.IJuliaMode
-import JuMP.PRINT_ZERO_TOL
-import JuMP.DIMS
-import JuMP.str_round
-
-import JuMP: cont_str, aff_str
+import JuMP: REPLMode, IJuliaMode
+import JuMP: PRINT_ZERO_TOL, DIMS
+import JuMP: str_round
+import JuMP: aff_str, affToStr
+import JuMP: cont_str, conToStr
 
 import JuMP: repl_leq, repl_geq, repl_eq, repl_times, repl_sq,
     repl_ind_open, repl_ind_close, repl_for_all, repl_in,
@@ -395,24 +393,30 @@ affToStr(a::FullAffExpr) = aff_str(REPLMode,a)
 
 
 #------------------------------------------------------------------------
-## EllipseConstraint
+## UncNormConstraint
 #------------------------------------------------------------------------
-Base.print(io::IO, e::EllipseConstraint) = print(io, con_str(REPLMode,e))
-Base.show( io::IO, e::EllipseConstraint) = print(io, con_str(REPLMode,e))
-#Base.writemime(io::IO, ::MIME"text/latex", e::EllipseConstraint) =
+Base.print(io::IO, unc::UncNormConstraint) = print(io, con_str(REPLMode,unc))
+Base.show( io::IO, unc::UncNormConstraint) = print(io, con_str(REPLMode,unc))
+#Base.writemime(io::IO, ::MIME"text/latex", e::UncNormConstraint) =
 #    print(io, math(con_str(IJuliaMode,e),false))
 # Generic string converter, called by mode-specific handlers
-function con_str(mode, e::EllipseConstraint)
-    rows, cols = size(e.F)
-    row_strs = [string() for r in 1:rows]
-    col_strs = [unc_str(mode, e.m, e.u[c]) for c in 1:cols]
-    for r in 1:rows
-        for c in 1:cols
-            e.F[r,c] != 0.0 && (row_strs[r] *= "$(e.F[r,c]) $(col_strs[c]) + ")
-        end
-        row_strs[r] *= string(e.g[r])
-    end
-    max_len = maximum(map(length,row_strs))
-    row_strs = ["|| " * rpad(row_strs[r], max_len, " ") * " ||" for r in 1:rows]
-    return join(row_strs, "\n") * " <= $(e.Gamma)"
+function con_str{P}(mode, unc::UncNormConstraint{P})
+    normexpr = unc.normexpr
+    nrm = normexpr.norm
+    cof = normexpr.coeff
+    aff = normexpr.aff
+    # Coefficient out front
+    ret = (cof == 1.0) ? "" : str_round(cof)
+    # Norm part
+    ret *= "‖" * join(map(t->aff_str(mode,t),nrm.terms),",") * "‖"
+    P ==   1 && (ret *= "₁")
+    P ==   2 && (ret *= "₂")
+    P == Inf && (ret *= "∞")
+    # RHS
+    ret *= " $repl_leq "
+    @assert length(aff.vars) == 0
+    ret *= str_round(-aff.constant)
+    return ret
 end
+
+conToStr(unc::UncNormConstraint) = con_str(REPLMode, unc)

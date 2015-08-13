@@ -13,6 +13,7 @@
 
 using JuMP, JuMPeR
 using FactCheck
+import JuMP: REPLMode, IJuliaMode
 
 # To ensure the tests work on both Windows and Linux/OSX, we need
 # to use the correct comparison operators in the strings
@@ -279,37 +280,33 @@ end
 
 end
 
-facts("[operators] Check ellipse construction") do
-    rm = RobustModel()
-    @defUnc(rm, u[1:5])
 
-    vec = [1.0*u[1]+2.0*u[2]+1.0, 5.0*u[5]+1.0*u[1]+5.0, 4.0*u[4]+4.0]
-    con = JuMPeR.build_ellipse_constraint(rm, vec, 2.0)
-    @fact con.F --> [1.0 2.0 0.0 0.0;
-                    1.0 0.0 5.0 0.0;
-                    0.0 0.0 0.0 4.0]
-    @fact con.u --> [  1,  2,  5,  4]
-    @fact con.g --> [1.0, 5.0, 4.0]
-    @fact con.Gamma --> 2.0
+facts("[operators] Uncertainty set norms") do
 
-    vec = [u[5], u[3], u[1] + 9.0]
-    con = JuMPeR.build_ellipse_constraint(rm, vec, 1.0)
-    @fact con.F --> [1.0 0.0 0.0;
-                    0.0 1.0 0.0;
-                    0.0 0.0 1.0]
-    @fact con.u --> [  5,  3,  1]
-    @fact con.g --> [ 0., 0., 9.]
-    @fact con.Gamma --> 1.0
+rm = RobustModel()
+nc = JuMPeR.getRobust(rm).normconstraints
+@defUnc(rm, u[1:3])
+@addConstraint(rm, norm1{u[i],i=1:3} <= 1)
+@fact conToStr(nc[end]) --> "‖u[1],u[2],u[3]‖₁ $leq 1"
+@addConstraint(rm, norm2{u[i],i=1:3} <= 2)
+@fact conToStr(nc[end]) --> "‖u[1],u[2],u[3]‖₂ $leq 2"
+@addConstraint(rm, norm∞{u[i],i=1:3} <= 9)
+@fact conToStr(nc[end]) --> "‖u[1],u[2],u[3]‖∞ $leq 9"
 
-    vec = [1.0*u[1]-5]
-    con = JuMPeR.build_ellipse_constraint(rm, vec, 3.0)
-    @fact con.F --> ones(1,1)
-    @fact con.u -->[  1]
-    @fact con.g -->[-5.]
-    @fact con.Gamma --> 3.0
+@addConstraint(rm, 2*norm1{u[i],i=1:3} <= 1)
+@fact conToStr(nc[end]) --> "2‖u[1],u[2],u[3]‖₁ $leq 1"
+@addConstraint(rm, -1*norm1{u[i],i=1:3} >= -1)
+@fact conToStr(nc[end]) --> "‖u[1],u[2],u[3]‖₁ $leq 1"
 
-    vec = [2.0, 0.0]
-    @fact_throws JuMPeR.build_ellipse_constraint(rm, vec, 0.0)
+@addConstraint(rm, 1 + norm1{u[i],i=1:3} <= 1)
+@fact conToStr(nc[end]) --> "‖u[1],u[2],u[3]‖₁ $leq 0"
 
-    addEllipseConstraint(rm, [u[5], u[3], u[1] + 9.0], 1.0)
+@fact_throws @addConstraint(rm, 1 + norm1{u[i],i=1:3} <= u[1])
+@fact_throws @addConstraint(rm, u[3] + norm1{u[i],i=1:3} <= u[1]+2)
+
+@defVar(rm, x)
+@fact_throws @addConstraint(rm, x + norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, (2x) + norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, (2*u[1]*x+u[2]) + norm1{u[i],i=1:3} <= 1)
+
 end

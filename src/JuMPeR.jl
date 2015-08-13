@@ -7,6 +7,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #-----------------------------------------------------------------------
+# src/JuMPeR.jl
+# Defines the module and main types: RobustData, Uncertain, and the
+# various constraints and norms.
+#-----------------------------------------------------------------------
 
 module JuMPeR
 
@@ -17,13 +21,12 @@ importall Base.Operators
 # Import everything we need from JuMP, so we can build on it
 importall JuMP
 import JuMP: GenericAffExpr, GenericRangeConstraint
+import JuMP: GenericNorm, GenericNormExpr
+import JuMP: JuMPConstraint
 import JuMP: sense, rhs
-import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
-import JuMP: JuMPContainer, JuMPDict, JuMPArray
-import JuMP.@gendict
-import JuMP: assert_validmodel, validmodel, esc_nonconstant
-import JuMP: getloopedcode, buildrefsets, getname
 import JuMP: addVectorizedConstraint
+import JuMP: IndexedVector, addelt! #, isexpr
+import JuMP: JuMPContainer, JuMPDict, JuMPArray
 
 # JuMPeRs exported interface
 export RobustModel, getNumUncs
@@ -115,7 +118,10 @@ function Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol, name::St
     return Uncertain(m, robdata.numUncs)
 end
 Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol) = Uncertain(m,lower,upper,cat,"")
+getLower(u::Uncertain) = getRobust(u.m).uncLower[u.unc]
+getUpper(u::Uncertain) = getRobust(u.m).uncUpper[u.unc]
 getName(u::Uncertain) = unc_str(REPLMode, u.m, u.unc)
+getCategory(u::Uncertain) = getRobust(u.m).uncCat[u.unc]
 Base.zero(::Type{Uncertain}) = UAffExpr()
 Base.zero(::Uncertain) = zero(Uncertain)
 Base.one(::Type{Uncertain}) = UAffExpr(1)
@@ -136,6 +142,13 @@ UAffExpr(u::Uncertain) = UAffExpr([u],[1.],0.)
 UAffExpr(c::Real,u::Uncertain,constant=0) = UAffExpr([u],[float(c)],constant)
 Base.convert(::Type{UAffExpr}, u::Uncertain) = UAffExpr(u)
 Base.convert(::Type{UAffExpr}, c::Number) = UAffExpr(c)
+# aff_to_uaff
+# Useful for oracles. Given a UAffExpr and a list of variables, create an
+# AffExpr such that Uncertain(i) maps to Variable(i), where i is the index,
+# in the new expression.
+uaff_to_aff(uaff::UAffExpr, x::Vector{Variable}) =
+    AffExpr(Variable[x[up.unc] for up in uaff.vars],
+            copy(uaff.coeffs), uaff.constant)
 
 #############################################################################
 # Full Affine Expression class
@@ -188,60 +201,25 @@ addConstraint(m::Model, c::Array{UncConstraint}) =
     error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
 addVectorizedConstraint(m::Model, v::Array{UncConstraint}) = map(c->addConstraint(m,c), v)
 
-
 #############################################################################
-# EllipseConstraint
-# Capture uncertainty set constraints of the form  || F u + g ||_2 <= Gamma
-type EllipseConstraint <: JuMP.JuMPConstraint
-    m::Model
-    F::Array{Float64, 2}
-    u::Array{Int, 1}
-    g::Array{Float64, 1}
-    Gamma::Float64
+# Norms
+import JuMP: _build_norm
+typealias UncSetNorm{Typ} GenericNorm{Typ,Float64,Uncertain}
+_build_norm(Lp, terms::Vector{UAffExpr}) = UncSetNorm{Lp}(terms)
+
+type UncNormConstraint{P} <: JuMPConstraint
+    normexpr::GenericNormExpr{P,Float64,Uncertain}
 end
 
-# build_ellipse_constraint
-# Given || vec ||_2 <= Gamma, return an EllipseConstraint by expanding 
-# `vec` out to its full `Fu+g` form.
-function build_ellipse_constraint(m::Model, vec::Vector, Gamma::Float64)
-    
-    # In the first pass we determine a unique set of uncertainties
-    # present so we can allocate the correct size F and u
-    unc_map  = Dict{Int,Int}()
-    rev_map  = Dict{Int,Int}()
-    function record(v::Uncertain)
-        if !(v.unc in keys(unc_map))
-            unc_map[v.unc] = length(unc_map) + 1
-            rev_map[length(unc_map)] = v.unc
-        end
-    end
-    record(v::UAffExpr) = map(record, v.vars)
-    record(v) = ArgumentError()
-    map(record, vec)
-
-    # Create F and g
-    num_uncs  = length(unc_map)
-    num_terms = length(vec)
-    F = zeros(num_terms, num_uncs)
-    g = zeros(num_terms)
-    for (i,v) in enumerate(vec)
-        if typeof(v) <: UAffExpr
-            g[i] = v.constant
-            for (j,u) in enumerate(v.vars)
-                F[i,unc_map[u.unc]] += v.coeffs[j]
-            end
-        elseif typeof(v) <: Uncertain
-            F[i,unc_map[v.unc]] += 1.0
-        end
-    end
-
-    return EllipseConstraint(m,F,[rev_map[i] for i=1:num_uncs],g,Gamma)
-end
-
-function addEllipseConstraint(m::Model, vec::Vector, Gamma::Real)
-    push!(getRobust(m).normconstraints, build_ellipse_constraint(m,vec,float(Gamma)))
+function addConstraint(m::Model, c::UncNormConstraint)
+    push!(getRobust(m).normconstraints,c)
     getRobust(m).normconstraints[end]
 end
+
+addEllipseConstraint(m::Model, vec::Vector, Gamma::Real) =
+    error("""addEllipseConstraint not supported as of JuMPeR v0.2.
+             Please use, e.g., @addConstraint(m, norm(x) <= Γ)
+                               @addConstraint(m, norm2{x[i],i=1:n} <= Γ""")
 
 #############################################################################
 # Scenarios

@@ -19,7 +19,7 @@ if !(:lp_solvers in names(Main))
     println("Loading solvers...")
     include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 end
-lp_solvers = filter(s->(string(typeof(s))!="SCS.SCSSolver"), lp_solvers)
+lp_solvers = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
 
 facts("[scenario] Test providing scenarios") do
 for solver in lp_solvers, cuts in [true,false]

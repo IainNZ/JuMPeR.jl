@@ -19,8 +19,8 @@ if !(:lp_solvers in names(Main))
     println("Loading solvers...")
     include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 end
-lp_solvers  = filter(s->(string(typeof(s))!="SCS.SCSSolver"), lp_solvers)
-soc_solvers = filter(s->(string(typeof(s))!="SCS.SCSSolver"), soc_solvers)
+lp_solvers  = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
+soc_solvers = filter(s->(!contains(string(typeof(s)),"SCSSolver")), soc_solvers)
 
 const TOL = 1e-4
 
@@ -300,7 +300,7 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     @setObjective(m, Max, 10x)
     !flip && @addConstraint(m,  u*x <=  7)
      flip && @addConstraint(m, -u*x >= -7)
-    addEllipseConstraint(m, [1.0*u - 5], 2)  # 5 <= u <= 7
+    @addConstraint(m, norm(u-5) <= 2)
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x) --> roughly(1.0,TOL)
 end; end; end
@@ -315,7 +315,9 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     @setObjective(m, Max, sum{(6-i)*x[i], i=1:5})
     !flip && @addConstraint(m,  sum{u[i]*x[i], i=1:5} <=  100)
      flip && @addConstraint(m, -sum{u[i]*x[i], i=1:5} >= -100)
-    addEllipseConstraint(m, [3.0*u[1]-5, 1.0*u[5]-5, 2.0*u[4]-5], 1)
+    a = [3, 0, 0, 2, 1];
+    I = [1, 5, 4]
+    @addConstraint(m, norm2{a[i]*u[i]-5,i=I} <= 1)
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x[1]) --> roughly(2.0,TOL)
     @fact getValue(x[2]) --> roughly(4.0,TOL)
@@ -338,7 +340,7 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     # Uncertainty set
     @addConstraint(m, u[1] == 5.0*z[1]            + 10.0)
     @addConstraint(m, u[2] == 3.0*z[1] - 2.0*z[2] +  3.0)
-    addEllipseConstraint(m, [z[1],z[2]], 1)
+    @addConstraint(m, norm(z) <= 1)
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x[1]) --> roughly(1.000, 1e-3)
     @fact getValue(x[2]) --> roughly(0.000, 1e-3)
@@ -354,7 +356,7 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     @setObjective(m, Min, 10x)
     !flip && @addConstraint(m,  x >=  u)
      flip && @addConstraint(m, -x <= -u)
-    addEllipseConstraint(m, [1.0*u - 5], 2)  # 5 <= u <= 7
+    @addConstraint(m, norm(u-5) <= 2)
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x) --> roughly(7.0, TOL)
 end; end; end
@@ -373,8 +375,8 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     @setObjective(m, Max, 20x + 10y)
     !flip && @addConstraint(m,  u*x + w*y <=  10)
      flip && @addConstraint(m, -u*x - w*y >= -10)
-    addEllipseConstraint(m, [u - 5], 2)  # 5 <= u <= 7
-    addEllipseConstraint(m, [w - 3], 1)  # 2 <= w <= 4
+    @addConstraint(m, norm(u - 5) <= 2)  # 5 <= u <= 7
+    @addConstraint(m, norm(w - 3) <= 1)  # 2 <= w <= 4
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x) --> roughly((10-4*2)/7, TOL)
     @fact getValue(y) --> roughly(2.0, TOL)
@@ -398,7 +400,7 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
         @addConstraint(m, -z >= -(1-u[1]*y))
     end
     @addConstraint(m, u[1] == 1)
-    addEllipseConstraint(m,[u[2]-1.2],0.01)
+    @addConstraint(m, norm(u[2]-1.2) <= 0.01)
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(obj) --> roughly(1.19, TOL)
 end; end; end
@@ -458,4 +460,12 @@ context("$(typeof(solver)), cuts=$cuts") do
     @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
     @fact getValue(B[1]) --> roughly(5.0,TOL)
     @fact getValue(B[2]) --> roughly(5.0,TOL)
+
+    if solver in soc_solvers
+        # Add a do-nothing ellipse constraint
+        @addConstraint(m, 1000 >= norm(D))
+        @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
+        @fact getValue(B[1]) --> roughly(5.0,TOL)
+        @fact getValue(B[2]) --> roughly(5.0,TOL)
+    end
 end; end; end

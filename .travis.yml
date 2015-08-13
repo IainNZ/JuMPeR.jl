@@ -15,7 +15,7 @@ addons:
         - libglpk-dev
 script:
     - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-    - julia -e 'Pkg.add("JuMP"); Pkg.checkout("JuMP","morenorms")'
+    - julia -e 'Pkg.add("JuMP"); Pkg.checkout("JuMP")'
     - julia -e 'Pkg.clone(pwd())'
     - julia -e 'Pkg.test("JuMPeR", coverage=true)'
 after_success:
