@@ -58,8 +58,8 @@ function _print_robust(io::IO, m::Model)
     in_dictlist = falses(rd.numUncs)
     for d in rd.dictList
         println(io, cont_str(REPLMode,d))
-        for it in d  # Mark uncertains in JuMPContainer as printed
-            in_dictlist[it[end].unc] = true
+        for it in values(d)  # Mark uncertains in JuMPContainer as printed
+            in_dictlist[it.unc] = true
         end
     end
 

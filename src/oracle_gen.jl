@@ -29,6 +29,8 @@ type GeneralOracle <: AbstractOracle
     dual_contype::Vector{Symbol}
     dual_ell_rhs_idxs::Vector{Vector{Int}}
     dual_ell_lhs_idxs::Vector{Int}
+    dual_l1_rhs_idxs::Vector{Vector{Int}}
+    dual_l1_lhs_idxs::Vector{Int}
 
     # Options
     debug_printcut::Bool
@@ -38,7 +40,8 @@ GeneralOracle() =
     GeneralOracle(  false,
                     Model(), Variable[], 0.0, # Cutting plane
                     0, Vector{@compat Tuple{Int,Float64}}[], Float64[], Symbol[], Symbol[], 
-                    Vector{Int}[], Int[],
+                    Vector{Int}[], Int[],  # Reformulation, L2 norm
+                    Vector{Int}[], Int[],  # Reformulation, L1 norm
                     false)
 
 
@@ -71,7 +74,8 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
         gen.cut_model.colLower = rd.uncLower
         gen.cut_model.colUpper = rd.uncUpper
         gen.cut_model.colCat   = rd.uncCat
-        gen.cut_vars = [Variable(gen.cut_model, i) for i = 1:rd.numUncs]
+        gen.cut_vars = [Variable(gen.cut_model, i) for i in 1:rd.numUncs]
+
         # Covert polyhedral constraints
         for c in rd.uncertaintyset
             push!(gen.cut_model.linconstr, 
@@ -95,6 +99,23 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
                 end
                 @defVar(gen.cut_model, t == rhs)
                 @addConstraint(gen.cut_model, dot(y,y) <= t^2)
+            elseif isa(norm_c, UncNormConstraint{1})
+                # L1 constraint
+                # Input: ‖[a₁ᵀu, a₂ᵀu, ...]‖₁ ≤ Γ
+                # Output: y₁ ≥ a₁ᵀu, y₁ ≥ -a₁ᵀu
+                #         ∑yᵢ ≤ Γ
+                normexp = norm_c.normexpr
+                terms   = normexp.norm.terms
+                rhs     = -normexp.aff.constant / normexp.coeff
+                n_terms = length(terms)
+                @defVar(gen.cut_model, y[1:n_terms])
+                for i in 1:n_terms
+                    @addConstraint(gen.cut_model, y[i] ≥
+                         uaff_to_aff(terms[i],gen.cut_vars))
+                    @addConstraint(gen.cut_model, y[i] ≥
+                        -uaff_to_aff(terms[i],gen.cut_vars))
+                end
+                @addConstraint(gen.cut_model, sum(y) <= rhs)
             end
         end
     end
@@ -108,19 +129,22 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
         # - one new variable for each ellipse in general
         # We have one constraint for every uncertain parameter
         #
-        # Statement of primal-dual pair for the one ellipse case:
+        # Statement of primal-dual pair:
         # PRIMAL
         # max  cᵀx
-        #  st  A x    ≤ b  ::  π        (# linear constraints)
-        #      ‖Fx+g‖ ≤ Γ  ::  β,β′     (# terms in norm + 1)
+        #  st  A x     ≤ b   ::  π       [ #(linear constraints) ]
+        #      ‖Fx+f‖₂ ≤ Γ₂  ::  β,β′    [ 1 + #(terms in norm)  ]
+        #      ‖Gx+g‖₁ ≤ Γ₁  ::  α,α′    [ 1 + #(terms in norm)  ]
         #
         # DUAL
-        # min  bᵀπ + gᵀβ + Γ β′ 
-        #  st  Aᵀπ - Fᵀβ          = c   (# number of uncertain params)
+        #            { ELLIPSE    }  {     L1 NORM      }
+        # min  bᵀπ    + fᵀβ + Γ₂β′    + gᵀα + (gᵀ1+Γ₁)α′
+        #  st  Aᵀπ    - Fᵀβ           - Fᵀα - (Fᵀ1   )α′    = c     ::  x
         #      π  ≥ 0
-        #      β′ ≥ ‖β‖
-        #    'lhs' 'rhs'  (we'll use these shorthands throughout)
-        #     
+        #      β′ ≥ ‖β‖₂  ('ell_lhs' ≥ 'ell_rhs')
+        #      α′ ≥ -½α   ( 'l1_lhs' ≥  'l1_rhs')
+        #      α  ≤ 0, α′ ≥ 0
+        #
         # In this setup phase we build the structure of the dual but do not
         # attach it to the model. Rather, for each constraint we will spawn
         # a new set of variables and constraints according to the structure
@@ -128,11 +152,12 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
         
         # Number of dual variables
         # =   Number of linear constraints 
-        #  +  Number of terms in ellipse constraints
+        #  +  Number of terms in ellipse constraints + 1
+        #  +  Number of terms in  L1 constraints + 1
         #  +  Number of bounds on uncertain parameters (later)
         num_dualvar = length(rd.uncertaintyset)
         for norm_c in rd.normconstraints
-            if isa(norm_c, UncNormConstraint{2})
+            if isa(norm_c, UncNormConstraint{2}) || isa(norm_c, UncNormConstraint{1})
                 num_dualvar += length(norm_c.normexpr.norm.terms) + 1
             end
         end
@@ -160,7 +185,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
             dual_vartype[aff_ind] = sense(aff_con)
         end
 
-        # Ellipses set their respective β.β′ objective coefficients
+        # Set ellipse objective coefficients for each β.β′
         # Track index of last set dual - in this case dual for the
         # last linear constraint. We'll update after each ellipse.
         start_ind = length(rd.uncertaintyset)
@@ -170,7 +195,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
                 normexp = norm_c.normexpr
                 terms   = normexp.norm.terms
                 rhs     = -normexp.aff.constant / normexp.coeff
-                
+
                 # Dual β, the RHS of β′ ≥ ‖β‖
                 dual_ell_rhs_idx = Int[]
                 for (term_ind, term) in enumerate(terms)
@@ -187,6 +212,36 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
                 dual_objs[dual_ind]    = rhs
                 dual_vartype[dual_ind] = :Qlhs
                 push!(gen.dual_ell_lhs_idxs, dual_ind)
+                start_ind += length(terms) + 1
+            end
+        end
+
+        # Same as above, but for L1 norm constraints
+        for norm_c in rd.normconstraints
+            if isa(norm_c, UncNormConstraint{1})
+                # Extract fields from norm constraint
+                normexp = norm_c.normexpr
+                terms   = normexp.norm.terms
+                rhs     = -normexp.aff.constant / normexp.coeff
+
+                # Dual α, the RHS of α′ ≥ -½α
+                total_g = 0.0
+                dual_l1_rhs_idx = Int[]
+                for (term_ind, term) in enumerate(terms)
+                    dual_ind = start_ind + term_ind
+                    total_g += term.constant
+                    dual_objs[dual_ind]    = term.constant
+                    dual_vartype[dual_ind] = :L1rhs
+                    # Track indices for this ellipse
+                    push!(dual_l1_rhs_idx, dual_ind)
+                end
+                push!(gen.dual_l1_rhs_idxs, dual_l1_rhs_idx)
+
+                # Dual β′, the LHS of β′ ≥ ‖β‖
+                dual_ind = start_ind + length(terms) + 1
+                dual_objs[dual_ind]    = total_g + rhs
+                dual_vartype[dual_ind] = :L1lhs
+                push!(gen.dual_l1_lhs_idxs, dual_ind)
                 start_ind += length(terms) + 1
             end
         end
@@ -371,13 +426,18 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
     # them to the new constraint's LHS
     dual_vars = Variable[]
     for ind in 1:num_dualvar
-        # Equality,  RHS of cone  -->  free
-        # Less-than, LHS of cone  -->  v >= 0
-        # Greater-than            -->  v <= 0
+        # Free:   equality,     RHS of ellipse
+        # NonNeg: less-than,    LHS of ellipse, LHS of L1 norm
+        # NonPos: greater-than,                 RHS of L1 norm
         vt = dual_vartype[ind]
-        lbound = (vt == :(<=) || vt == :Qlhs) ? 0 : -Inf
-        ubound = (vt == :(>=)               ) ? 0 : +Inf
-        new_v = Variable(master,lbound,ubound,:Cont,"_µ$(con_ind)_$(ind)")
+        lbound = (vt == :(<=) || vt == :Qlhs || vt == :L1lhs) ? 0 : -Inf
+        ubound = (vt == :(>=) ||                vt == :L1rhs) ? 0 : +Inf
+        vname = "π"
+        vt == :Qlhs  && (vname="β′")
+        vt == :Qrhs  && (vname="β" )
+        vt == :L1lhs && (vname="α′")
+        vt == :L1rhs && (vname="α" )
+        new_v = Variable(master,lbound,ubound,:Cont,"_$(vname)_$(con_ind)_$(ind)")
         push!(dual_vars, new_v)
         push!(new_lhs, dual_objs[ind], new_v)
     end
@@ -393,9 +453,10 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
             push!(new_lhs, coeff, dual_vars[ind])
         end
 
-        # fᵀπ
-        ell_idx = 0
+        # Norms
+        ell_idx, l1_idx = 0, 0
         for norm_c in rd.normconstraints
+            # Ellipse  Fᵀπ
             if isa(norm_c, UncNormConstraint{2})
                 ell_idx += 1
                 terms = norm_c.normexpr.norm.terms
@@ -408,6 +469,19 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
                         push!(new_lhs, -coeff, dual_vars[ell_rhs_idxs[term_ind]])
                     end
                 end
+            # L1 Norm  Gᵀ1 γ
+            elseif isa(norm_c, UncNormConstraint{1})
+                l1_idx += 1
+                terms = norm_c.normexpr.norm.terms
+                for (term_ind, term) in enumerate(terms)
+                    for (coeff,uncparam) in term
+                        # Is it a match?
+                        uncparam.unc != unc && continue
+                        # g ≠ 0 for this uncertain parameter and term
+                        push!(new_lhs, -coeff, dual_vars[gen.dual_l1_rhs_idxs[l1_idx][term_ind]])
+                        push!(new_lhs, -coeff, dual_vars[gen.dual_l1_lhs_idxs[l1_idx]          ])
+                    end
+                end
             end
         end
 
@@ -417,17 +491,25 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
         ct == :(>=) && @addConstraint(master, new_lhs >= dual_rhs[unc])
     end
 
-    # Finally we impose that the duals relating to the ellipse
-    # live in a cone
-    ell_idx = 0
+
+    ell_idx,  l1_idx = 0, 0
     for norm_c in rd.normconstraints
+        # Impose β′ ≥ ‖β‖₂
         if isa(norm_c, UncNormConstraint{2})
             ell_idx += 1
             β′ = dual_vars[gen.dual_ell_lhs_idxs[ell_idx]]
             β  = dual_vars[gen.dual_ell_rhs_idxs[ell_idx]]
             @addConstraint(master, dot(β,β) <= β′*β′)
+        # Impose α′ ≥ -½α
+        elseif isa(norm_c, UncNormConstraint{1})
+            l1_idx += 1
+            α′ = dual_vars[gen.dual_l1_lhs_idxs[l1_idx]]
+            α  = dual_vars[gen.dual_l1_rhs_idxs[l1_idx]]
+            for αᵢ in α
+                @addConstraint(master, α′ >= -0.5αᵢ)
+            end
         end
     end
-    
+
     return true
 end
