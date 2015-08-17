@@ -14,6 +14,7 @@ tests=[ "operators.jl",
         "oracle.jl",
         "oracle_general.jl",
         "oracle_general_L1.jl",
+        "oracle_general_Linf.jl",
         "oracle_bertsim.jl",
         "oracle_general_graph.jl",
         "scenario.jl"]

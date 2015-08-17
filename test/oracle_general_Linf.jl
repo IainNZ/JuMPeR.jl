@@ -7,8 +7,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #-----------------------------------------------------------------------
-# test/oracle_general_L1.jl
-# Test GeneralOracle for uncertainty sets with L1 norms
+# test/oracle_general_Linf.jl
+# Test GeneralOracle for uncertainty sets with L∞ norms
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
@@ -23,7 +23,7 @@ lp_solvers  = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
 
 const TOL = 1e-4
 
-facts("[oracle_gen_L1] Test 1") do
+facts("[oracle_gen_L∞] Test 1") do
 for solver in lp_solvers, cuts in [true,false], flip in [true,false]
 context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     m = RobustModel(solver=solver)
@@ -32,13 +32,13 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     @setObjective(m, Max, 10x)
     !flip && @addConstraint(m,  u*x <=  7)
      flip && @addConstraint(m, -u*x >= -7)
-    @addConstraint(m, norm(u-5, 1) <= 2)
+    @addConstraint(m, norm(u-5, Inf) <= 2)
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x) --> roughly(1.0,TOL)
 end; end; end
 
 
-facts("[oracle_gen_L1] Test 2") do
+facts("[oracle_gen_L∞] Test 2") do
 for solver in lp_solvers, cuts in [true,false],
     flip in [true,false], macr in [true,false]
 context("$(typeof(solver)), cuts=$cuts, flip=$flip, macr=$macr") do
@@ -48,26 +48,29 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip, macr=$macr") do
     @setObjective(m, Max, sum{(6-i)*x[i], i=1:5})
     !flip && @addConstraint(m,  sum{u[i]*x[i], i=1:5} <=  100)
      flip && @addConstraint(m, -sum{u[i]*x[i], i=1:5} >= -100)
-    a = Float64[3, 0, 0, 2, 1];
+    a = Float64[2, 0, 0, 2, 2];
     c = Float64[5, 0, 0, 5, 5]
-    I = [1, 5, 4]
+    I = [1, 4, 5]
     z = convert(Vector{UAffExpr}, a.*u-c)
-    !macr && @addConstraint(m, norm(z, 1) <= 1)
-     macr && @addConstraint(m, norm1{a[i]*u[i]-c[i],i=I} <= 1)
-    solve(m, suppress_warnings=true, prefer_cuts=cuts)
-    # u = [5, 6, 7, 5, 6]  (2,3 are unrestricted)
-    # x = [2, 4, 6, 8, ?]
-    # 100 - 10 - 42 - 40 = 8
-    # 8 / 6 = 1+1/3 = x₅
-    @fact getValue(x[1]) --> roughly(2.0,   TOL)
-    @fact getValue(x[2]) --> roughly(4.0,   TOL)
-    @fact getValue(x[3]) --> roughly(6.0,   TOL)
-    @fact getValue(x[4]) --> roughly(8.0,   TOL)
-    @fact getValue(x[5]) --> roughly(1+1/3, TOL)
+    !macr && @addConstraint(m, norm(z, Inf) <= 2)
+     macr && @addConstraint(m, norm∞{a[i]*u[i]-c[i],i=I} <= 2)
+    solve(m, suppress_warnings=true, prefer_cuts=cuts, cut_tol=1e-4)
+    # max_u = [5.0, 6, 7.0, 8.0, 9.0]
+    #     u = [3.5, 6, 7.0, 3.5, 3.5]
+    #     x = [2.0, 4, ???, 8.0, 0.4]
+    # 3.5*2.0 =  7.0 ->  7
+    # 6.0*4.0 = 24.0 -> 31
+    # 3.5*8.0 = 28.0 -> 59
+    # x4 = 41/7
+    @fact getValue(x[1]) --> roughly(2, TOL)
+    @fact getValue(x[2]) --> roughly(4, TOL)
+    @fact getValue(x[3]) --> roughly(41/7, TOL)
+    @fact getValue(x[4]) --> roughly(8, TOL)
+    @fact getValue(x[5]) --> roughly(0, TOL)
 end; end; end
 
 
-facts("[oracle_gen_L1] Test 3") do
+facts("[oracle_gen_L∞] Test 3") do
 for solver in lp_solvers, cuts in [true,false],
     flip in [true,false], macr in [true,false]
 context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
@@ -81,15 +84,15 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     # Uncertainty set
     @addConstraint(m, u[1] == 5.0*z[1]            + 10.0)
     @addConstraint(m, u[2] == 3.0*z[1] - 2.0*z[2] +  3.0)
-    !macr && @addConstraint(m, norm(z,1) <= 1)
-     macr && @addConstraint(m, norm1{z[i],i=1:2} <= 1)
+    !macr && @addConstraint(m, norm(z,Inf) <= 1)
+     macr && @addConstraint(m, norm∞{z[i],i=1:2} <= 1)
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x[1]) --> roughly(1.000, 1e-3)
     @fact getValue(x[2]) --> roughly(0.000, 1e-3)
-end; end; end;
+end; end; end
 
 
-facts("[oracle_gen_L1] Test 4") do
+facts("[oracle_gen_L∞] Test 4") do
 for solver in lp_solvers, cuts in [true,false], flip in [true,false]
 context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     m = RobustModel(solver=solver)
@@ -98,13 +101,13 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     @setObjective(m, Min, 10x)
     !flip && @addConstraint(m,  x >=  u)
      flip && @addConstraint(m, -x <= -u)
-    @addConstraint(m, norm(u-5,1) <= 2)
+    @addConstraint(m, norm(u-5,Inf) <= 2)
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x) --> roughly(7.0, TOL)
 end; end; end
 
 
-facts("[oracle_gen_L1] Test 5") do
+facts("[oracle_gen_L∞] Test 5") do
 for solver in lp_solvers, cuts in [true,false], flip in [true,false]
 context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     m = RobustModel(solver=solver)
@@ -117,15 +120,15 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     @setObjective(m, Max, 20x + 10y)
     !flip && @addConstraint(m,  u*x + w*y <=  10)
      flip && @addConstraint(m, -u*x - w*y >= -10)
-    @addConstraint(m, norm(u - 5,1) <= 2)  # 5 <= u <= 7
-    @addConstraint(m, norm(w - 3,1) <= 1)  # 2 <= w <= 4
+    @addConstraint(m, norm(u - 5,Inf) <= 2)  # 3 <= u <= 7
+    @addConstraint(m, norm(w - 3,Inf) <= 1)  # 2 <= w <= 4
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(x) --> roughly((10-4*2)/7, TOL)
     @fact getValue(y) --> roughly(2.0, TOL)
 end; end; end
 
 
-facts("[oracle_gen_L1] Test 6") do
+facts("[oracle_gen_L∞] Test 6") do
 for solver in lp_solvers, cuts in [true,false], flip in [true,false]
 context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
     m = RobustModel(solver=solver)
@@ -142,7 +145,7 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
         @addConstraint(m, -z >= -(1-u[1]*y))
     end
     @addConstraint(m, u[1] == 1)
-    @addConstraint(m, norm(u[2]-1.2,1) <= 0.01)
+    @addConstraint(m, norm(u[2]-1.2,Inf) <= 0.01)
     solve(m, suppress_warnings=true, prefer_cuts=cuts)
     @fact getValue(obj) --> roughly(1.19, TOL)
 end; end; end
