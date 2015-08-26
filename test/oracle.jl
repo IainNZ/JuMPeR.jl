@@ -70,9 +70,9 @@ facts("[oracle] Test oracle utilities") do
     unc_val = [1.0, 2.0, 3.0, 4.0, 5.0]
     new_con = JuMPeR.build_certain_constraint(rm, unc_con, unc_val)
     if VERSION < v"0.4.0-"
-        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
     else
-        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
     end
 
     # Bit of a hack to test build from JuMPDict
@@ -82,9 +82,9 @@ facts("[oracle] Test oracle utilities") do
     solve(inner_m)
     new_con = JuMPeR.build_certain_constraint(rm, unc_con, getValue(inner_u))
     if VERSION < v"0.4.0-"
-        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
     else
-        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
     end
 
     # -------------------

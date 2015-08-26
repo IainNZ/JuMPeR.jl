@@ -72,6 +72,9 @@ type RobustData
     # For pretty printing
     dictList::Vector
 
+    uncDict::Dict{Symbol,Any}
+    uncData::ObjectIdDict
+
     # Provided scenarios
     scenarios::Vector
 
@@ -81,7 +84,9 @@ RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
                             0,String[],Float64[],Float64[],Symbol[],
                             Dict{Int,Symbol}(), Dict{Int,Vector}(),
                             GeneralOracle(), Any[],
-                            cutsolver,JuMP.JuMPContainer[],Any[], 0.0)
+                            cutsolver,Any[],
+                            Dict{Symbol,Any}(),ObjectIdDict(),
+                            Any[], 0.0)
 
 function RobustModel(;solver=JuMP.UnsetSolver(),cutsolver=JuMP.UnsetSolver())
     m = Model(solver=solver)

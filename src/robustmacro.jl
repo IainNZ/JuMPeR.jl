@@ -17,6 +17,7 @@
 
 import JuMP: assert_validmodel, validmodel, esc_nonconstant
 import JuMP: getloopedcode, buildrefsets, getname
+import JuMP: storecontainerdata, isdependent, JuMPContainerData, pushmeta!
 
 using Base.Meta
 
@@ -144,7 +145,7 @@ macro defUnc(args...)
         #------------------------------------------------------------------
         return assert_validmodel(m, quote
             # CHANGED TO UNCERTAIN
-            $(esc(var)) = Uncertain($m,$lb,$ub,$(quot(t)),$(string(var)))
+            $(esc(var)) = Uncertain($m,$lb,$ub,$(quot(t)),$(utf8(string(var))))
             # TODO
             # registervar($m, $(quot(var)), $(esc(var)))
         end)
@@ -155,6 +156,7 @@ macro defUnc(args...)
     # We now build the code to generate the variables (and possibly the JuMPDict
     # to contain them)
     refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(var)
+    clear_dependencies(i) = (isdependent(idxvars,idxsets[i],i) ? nothing : idxsets[i])
     #------------------------------------------------------------------
     # IGNORE SYMMETRIC CODE, VARIABLE -> UNCERTAIN
     code = :( $(refcall) = Uncertain($m, $lb, $ub, $(quot(t)), "") )
@@ -164,11 +166,17 @@ macro defUnc(args...)
         $looped
         push!($(m).ext[:Robust].dictList, $varname)
         #registervar($m, $(quot(getname(var))), $varname)
+        storecontainerdata_unc($m, $varname, $(quot(getname(var))),
+                               $(Expr(:tuple,map(clear_dependencies,1:length(idxsets))...)),
+                               $idxpairs, $(quot(condition)))
+        isa($varname, JuMPContainer) && pushmeta!($varname, :model, $m)
         $varname
     end)
     #------------------------------------------------------------------
 end
 
+storecontainerdata_unc(m::Model, variable, varname, idxsets, idxpairs, condition) =
+    getRobust(m).uncData[variable] = JuMPContainerData(varname, idxsets, idxpairs, condition)
 
 function JuMP.constructconstraint!(faff::FullAffExpr, sense::Symbol)
     offset = faff.constant.constant

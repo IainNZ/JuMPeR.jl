@@ -7,37 +7,30 @@
 # All "pretty printers" for JuMPeR types.
 #############################################################################
 
-import JuMP: REPLMode, IJuliaMode
+import JuMP: REPLMode, IJuliaMode, PrintSymbols
 import JuMP: PRINT_ZERO_TOL, DIMS
 import JuMP: str_round
 import JuMP: aff_str, affToStr
 import JuMP: cont_str, conToStr
+import JuMP: repl, ijulia
+import JuMP: getmeta
 
-import JuMP: repl_leq, repl_geq, repl_eq, repl_times, repl_sq,
-    repl_ind_open, repl_ind_close, repl_for_all, repl_in,
-    repl_open_set, repl_mid_set, repl_close_set, repl_union,
-    repl_infty, repl_open_rng, repl_close_rng, repl_integer
-import JuMP: ijulia_leq, ijulia_geq, ijulia_eq, ijulia_times, ijulia_sq,
-    ijulia_ind_open, ijulia_ind_close, ijulia_for_all, ijulia_in,
-    ijulia_open_set, ijulia_mid_set, ijulia_close_set, ijulia_union,
-    ijulia_infty, ijulia_open_rng, ijulia_close_rng, ijulia_integer
+# helper to look up corresponding JuMPContainerData
+printdata(v::JuMPContainer{Uncertain}) = getRobust(getmeta(v, :model)).uncData[v]
+function printdata(u::Array{Uncertain})
+    if isempty(u)
+        error("Cannot locate printing data for an empty array")
+    end
+    m = first(u).m
+    m.varData[v]
+end
 
 
 #------------------------------------------------------------------------
 ## RobustModel
 #------------------------------------------------------------------------
-function printRobust(m::Model)
-    # Compatability shim
-    printRobust(STDOUT, m)
-end
-function printRobust(io::IO, m::Model)
-    Base.warn("""
-printRobust() has been deprecated in favour of print().
-printRobust() will be removed in JuMPeR v0.2""")
-    _print_robust(io, m)
-end
+# Called by the JuMP print hook
 function _print_robust(io::IO, m::Model)
-    # Called by the JuMP print hook
     rd = getRobust(m)
     # First, display normal model stuff
     JuMP.print(io, m, ignore_print_hook=true)
@@ -72,18 +65,20 @@ function _print_robust(io::IO, m::Model)
         str_lb, str_ub = str_round(unc_lb), str_round(unc_ub)
         unc_cat = rd.uncCat[i]
         if unc_cat == :Bin  # x binary
-            str = "$unc_name $(repl_in) $(repl_open_set)0,1$(repl_close_set)"
+            str = string(unc_name, " ", repl[:in], " ",
+                        repl[:open_set], "0,1", repl[:close_set])
         elseif unc_lb == -Inf && unc_ub == +Inf # Free
-            str = "$unc_name free"
+            str = string(unc_name, " free")
         elseif unc_lb == -Inf  # No lower bound
-            str = "$unc_name $(repl_leq) $str_ub"
+            str = string(unc_name, " ", repl[:leq], " ", str_ub)
         elseif unc_ub == +Inf  # No upper bound
-            str = "$unc_name $(repl_geq) $str_lb"
+            str = string(unc_name, " ", repl[:geq], " ", str_lb)
         else
-            str = "$str_lb $(repl_leq) $unc_name $(repl_leq) $str_ub"
+            str = string(str_lb, " ", repl[:leq], " ", unc_name,
+                            " ", repl[:leq], " ", str_ub)
         end
         if unc_cat == :Int
-            str *= ", $integer"
+            str *= string(", ", repl[:integer])
         end
         println(io, str)
     end
@@ -96,7 +91,7 @@ Base.print(io::IO, u::Uncertain) = print(io, unc_str(REPLMode,u))
 Base.show( io::IO, u::Uncertain) = print(io, unc_str(REPLMode,u))
 #Base.writemime(io::IO, ::MIME"text/latex", u::Uncertain) = 
 #    print(io, unc_str(IJuliaMode,u,mathmode=false))
-function unc_str(mode, m::Model, unc::Int, ind_open, ind_close)
+function unc_str(mode, m::Model, unc::Int)
     rd = getRobust(m)
     uncNames = rd.uncNames
     if uncNames[unc] == ""
@@ -106,11 +101,11 @@ function unc_str(mode, m::Model, unc::Int, ind_open, ind_close)
     end
     return uncNames[unc] == "" ? "unc_$unc" : uncNames[unc]
 end
-function fill_unc_names(mode, uncNames, u::JuMPArray{Uncertain})
-    idxsets = u.indexsets
+function fill_unc_names{N}(mode, uncNames, u::JuMPArray{Uncertain,N})
+    data = printdata(u)
+    idxsets = data.indexsets
     lengths = map(length, idxsets)
-    N = length(idxsets)
-    name = u.name
+    name = data.name
     cprod = cumprod([lengths...])
     for (ind,unc) in enumerate(u.innerArray)
         idx_strs = [string( idxsets[1][mod1(ind,lengths[1])] )]
@@ -125,7 +120,7 @@ function fill_unc_names(mode, uncNames, u::JuMPArray{Uncertain})
     end
 end
 function fill_unc_names(mode, uncNames, u::JuMPDict{Uncertain})
-    name = u.name
+    name = printdata(u).name
     for (ind,unc) in zip(keys(u),values(u))
         #if mode == IJuliaMode
         #    uncNames[unc.unc] = string(name, "_{", join([string(i) for i in ind],","), "}")
@@ -134,6 +129,27 @@ function fill_unc_names(mode, uncNames, u::JuMPDict{Uncertain})
         #end
     end
 end
+function fill_unc_names(mode, uncNames, u::Array{Uncertain})
+    isempty(u) && return
+    sizes = size(u)
+    m = first(u).m
+    rd = getRobust(m)
+    if !haskey(rd.uncData, u)
+        return
+    end
+    name = rd.uncData[u].name
+    for (ii,unc) in enumerate(u)
+        @assert unc.m === m
+        ind = ind2sub(sizes, ii)
+        #uncNames[unc.unc] = if mode === IJuliaMode
+        #    string(name, "_{", join(ind, ","), "}")
+        #else
+        #    string(name,  "[", join(ind, ","), "]")
+        #end
+        uncNames[unc.unc] = string(name,  "[", join(ind, ","), "]")
+    end
+    return
+end
 
 # Handlers to use correct symbols
 unc_str(::Type{REPLMode}, u::Uncertain) =
@@ -141,8 +157,8 @@ unc_str(::Type{REPLMode}, u::Uncertain) =
 #unc_str(::Type{IJuliaMode}, v::Variable; mathmode=true) =
 #    unc_str(IJuliaMode, u.m, u.unc, mathmode=mathmode)
 
-unc_str(::Type{REPLMode}, m::Model, unc::Int) = 
-    unc_str(REPLMode, m, unc, repl_ind_open, repl_ind_close)
+#unc_str(::Type{REPLMode}, m::Model, unc::Int) = 
+#    unc_str(REPLMode, m, unc)
 #unc_str(::Type{IJuliaMode}, m::Model, unc::Int; mathmode=true) = 
 #    math(unc_str(IJuliaMode, m, unc, ijulia_ind_open, ijulia_ind_close), mathmode)
 
@@ -150,20 +166,27 @@ unc_str(::Type{REPLMode}, m::Model, unc::Int) =
 #------------------------------------------------------------------------
 ## JuMPContainer{Uncertain}
 #------------------------------------------------------------------------
-Base.print(io::IO, j::JuMPContainer{Uncertain}) = print(io, cont_str(REPLMode,j))
-Base.show( io::IO, j::JuMPContainer{Uncertain}) = print(io, cont_str(REPLMode,j))
+Base.print(io::IO, j::Union(JuMPContainer{Uncertain},Array{Uncertain})) = print(io, cont_str(REPLMode,j))
+Base.show( io::IO, j::Union(JuMPContainer{Uncertain},Array{Uncertain})) = print(io, cont_str(REPLMode,j))
 #Base.writemime(io::IO, ::MIME"text/latex", j::JuMPContainer{Uncertain}) =
 #    print(io, cont_str(IJuliaMode,j,mathmode=false))
 # Generic string converter, called by mode-specific handlers
-function cont_str(mode, j::JuMPContainer{Uncertain}, leq, eq, geq,
-                            ind_open, ind_close, for_all, in_set,
-                            open_set, mid_set, close_set, union, infty,
-                            open_rng, close_rng, integer)
+_getmodel(j::Array{Uncertain}) = first(j).m
+_getmodel(j::JuMPContainer) = getmeta(j, :model)
+function cont_str(mode, j::Union(JuMPContainer{Uncertain},Array{Uncertain}),
+                    sym::PrintSymbols)
     # Check if anything in the container
-    isempty(j) && return string(j.name, " (no indices)")
+    if isempty(j)
+        name = isa(j, JuMPContainer) ? printdata(j).name : "Empty Array{Uncertain}"
+        return "$name (no indices)"
+    end
+
+    m = _getmodel(j)
+    rd = getRobust(m)
+    data = printdata(j)
 
     # 1. construct the part with uncertain name and indexing
-    locvars = map(j.indexexprs) do tmp
+    locvars = map(data.indexexprs) do tmp
         var = tmp.idxvar
         if var == nothing
             return ""
@@ -171,11 +194,11 @@ function cont_str(mode, j::JuMPContainer{Uncertain}, leq, eq, geq,
             return string(var)
         end
     end
-    num_dims = length(j.indexsets)
+    num_dims = length(data.indexsets)
     idxvars = Array(UTF8String, num_dims)
     dimidx = 1
     for i in 1:num_dims
-        if j.indexexprs[i].idxvar == nothing
+        if data.indexexprs[i].idxvar == nothing
             while DIMS[dimidx] in locvars
                 dimidx += 1
             end
@@ -188,11 +211,12 @@ function cont_str(mode, j::JuMPContainer{Uncertain}, leq, eq, geq,
             idxvars[i] = locvars[i]
         end
     end
-    name_idx = string(j.name, ind_open, join(idxvars,","), ind_close)
+    name_idx = string(data.name, sym[:ind_open], join(idxvars,","), sym[:ind_close])
     # 2. construct part with what we index over
-    idx_sets = for_all*" "*join(map(dim->string(idxvars[dim], " ", in_set, " ", open_set,
-                                JuMP.cont_str_set(j.indexsets[dim], mid_set),
-                                close_set), 1:num_dims), ", ")
+    idx_sets = sym[:for_all]*" "*join(map(dim->string(idxvars[dim], " ", sym[:in],
+                                " ", sym[:open_set],
+                                JuMP.cont_str_set(data.indexsets[dim],sym[:mid_set]),
+                                sym[:close_set]), 1:num_dims), ", ")
     # 3. Handle any conditionals
     #if isa(dict, JuMPDict) && !isempty(dict.condition)
     #    tail_str *= " s.t. $(join(parse_conditions(j.condition[1]), " and "))"
@@ -200,7 +224,6 @@ function cont_str(mode, j::JuMPContainer{Uncertain}, leq, eq, geq,
 
     # 4. Bounds and category, if possible, and return final string
     a_var = first(values(j))
-    rd = getRobust(a_var.m)
     unc_cat = rd.uncCat[a_var.unc]
     unc_lb  = rd.uncLower[a_var.unc]
     unc_ub  = rd.uncUpper[a_var.unc]
@@ -213,44 +236,40 @@ function cont_str(mode, j::JuMPContainer{Uncertain}, leq, eq, geq,
         all_same_lb &= rd.uncLower[unc.unc] == unc_lb
         all_same_ub &= rd.uncUpper[unc.unc] == unc_ub
     end
-    str_lb = unc_lb == -Inf ? "-$infty" : str_round(unc_lb)
-    str_ub = unc_ub == +Inf ? infty     : str_round(unc_ub)
+    str_lb = unc_lb == -Inf ? "-"*sym[:infty] : str_round(unc_lb)
+    str_ub = unc_ub == +Inf ?     sym[:infty] : str_round(unc_ub)
     # Special case bounds printing based on the category
     if unc_cat == :Bin  # x in {0,1}
-        return "$name_idx $in_set $(open_set)0,1$close_set $idx_sets"
+        return "$name_idx $(sym[:in]) $(sym[:open_set])0,1$(sym[:close_set]) $idx_sets"
     end
     # Continuous and Integer
-    idx_sets = unc_cat == :Int ? ", $integer, $idx_sets" : " $idx_sets"
+    idx_sets = unc_cat == :Int ? ", $(sym[:integer]), $idx_sets" : " $idx_sets"
     if all_same_lb && all_same_ub
         # Free variable
         unc_lb == -Inf && unc_ub == +Inf && return "$name_idx free$idx_sets"
         # No lower bound
-        unc_lb == -Inf && return "$name_idx $leq $str_ub$idx_sets"
+        unc_lb == -Inf && return "$name_idx $(sym[:leq]) $str_ub$idx_sets"
         # No upper bound
-        unc_ub == +Inf && return "$name_idx $geq $str_lb$idx_sets"
+        unc_ub == +Inf && return "$name_idx $(sym[:geq]) $str_lb$idx_sets"
         # Range
-        return "$str_lb $leq $name_idx $leq $str_ub$idx_sets"
+        return "$str_lb $(sym[:leq]) $name_idx $(sym[:leq]) $str_ub$idx_sets"
     end
     if all_same_lb && !all_same_ub 
-        unc_lb == -Inf && return "$name_idx $leq ..$idx_sets"
-        return "$str_lb $leq $name_idx $leq ..$idx_sets"
+        unc_lb == -Inf && return "$name_idx $(sym[:leq]) ..$idx_sets"
+        return "$str_lb $(sym[:leq]) $name_idx $(sym[:leq]) ..$idx_sets"
     end
     if !all_same_lb && all_same_ub
-        unc_ub == +Inf && return "$name_idx $geq ..$idx_sets"
-        return ".. $leq $name_idx $leq $str_ub$idx_sets"
+        unc_ub == +Inf && return "$name_idx $(sym[:geq]) ..$idx_sets"
+        return ".. $(sym[:leq]) $name_idx $(sym[:leq]) $str_ub$idx_sets"
     end
-    return ".. $leq $name_idx $leq ..$idx_sets"
+    return ".. $(sym[:leq]) $name_idx $(sym[:leq]) ..$idx_sets"
 end
 
 # Handlers to use correct symbols
 cont_str(::Type{REPLMode}, j::JuMPContainer{Uncertain}; mathmode=false) =
-    cont_str(REPLMode, j, repl_leq, repl_eq, repl_geq, repl_ind_open, repl_ind_close,
-                repl_for_all, repl_in, repl_open_set, repl_mid_set, repl_close_set,
-                repl_union, repl_infty, repl_open_rng, repl_close_rng, repl_integer)
+    cont_str(REPLMode, j, repl)
 #=cont_str(::Type{IJuliaMode}, j::JuMPContainer{Uncertain}; mathmode=true) =
-    math(cont_str(IJuliaMode, j, ijulia_leq, ijulia_eq, ijulia_geq, ijulia_ind_open, ijulia_ind_close,
-                ijulia_for_all, ijulia_in, ijulia_open_set, ijulia_mid_set, ijulia_close_set, 
-                ijulia_union, ijulia_infty, ijulia_open_rng, ijulia_close_rng, ijulia_integer), mathmode)=#
+    math(cont_str(IJuliaMode, j, ijulia), mathmode)=#
 
 
 #------------------------------------------------------------------------
@@ -261,7 +280,7 @@ Base.show( io::IO, a::UAffExpr) = print(io, aff_str(REPLMode,a))
 #Base.writemime(io::IO, ::MIME"text/latex", a::UAffExpr) =
 #    print(io, math(aff_str(IJuliaMode,a),false))
 # Generic string converter, called by mode-specific handlers
-function aff_str(mode, a::UAffExpr; show_constant=true)
+function aff_str(mode, a::UAffExpr, show_constant=true)
     # If the expression is empty, return the constant (or 0)
     if length(a.vars) == 0
         return show_constant ? str_round(a.constant) : "0"
@@ -324,7 +343,7 @@ Base.show( io::IO, a::FullAffExpr) = print(io, aff_str(REPLMode,a))
 # just a number for AffExpr. However in our case it might also contain
 # uncertains - which we ALWAYS want to show.
 # So we "partially" respect it.
-function aff_str(mode, a::FullAffExpr; show_constant=true)
+function aff_str(mode, a::FullAffExpr, show_constant=true)
     # If no variables, hand off to the constant part
     if length(a.vars) == 0
         return aff_str(mode, a.constant)
@@ -380,7 +399,7 @@ function aff_str(mode, a::FullAffExpr; show_constant=true)
     ret = join(term_str[1:numTerms], "")
     
     # Now the constant term
-    con_aff = aff_str(REPLMode,a.constant,show_constant=show_constant)
+    con_aff = aff_str(REPLMode,a.constant,show_constant)
     if con_aff != "" && con_aff != "0"
         ret = string(ret, " + ", con_aff)
     end
@@ -413,7 +432,7 @@ function con_str{P}(mode, unc::UncNormConstraint{P})
     P ==   2 && (ret *= "₂")
     P == Inf && (ret *= "∞")
     # RHS
-    ret *= " $repl_leq "
+    ret *= " $(repl[:leq]) "
     @assert length(aff.vars) == 0
     ret *= str_round(-aff.constant)
     return ret

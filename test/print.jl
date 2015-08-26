@@ -22,7 +22,7 @@ function io_test(mode, obj, exp_str; repl=:both)
 end
 
 facts("[print] RobustModel") do
-    le, ge = JuMP.repl_leq, JuMP.repl_geq
+    le, ge = JuMP.repl[:leq], JuMP.repl[:geq]
 
     mod_1 = RobustModel()
     @defVar(mod_1, vars[1:10])
@@ -78,7 +78,7 @@ z free, integer
 end
 
 facts("[print] JuMPContainer{Uncertain}") do
-    le, ge = JuMP.repl_leq, JuMP.repl_geq
+    le, ge = JuMP.repl[:leq], JuMP.repl[:geq]
 
     m = RobustModel()
     @defUnc(m,      bnd_free[2:5])

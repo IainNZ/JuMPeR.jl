@@ -26,7 +26,7 @@ context("$(typeof(solver)), cuts=$cuts") do
     values      = [0.1, 9.9]
 
     m = RobustModel(solver=solver)
-    @fact BertSimOracle() --> anything
+    @fact BertSimOracle() --> not(nothing)
     setDefaultOracle!(m, BertSimOracle(1))
     
     @defVar(m, 0 <= x[1:n] <= 10)

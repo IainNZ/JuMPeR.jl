@@ -16,7 +16,7 @@ using FactCheck
 
 lastuc(rm) = conToStr(JuMPeR.getRobust(rm).uncertainconstr[end])
 lastus(rm) = conToStr(JuMPeR.getRobust(rm).uncertaintyset[end])
-le, eq, ge = JuMP.repl_leq, JuMP.repl_eq, JuMP.repl_geq
+le, eq, ge = JuMP.repl[:leq], JuMP.repl[:eq], JuMP.repl[:geq]
 
 
 facts("[macro] Uncertainty set constraints") do
