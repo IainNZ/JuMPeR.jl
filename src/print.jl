@@ -1,19 +1,22 @@
-#############################################################################
-# JuMPeR
-# Julia for Mathematical Programming - extension for Robust Optimization
-# See http://github.com/IainNZ/JuMPeR.jl
-#############################################################################
-# print.jl
+#-----------------------------------------------------------------------
+# JuMPeR  --  JuMP Extension for Robust Optimization
+# http://github.com/IainNZ/JuMPeR.jl
+#-----------------------------------------------------------------------
+# Copyright (c) 2015: Iain Dunning
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#-----------------------------------------------------------------------
+# src/print.jl
 # All "pretty printers" for JuMPeR types.
-#############################################################################
+#-----------------------------------------------------------------------
 
 import JuMP: REPLMode, IJuliaMode, PrintSymbols
+import JuMP: repl, ijulia
 import JuMP: PRINT_ZERO_TOL, DIMS
-import JuMP: str_round
+import JuMP: str_round, getmeta
 import JuMP: aff_str, affToStr
 import JuMP: cont_str, conToStr
-import JuMP: repl, ijulia
-import JuMP: getmeta
 
 # helper to look up corresponding JuMPContainerData
 printdata(v::JuMPContainer{Uncertain}) = getRobust(getmeta(v, :model)).uncData[v]

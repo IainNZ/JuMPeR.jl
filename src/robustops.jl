@@ -32,8 +32,8 @@ const UNM = "a norm of uncertain parameters"
 #-----------------------------------------------------------------------
 # 1. Number
 # Number--Uncertain
-(+)(lhs::Number, rhs::Uncertain) = UAffExpr(  1, rhs, lhs)
-(-)(lhs::Number, rhs::Uncertain) = UAffExpr( -1, rhs, lhs)
+(+)(lhs::Number, rhs::Uncertain) = UAffExpr([rhs], [  1], lhs)
+(-)(lhs::Number, rhs::Uncertain) = UAffExpr([rhs], [ -1], lhs)
 (*)(lhs::Number, rhs::Uncertain) = UAffExpr(lhs, rhs)
 (/)(lhs::Number, rhs::Uncertain) = error("Cannot divide a number by $UNC")
 # Number--UAffExpr        - handled by JuMP
@@ -42,9 +42,9 @@ const UNM = "a norm of uncertain parameters"
 #-----------------------------------------------------------------------
 # 2. Variable
 # Variable--Uncertain
-(+)(lhs::Variable, rhs::Uncertain) = FullAffExpr([lhs],[UAffExpr(  1)],UAffExpr( 1,rhs))
-(-)(lhs::Variable, rhs::Uncertain) = FullAffExpr([lhs],[UAffExpr(  1)],UAffExpr(-1,rhs))
-(*)(lhs::Variable, rhs::Uncertain) = FullAffExpr([lhs],[UAffExpr(rhs)],UAffExpr())
+(+)(lhs::Variable, rhs::Uncertain) = FullAffExpr([lhs],[UAffExpr(  1)], UAffExpr(rhs))
+(-)(lhs::Variable, rhs::Uncertain) = FullAffExpr([lhs],[UAffExpr(  1)],-UAffExpr(rhs))
+(*)(lhs::Variable, rhs::Uncertain) = FullAffExpr([lhs],[UAffExpr(rhs)], UAffExpr())
 (/)(lhs::Variable, rhs::Uncertain) = error("Cannot divide a variable by $UNC")
 # Variable--UAffExpr
 (+)(lhs::Variable, rhs::UAffExpr) = FullAffExpr([lhs],[UAffExpr(1)],       rhs)
@@ -64,9 +64,9 @@ const UNM = "a norm of uncertain parameters"
 #-----------------------------------------------------------------------
 # 4. AffExpr
 # AffExpr--Uncertain
-(+)(lhs::AffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars, map(UAffExpr,lhs.coeffs), UAffExpr( 1,rhs,lhs.constant))
-(-)(lhs::AffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars, map(UAffExpr,lhs.coeffs), UAffExpr(-1,rhs,lhs.constant))
-(*)(lhs::AffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars,         rhs.*lhs.coeffs , UAffExpr(lhs.constant,rhs))
+(+)(lhs::AffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars, map(UAffExpr,lhs.coeffs), UAffExpr([rhs],[ 1.],lhs.constant))
+(-)(lhs::AffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars, map(UAffExpr,lhs.coeffs), UAffExpr([rhs],[-1.],lhs.constant))
+(*)(lhs::AffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars,         rhs.*lhs.coeffs , UAffExpr([rhs],[lhs.constant],0.0))
 (/)(lhs::AffExpr, rhs::Uncertain) = error("Cannot divide $AFF by $UNC")
 # AffExpr-UAffExpr
 (+)(lhs::AffExpr, rhs::UAffExpr)  = FullAffExpr(lhs.vars, map(UAffExpr,lhs.coeffs), lhs.constant+rhs)
@@ -119,8 +119,8 @@ const UNM = "a norm of uncertain parameters"
 # Uncertain
 (-)(lhs::Uncertain) = UAffExpr(-1,lhs)
 # Uncertain--Number
-(+)(lhs::Uncertain, rhs::Number) = UAffExpr(    1, lhs,  rhs)
-(-)(lhs::Uncertain, rhs::Number) = UAffExpr(    1, lhs, -rhs)
+(+)(lhs::Uncertain, rhs::Number) = UAffExpr([lhs],[1.0], rhs)
+(-)(lhs::Uncertain, rhs::Number) = UAffExpr([lhs],[1.0],-rhs)
 (*)(lhs::Uncertain, rhs::Number) = UAffExpr(  rhs, lhs)
 (/)(lhs::Uncertain, rhs::Number) = UAffExpr(1/rhs, lhs)
 # Uncertain--Variable
@@ -130,7 +130,7 @@ const UNM = "a norm of uncertain parameters"
 (/)(lhs::Uncertain, rhs::Variable) = error("Cannot divide $UNC by a variable")
 # Uncertain--AffExpr
 (+)(lhs::Uncertain, rhs::AffExpr) = (+)(rhs, lhs)
-(-)(lhs::Uncertain, rhs::AffExpr) = FullAffExpr(rhs.vars, map(UAffExpr,-rhs.coeffs), UAffExpr(1,lhs,-rhs.constant))
+(-)(lhs::Uncertain, rhs::AffExpr) = FullAffExpr(rhs.vars, map(UAffExpr,-rhs.coeffs), UAffExpr([lhs],[1.0],-rhs.constant))
 (*)(lhs::Uncertain, rhs::AffExpr) = (*)(rhs, lhs)
 (/)(lhs::Uncertain, rhs::AffExpr) = error("Cannot divide $UNC by $AFF")
 # Uncertain--GenericNormExpr

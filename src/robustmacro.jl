@@ -164,7 +164,7 @@ macro defUnc(args...)
     varname = esc(getname(var))
     return assert_validmodel(m, quote
         $looped
-        push!($(m).ext[:Robust].dictList, $varname)
+        push!(getRobust($(m)).dictList, $varname)
         #registervar($m, $(quot(getname(var))), $varname)
         storecontainerdata_unc($m, $varname, $(quot(getname(var))),
                                $(Expr(:tuple,map(clear_dependencies,1:length(idxsets))...)),

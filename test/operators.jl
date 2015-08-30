@@ -61,7 +61,6 @@ context("Core JuMPeR type methods") do
     @fact affToStr(UAffExpr()) --> "0"
     @fact affToStr(UAffExpr(1)) --> "1"
     @fact affToStr(UAffExpr(a)) --> "a"
-    @fact affToStr(UAffExpr(2,a)) --> "2 a"
     @fact typeof(zero(uaff)) --> UAffExpr
     @fact affToStr(zero(UAffExpr)) --> "0"
 
