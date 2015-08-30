@@ -198,7 +198,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
         for (aff_ind, aff_con) in enumerate(rd.uncertaintyset)
             lhs = aff_con.terms
             for (coef,uncp) in lhs
-                push!(dual_A[uncp.unc], (aff_ind, coef))
+                push!(dual_A[uncp.id], (aff_ind, coef))
             end
             dual_objs[aff_ind]    =   rhs(aff_con)
             dual_vartype[aff_ind] = sense(aff_con)
@@ -458,7 +458,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
         for (coeff, uncparam) in uaff
             getCategory(uncparam) != :Cont &&
                 error("Integer uncertain parameters not supported in reformulation.")
-            push!(dual_rhs[uncparam.unc], coeff * sign_flip,
+            push!(dual_rhs[uncparam.id], coeff * sign_flip,
                     Variable(master, var.col))
         end
     end
@@ -466,7 +466,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
         for (coeff, uncparam) in orig_lhs.constant
             getCategory(uncparam) != :Cont &&
                 error("Integer uncertain parameters not supported in reformulation.")
-            dual_rhs[uncparam.unc].constant += coeff * sign_flip
+            dual_rhs[uncparam.id].constant += coeff * sign_flip
         end
 
     # Create dual variables for this specific contraint and add
@@ -512,7 +512,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
                 for (term_ind, term) in enumerate(terms)
                     for (coeff,uncparam) in term
                         # Is it a match?
-                        uncparam.unc != unc && continue
+                        uncparam.id != unc && continue
                         # F ≠ 0 for this uncertain parameter and term
                         ell_rhs_idxs = gen.dual_ell_rhs_idxs[ell_idx]
                         push!(new_lhs, -coeff, dual_vars[ell_rhs_idxs[term_ind]])
@@ -525,7 +525,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
                 for (term_ind, term) in enumerate(terms)
                     for (coeff,uncparam) in term
                         # Is it a match?
-                        uncparam.unc != unc && continue
+                        uncparam.id != unc && continue
                         # G ≠ 0 for this uncertain parameter and term
                         push!(new_lhs, -coeff, dual_vars[gen.dual_l1_rhs_idxs[l1_idx][term_ind]])
                         push!(new_lhs, -coeff, dual_vars[gen.dual_l1_lhs_idxs[l1_idx]          ])
@@ -538,7 +538,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
                 for (term_ind, term) in enumerate(terms)
                     for (coeff,uncparam) in term
                         # Is it a match?
-                        uncparam.unc != unc && continue
+                        uncparam.id != unc && continue
                         # H ≠ 0 for this uncertain parameter and term
                         push!(new_lhs, coeff, dual_vars[gen.dual_ω_idxs[ l∞_idx][term_ind]])
                         push!(new_lhs, coeff, dual_vars[gen.dual_ω′_idxs[l∞_idx][term_ind]])

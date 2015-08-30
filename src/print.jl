@@ -55,7 +55,7 @@ function _print_robust(io::IO, m::Model)
     for d in rd.dictList
         println(io, cont_str(REPLMode,d))
         for it in values(d)  # Mark uncertains in JuMPContainer as printed
-            in_dictlist[it.unc] = true
+            in_dictlist[it.id] = true
         end
     end
 
@@ -116,9 +116,9 @@ function fill_unc_names{N}(mode, uncNames, u::JuMPArray{Uncertain,N})
             push!(idx_strs, string(idxsets[i][@compat Int(ceil(mod1(ind,cprod[i]) / cprod[i-1]))]))
         end
         #if mode == IJuliaMode
-        #    uncNames[unc.unc] = string(name, "_{", join(idx_strs,",") , "}")
+        #    uncNames[unc.id] = string(name, "_{", join(idx_strs,",") , "}")
         #else
-            uncNames[unc.unc] = string(name,  "[", join(idx_strs,",") , "]")
+            uncNames[unc.id] = string(name,  "[", join(idx_strs,",") , "]")
         #end
     end
 end
@@ -126,9 +126,9 @@ function fill_unc_names(mode, uncNames, u::JuMPDict{Uncertain})
     name = printdata(u).name
     for (ind,unc) in zip(keys(u),values(u))
         #if mode == IJuliaMode
-        #    uncNames[unc.unc] = string(name, "_{", join([string(i) for i in ind],","), "}")
+        #    uncNames[unc.id] = string(name, "_{", join([string(i) for i in ind],","), "}")
         #else
-            uncNames[unc.unc] = string(name,  "[", join([string(i) for i in ind],","), "]")
+            uncNames[unc.id] = string(name,  "[", join([string(i) for i in ind],","), "]")
         #end
     end
 end
@@ -144,21 +144,21 @@ function fill_unc_names(mode, uncNames, u::Array{Uncertain})
     for (ii,unc) in enumerate(u)
         @assert unc.m === m
         ind = ind2sub(sizes, ii)
-        #uncNames[unc.unc] = if mode === IJuliaMode
+        #uncNames[unc.id] = if mode === IJuliaMode
         #    string(name, "_{", join(ind, ","), "}")
         #else
         #    string(name,  "[", join(ind, ","), "]")
         #end
-        uncNames[unc.unc] = string(name,  "[", join(ind, ","), "]")
+        uncNames[unc.id] = string(name,  "[", join(ind, ","), "]")
     end
     return
 end
 
 # Handlers to use correct symbols
 unc_str(::Type{REPLMode}, u::Uncertain) =
-    unc_str(REPLMode, u.m, u.unc)
+    unc_str(REPLMode, u.m, u.id)
 #unc_str(::Type{IJuliaMode}, v::Variable; mathmode=true) =
-#    unc_str(IJuliaMode, u.m, u.unc, mathmode=mathmode)
+#    unc_str(IJuliaMode, u.m, u.id, mathmode=mathmode)
 
 #unc_str(::Type{REPLMode}, m::Model, unc::Int) = 
 #    unc_str(REPLMode, m, unc)
@@ -227,17 +227,17 @@ function cont_str(mode, j::Union(JuMPContainer{Uncertain},Array{Uncertain}),
 
     # 4. Bounds and category, if possible, and return final string
     a_var = first(values(j))
-    unc_cat = rd.uncCat[a_var.unc]
-    unc_lb  = rd.uncLower[a_var.unc]
-    unc_ub  = rd.uncUpper[a_var.unc]
+    unc_cat = rd.uncCat[a_var.id]
+    unc_lb  = rd.uncLower[a_var.id]
+    unc_ub  = rd.uncUpper[a_var.id]
     # Variables may have different bounds, so we can't really print nicely
     # at this time (possibly ever, as they could have been changed post
     # creation, which we'd never be able to handle.
     all_same_lb = true
     all_same_ub = true
     for unc in values(j)
-        all_same_lb &= rd.uncLower[unc.unc] == unc_lb
-        all_same_ub &= rd.uncUpper[unc.unc] == unc_ub
+        all_same_lb &= rd.uncLower[unc.id] == unc_lb
+        all_same_ub &= rd.uncUpper[unc.id] == unc_ub
     end
     str_lb = unc_lb == -Inf ? "-"*sym[:infty] : str_round(unc_lb)
     str_ub = unc_ub == +Inf ?     sym[:infty] : str_round(unc_ub)
@@ -296,7 +296,7 @@ function aff_str(mode, a::UAffExpr, show_constant=true)
     # Collect like terms
     indvec = IndexedVector(Float64, rd.numUncs)
     for ind in 1:length(a.vars)
-        addelt!(indvec, a.vars[ind].unc, a.coeffs[ind])
+        addelt!(indvec, a.vars[ind].id, a.coeffs[ind])
     end
 
     elm = 1

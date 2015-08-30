@@ -31,13 +31,13 @@ function detect_components(num_unc, uncset)
         new_component_needed = true
         row_component = 0
         for j = 1:length(lhs.vars)
-            unc      = lhs.vars[j].unc
+            unc      = lhs.vars[j].id
             unc_comp = unc_to_comp[unc]
             unc_comp == 0 && continue
             # Something in this row has a component already - convert
             # everything in this row to that component.
             for k = 1:length(lhs.vars)
-                k_unc      = lhs.vars[k].unc
+                k_unc      = lhs.vars[k].id
                 k_unc_comp = unc_to_comp[k_unc]
                 if k_unc_comp == 0
                     unc_to_comp[k_unc] = unc_comp
@@ -53,7 +53,7 @@ function detect_components(num_unc, uncset)
             # Entire row was component-less, create new component
             num_components += 1
             for v in lhs.vars
-                unc_to_comp[v.unc] = num_components
+                unc_to_comp[v.id] = num_components
             end
             con_to_comp[con_ind] = num_components
         end

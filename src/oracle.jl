@@ -82,14 +82,14 @@ function build_certain_constraint(  master::Model,
     for var_ind = 1:num_var
         coeff = unc_lhs.coeffs[var_ind]
         for unc_ind = 1:length(coeff.vars)
-            new_lhs.coeffs[var_ind] += unc_val[coeff.vars[unc_ind].unc] *
+            new_lhs.coeffs[var_ind] += unc_val[coeff.vars[unc_ind].id] *
                                                coeff.coeffs[unc_ind]
         end
     end
     # Non variable part
         coeff = unc_lhs.constant
         for unc_ind = 1:length(coeff.vars)
-            new_lhs.constant += unc_val[coeff.vars[unc_ind].unc] *
+            new_lhs.constant += unc_val[coeff.vars[unc_ind].id] *
                                         coeff.coeffs[unc_ind]
         end
 
@@ -131,7 +131,7 @@ function build_cut_objective(   rm::Model,
         uaff = unc_lhs.coeffs[var_ind]
         col  = unc_lhs.vars[var_ind].col
         for unc_ind = 1:length(uaff.vars)
-            unc = uaff.vars[unc_ind].unc
+            unc = uaff.vars[unc_ind].id
             unc_coeffs[unc] += uaff.coeffs[unc_ind] * x_val[col]
         end
         lhs_const += uaff.constant * x_val[col]
@@ -139,7 +139,7 @@ function build_cut_objective(   rm::Model,
     # Uncertains not attached to variables
         uaff = unc_lhs.constant
         for unc_ind = 1:length(uaff.vars)
-            unc = uaff.vars[unc_ind].unc
+            unc = uaff.vars[unc_ind].id
             unc_coeffs[unc] += uaff.coeffs[unc_ind]
         end
 
@@ -174,7 +174,7 @@ function build_cut_objective_sparse(   unc_con::UncConstraint,
         uaff = unc_lhs.coeffs[var_ind]
         col  = unc_lhs.vars[var_ind].col
         for unc_ind = 1:length(uaff.vars)
-            unc = uaff.vars[unc_ind].unc
+            unc = uaff.vars[unc_ind].id
             if !haskey(unc_coeffs, unc)
                 unc_coeffs[unc]  = uaff.coeffs[unc_ind] * x_val[col]
             else
@@ -186,7 +186,7 @@ function build_cut_objective_sparse(   unc_con::UncConstraint,
     # Uncertains not attached to variables
         uaff = unc_lhs.constant
         for unc_ind = 1:length(uaff.vars)
-            unc = uaff.vars[unc_ind].unc
+            unc = uaff.vars[unc_ind].id
             if !haskey(unc_coeffs, unc)
                 unc_coeffs[unc]  = uaff.coeffs[unc_ind]
             else

@@ -111,7 +111,7 @@ end
 # Similar to JuMP.Variable, has an reference back to the model and an id num
 type Uncertain <: JuMP.AbstractJuMPScalar
     m::Model
-    unc::Int
+    id::Int
 end
 function Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol, name::String)
     robdata = getRobust(m)
@@ -123,15 +123,15 @@ function Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol, name::St
     return Uncertain(m, robdata.numUncs)
 end
 Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol) = Uncertain(m,lower,upper,cat,"")
-getLower(u::Uncertain) = getRobust(u.m).uncLower[u.unc]
-getUpper(u::Uncertain) = getRobust(u.m).uncUpper[u.unc]
-getName(u::Uncertain) = unc_str(REPLMode, u.m, u.unc)
-getCategory(u::Uncertain) = getRobust(u.m).uncCat[u.unc]
+getLower(u::Uncertain) = getRobust(u.m).uncLower[u.id]
+getUpper(u::Uncertain) = getRobust(u.m).uncUpper[u.id]
+getName(u::Uncertain) = unc_str(REPLMode, u.m, u.id)
+getCategory(u::Uncertain) = getRobust(u.m).uncCat[u.id]
 Base.zero(::Type{Uncertain}) = UAffExpr()
 Base.zero(::Uncertain) = zero(Uncertain)
 Base.one(::Type{Uncertain}) = UAffExpr(1)
 Base.one(::Uncertain) = one(Uncertain)
-Base.isequal(u1::Uncertain, u2::Uncertain) = isequal(u1.unc, u2.unc)
+Base.isequal(u1::Uncertain, u2::Uncertain) = (u1.m === u2.m) && isequal(u1.id, u2.id)
 getNumUncs(m::Model) = getRobust(m).numUncs
 
 
@@ -149,7 +149,7 @@ Base.convert(::Type{UAffExpr}, c::Number)    = UAffExpr(Uncertain[ ],Float64[ ],
 # AffExpr such that Uncertain(i) maps to Variable(i), where i is the index,
 # in the new expression.
 uaff_to_aff(uaff::UAffExpr, x::Vector{Variable}) =
-    AffExpr(Variable[x[up.unc] for up in uaff.vars],
+    AffExpr(Variable[x[up.id] for up in uaff.vars],
             copy(uaff.coeffs), uaff.constant)
 
 
