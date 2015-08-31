@@ -300,12 +300,41 @@ nc = JuMPeR.getRobust(rm).normconstraints
 @addConstraint(rm, 1 + norm1{u[i],i=1:3} <= 1)
 @fact conToStr(nc[end]) --> "‖u[1],u[2],u[3]‖₁ $leq 0"
 
-@fact_throws @addConstraint(rm, 1 + norm1{u[i],i=1:3} <= u[1])
-@fact_throws @addConstraint(rm, u[3] + norm1{u[i],i=1:3} <= u[1]+2)
-
 @defVar(rm, x)
+
+@fact_throws @addConstraint(rm, norm1{u[i],i=1:3} + u[1] <= 1)
+@fact_throws @addConstraint(rm, norm1{u[i],i=1:3} - u[1] <= 1)
+@fact_throws @addConstraint(rm, norm1{u[i],i=1:3} * u[1] <= 1)
+@fact_throws @addConstraint(rm, norm1{u[i],i=1:3} / u[1] <= 1)
+
+@fact_throws @addConstraint(rm, norm1{u[i],i=1:3} + (2*u[1]) <= 1)
+@fact_throws @addConstraint(rm, norm1{u[i],i=1:3} - (2*u[1]) <= 1)
+@fact_throws @addConstraint(rm, norm1{u[i],i=1:3} * (2*u[1]) <= 1)
+@fact_throws @addConstraint(rm, norm1{u[i],i=1:3} / (2*u[1]) <= 1)
+
+@fact_throws @addConstraint(rm, norm1{u[i],i=1:3} + (2*u[1]*x+u[2]) <= 1)
+@fact_throws @addConstraint(rm, norm1{u[i],i=1:3} - (2*u[1]*x+u[2]) <= 1)
+@fact_throws @addConstraint(rm, norm1{u[i],i=1:3} * (2*u[1]*x+u[2]) <= 1)
+@fact_throws @addConstraint(rm, norm1{u[i],i=1:3} / (2*u[1]*x+u[2]) <= 1)
+
 @fact_throws @addConstraint(rm, x + norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, x - norm1{u[i],i=1:3} <= 1)
 @fact_throws @addConstraint(rm, (2x) + norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, (2x) - norm1{u[i],i=1:3} <= 1)
+
+@fact_throws @addConstraint(rm, (u[1]) + norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, (u[1]) - norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, (u[1]) * norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, (u[1]) / norm1{u[i],i=1:3} <= 1)
+
+@fact_throws @addConstraint(rm, (2*u[1]) + norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, (2*u[1]) - norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, (2*u[1]) * norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, (2*u[1]) / norm1{u[i],i=1:3} <= 1)
+
 @fact_throws @addConstraint(rm, (2*u[1]*x+u[2]) + norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, (2*u[1]*x+u[2]) - norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, (2*u[1]*x+u[2]) * norm1{u[i],i=1:3} <= 1)
+@fact_throws @addConstraint(rm, (2*u[1]*x+u[2]) / norm1{u[i],i=1:3} <= 1)
 
 end

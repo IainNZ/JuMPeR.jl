@@ -200,7 +200,7 @@ const UNM = "a norm of uncertain parameters"
   lhs.constant - rhs.constant)
 (*)(lhs::FullAffExpr, rhs::AffExpr) = error("Cannot multiply $FAE by $AFF")
 (/)(lhs::FullAffExpr, rhs::AffExpr) = error("Cannot divide $FAE by $AFF")
-# UAffExpr--GenericNormExpr
+# FullAffExpr--GenericNormExpr
 (+){P,C,V<:Uncertain}(lhs::FullAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot add $FAE to $UNM")
 (-){P,C,V<:Uncertain}(lhs::FullAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot subtract $FAE by $UNM")
 (*){P,C,V<:Uncertain}(lhs::FullAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot multiply $FAE by $UNM")
@@ -226,29 +226,3 @@ if VERSION < v"0.4-"
     import JuMP.vecdot
     export vecdot
 end
-
-
-#-----------------------------------------------------------------------
-# Matrix operations
-import JuMP: _multiply_type
-# ----
-_multiply_type{R<:Real}(::Type{R},::Type{Uncertain})    = UAffExpr
-_multiply_type{R<:Real}(::Type{R},::Type{UAffExpr})     = UAffExpr
-_multiply_type{R<:Real}(::Type{R},::Type{FullAffExpr})  = FullAffExprr
-# ----
-_multiply_type(::Type{Variable},::Type{Uncertain})      = FullAffExpr
-_multiply_type(::Type{Variable},::Type{UAffExpr})       = FullAffExpr
-# ----
-_multiply_type(::Type{AffExpr}, ::Type{Uncertain})      = UAffExpr
-_multiply_type(::Type{AffExpr}, ::Type{UAffExpr})       = FullAffExpr
-_multiply_type(::Type{AffExpr}, ::Type{FullAffExpr})    = FullAffExpr
-# ----
-_multiply_type{R<:Real}(::Type{Uncertain},::Type{R})    = UAffExpr
-_multiply_type(::Type{Uncertain},::Type{Variable})      = FullAffExpr
-_multiply_type(::Type{Uncertain},::Type{AffExpr})       = FullAffExpr
-# ----
-_multiply_type{R<:Real}(::Type{UAffExpr},::Type{R})     = UAffExpr
-_multiply_type(::Type{UAffExpr},::Type{Variable})       = FullAffExpr
-_multiply_type(::Type{UAffExpr},::Type{AffExpr})        = FullAffExpr
-# ----
-_multiply_type{R<:Real}(::Type{FullAffExpr},::Type{R})  = FullAffExpr

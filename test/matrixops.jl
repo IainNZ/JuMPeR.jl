@@ -22,15 +22,41 @@ const  eq = JuMP.repl[:eq]
 
 facts("[matrixops] Matrix operation tests") do
 
-context("Numbers with Uncertains") do
     m = RobustModel()
+    @defVar(m, matvar[1:3,1:3])
     @defUnc(m, vecunc[1:3])
     @defUnc(m, matunc[1:3,1:3])
-    b = rand(3)
-    A = rand(3,3)
-    @addConstraint(m, 0 .== A*vecunc + b)
-end
 
+    b = [1,2,3]
+    A = eye(3,3)
+    c = @addConstraint(m, A*vecunc .== b)
+    for i in 1:3
+        @fact conToStr(c[i]) --> "vecunc[$i] $eq $i"
+    end
 
+    c = @addConstraint(m, matunc*ones(3) .== b)
+    for i in 1:3
+        @fact conToStr(c[i]) --> "matunc[$i,1] + matunc[$i,2] + matunc[$i,3] $eq $i"
+    end
+
+    c = @addConstraint(m, matvar*vecunc .== b)
+    for i in 1:3
+        @fact conToStr(c[i]) --> "vecunc[1] matvar[$i,1] + vecunc[2] matvar[$i,2] + vecunc[3] matvar[$i,3] $eq $i"
+    end
+
+    c = @addConstraint(m, matvar*matunc .== ones(3,3))
+    for i in 1:3, j in 1:3
+        @fact conToStr(c[i,j]) --> "matunc[1,$j] matvar[$i,1] + matunc[2,$j] matvar[$i,2] + matunc[3,$j] matvar[$i,3] $eq 1"
+    end
+
+    c = @addConstraint(m, matvar.*matunc .== ones(3,3))
+    for i in 1:3, j in 1:3
+        @fact conToStr(c[i,j]) --> "matunc[$i,$j] matvar[$i,$j] $eq 1"
+    end
+
+    c = @addConstraint(m, 2.*matvar.*matunc + matvar.*matunc .== ones(3,3))
+    for i in 1:3, j in 1:3
+        @fact conToStr(c[i,j]) --> "(2 matunc[$i,$j]) matvar[$i,$j] + matunc[$i,$j] matvar[$i,$j] $eq 1"
+    end
 
 end

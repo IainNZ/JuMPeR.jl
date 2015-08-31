@@ -12,6 +12,8 @@
 # various constraints and norms.
 #-----------------------------------------------------------------------
 
+isdefined(Base, :__precompile__) && __precompile__()
+
 module JuMPeR
 
 using Compat
@@ -179,7 +181,10 @@ typealias UncSetConstraint GenericRangeConstraint{UAffExpr}
 addConstraint(m::Model, c::UncSetConstraint) = push!(getRobust(m).uncertaintyset, c)
 addConstraint(m::Model, c::Array{UncSetConstraint}) =
     error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
-addVectorizedConstraint(m::Model, v::Array{UncSetConstraint}) = map(c->addConstraint(m,c), v)
+function addVectorizedConstraint(m::Model, v::Array{UncSetConstraint})
+    map(c->addConstraint(m,c), v)
+    v
+end
 
 
 #-----------------------------------------------------------------------
@@ -202,7 +207,10 @@ function addConstraint(m::Model, c::UncConstraint, w=nothing)
 end
 addConstraint(m::Model, c::Array{UncConstraint}) =
     error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
-addVectorizedConstraint(m::Model, v::Array{UncConstraint}) = map(c->addConstraint(m,c), v)
+function addVectorizedConstraint(m::Model, v::Array{UncConstraint})
+    map(c->addConstraint(m,c), v)
+    v
+end
 
 
 #-----------------------------------------------------------------------

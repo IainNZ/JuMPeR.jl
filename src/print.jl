@@ -17,6 +17,7 @@ import JuMP: PRINT_ZERO_TOL, DIMS
 import JuMP: str_round, getmeta
 import JuMP: aff_str, affToStr
 import JuMP: cont_str, conToStr
+import JuMP: _values
 
 # helper to look up corresponding JuMPContainerData
 printdata(v::JuMPContainer{Uncertain}) = getRobust(getmeta(v, :model)).uncData[v]
@@ -25,7 +26,7 @@ function printdata(u::Array{Uncertain})
         error("Cannot locate printing data for an empty array")
     end
     m = first(u).m
-    m.varData[v]
+    getRobust(m).uncData[u]
 end
 
 
@@ -54,7 +55,7 @@ function _print_robust(io::IO, m::Model)
     in_dictlist = falses(rd.numUncs)
     for d in rd.dictList
         println(io, cont_str(REPLMode,d))
-        for it in values(d)  # Mark uncertains in JuMPContainer as printed
+        for it in _values(d)  # Mark uncertains in JuMPContainer as printed
             in_dictlist[it.id] = true
         end
     end
@@ -94,15 +95,15 @@ Base.print(io::IO, u::Uncertain) = print(io, unc_str(REPLMode,u))
 Base.show( io::IO, u::Uncertain) = print(io, unc_str(REPLMode,u))
 #Base.writemime(io::IO, ::MIME"text/latex", u::Uncertain) = 
 #    print(io, unc_str(IJuliaMode,u,mathmode=false))
-function unc_str(mode, m::Model, unc::Int)
+function unc_str(mode, m::Model, id::Int)
     rd = getRobust(m)
     uncNames = rd.uncNames
-    if uncNames[unc] == ""
+    if uncNames[id] == ""
         for cont in rd.dictList
             fill_unc_names(mode, uncNames, cont)
         end
     end
-    return uncNames[unc] == "" ? "unc_$unc" : uncNames[unc]
+    return uncNames[id] == "" ? "unc_$id" : uncNames[id]
 end
 function fill_unc_names{N}(mode, uncNames, u::JuMPArray{Uncertain,N})
     data = printdata(u)
@@ -181,6 +182,7 @@ function cont_str(mode, j::Union(JuMPContainer{Uncertain},Array{Uncertain}),
     # Check if anything in the container
     if isempty(j)
         name = isa(j, JuMPContainer) ? printdata(j).name : "Empty Array{Uncertain}"
+        readline()
         return "$name (no indices)"
     end
 
@@ -226,7 +228,7 @@ function cont_str(mode, j::Union(JuMPContainer{Uncertain},Array{Uncertain}),
     #end
 
     # 4. Bounds and category, if possible, and return final string
-    a_var = first(values(j))
+    a_var = first(_values(j))
     unc_cat = rd.uncCat[a_var.id]
     unc_lb  = rd.uncLower[a_var.id]
     unc_ub  = rd.uncUpper[a_var.id]
@@ -235,7 +237,7 @@ function cont_str(mode, j::Union(JuMPContainer{Uncertain},Array{Uncertain}),
     # creation, which we'd never be able to handle.
     all_same_lb = true
     all_same_ub = true
-    for unc in values(j)
+    for unc in _values(j)
         all_same_lb &= rd.uncLower[unc.id] == unc_lb
         all_same_ub &= rd.uncUpper[unc.id] == unc_ub
     end
