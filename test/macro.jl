@@ -18,6 +18,20 @@ lastuc(rm) = conToStr(JuMPeR.getRobust(rm).uncertainconstr[end])
 lastus(rm) = conToStr(JuMPeR.getRobust(rm).uncertaintyset[end])
 le, eq, ge = JuMP.repl[:leq], JuMP.repl[:eq], JuMP.repl[:geq]
 
+facts("[macro] Uncertain parameters") do
+    rm = RobustModel()
+    @defUnc(rm, 5 >= u >= 1)
+    @fact getLower(u) --> 1
+    @fact getUpper(u) --> 5
+    @fact affToStr(zero(u)) --> "0"
+    @fact affToStr(one(u)) --> "1"
+    @fact sprint(print,rm) --> """Min 0
+Subject to
+Uncertain constraints:
+Uncertainty set:
+1 ≤ u ≤ 5
+"""
+end
 
 facts("[macro] Uncertainty set constraints") do
 

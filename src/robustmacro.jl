@@ -66,14 +66,9 @@ macro defUnc(args...)
                 ub = esc_nonconstant(x.args[3])
                 lb = -Inf
             end
-        elseif x.args[2] == :(==)
-            # fixed variable
-            var = x.args[1]
-            @assert length(x.args) == 3
-            lb = esc(x.args[3])
-            ub = esc(x.args[3])
-            gottype = 1
-            t = :Fixed
+        #------------------------------------------------------------------
+        # NO FIXED
+        #------------------------------------------------------------------
         else
             # Its a comparsion, but not using <= ... <=
             error("in @defUnc ($(string(x))): use the form lb <= ... <= ub.")
