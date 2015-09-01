@@ -29,20 +29,13 @@ copy_quadconstr(old_con::QuadConstraint, new_vars) =
 
 #-----------------------------------------------------------------------
 
-# Catch key word arguments here to help with type inference of
-# _solve_robust
-function solve_robust(rm::Model;
-                        suppress_warnings=false,
-                        report=false,
-                        active_cuts=false,
-                        add_box=false,
-                        kwargs...)
+function solve_robust(rm::Model; suppress_warnings=false, report=false,
+                        active_cuts=false, add_box=false, kwargs...)
     _solve_robust(rm,suppress_warnings,report,active_cuts,add_box,kwargs)
 end
 
-function _solve_robust(rm::Model, suppress_warnings::Bool,
-                        report::Bool, active_cuts::Bool,
-                        add_box::Union(Float64,Bool),
+function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
+                        active_cuts::Bool, add_box::Union(Float64,Bool),
                         kwargs::Vector{Any})
     robdata = getRobust(rm)::RobustData
 
