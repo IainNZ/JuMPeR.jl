@@ -29,16 +29,25 @@ copy_quadconstr(old_con::QuadConstraint, new_vars) =
 
 #-----------------------------------------------------------------------
 
-function _solve_robust(rm::Model;
+# Catch key word arguments here to help with type inference of
+# _solve_robust
+function solve_robust(rm::Model;
                         suppress_warnings=false,
                         report=false,
                         active_cuts=false,
                         add_box=false,
                         kwargs...)
-    robdata = getRobust(rm)
+    _solve_robust(rm,suppress_warnings,report,active_cuts,add_box,kwargs)
+end
+
+function _solve_robust(rm::Model, suppress_warnings::Bool,
+                        report::Bool, active_cuts::Bool,
+                        add_box::Union(Float64,Bool),
+                        kwargs::Vector{Any})
+    robdata = getRobust(rm)::RobustData
 
     # Pull out extra keyword arguments that we will pas through to oracles
-    prefs = [name => value for (name,value) in kwargs]
+    prefs = @compat Dict{Symbol,Any}([name => value for (name,value) in kwargs])
     prefs[:active_cuts] = active_cuts
 
     start_time = time()
@@ -336,3 +345,5 @@ function _solve_robust(rm::Model;
     # Return solve status
     return master_status
 end
+Base.precompile(_solve_robust, (Model,Bool,Bool,Bool,Bool,Vector{Any}))
+Base.precompile(_solve_robust, (Model,Bool,Bool,Bool,Float64,Vector{Any}))

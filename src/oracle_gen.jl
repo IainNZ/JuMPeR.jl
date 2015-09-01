@@ -51,12 +51,15 @@ GeneralOracle() =
 # registerConstraint
 # We must handle this constraint, and the users preferences have been
 # communicated through prefs. We don't need to take any action here.
-registerConstraint(gen::GeneralOracle, rm::Model, ind::Int, prefs) = nothing
+function registerConstraint(gen::GeneralOracle, rm::Model,
+                                ind::Int, prefs::Dict{Symbol,Any})
+    nothing
+end
 
 #-----------------------------------------------------------------------
 # setup
 # Generate the cutting plane model or precompute the reformulation's structure.
-function setup(gen::GeneralOracle, rm::Model, prefs)
+function setup(gen::GeneralOracle, rm::Model, prefs::Dict{Symbol,Any})
 
     # Extract preferences we care about
     gen.use_cuts          = get(prefs, :prefer_cuts, false)
@@ -320,6 +323,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
         gen.dual_contype = dual_contype
     end  # end reformulation preparation
 end
+Base.precompile(setup, (GeneralOracle, Model, Dict{Symbol,Any}))
 
 #-----------------------------------------------------------------------
 # Cutting planes
@@ -367,6 +371,7 @@ function generateCut(gen::GeneralOracle, master::Model, rm::Model, inds::Vector{
     
     return new_cons
 end
+Base.precompile(generateCut, (GeneralOracle, Model, Model, Vector{Int}, Bool))
 
 
 function debug_printcut(rm,m,w,lhs,con,new_con)
@@ -412,6 +417,7 @@ function generateReform(gen::GeneralOracle, master::Model, rm::Model, inds::Vect
     end
     return length(inds)
 end
+Base.precompile(generateReform, (GeneralOracle, Model, Model, Vector{Int}))
 
 # apply_reform
 # Does the hard work for a given constraint
@@ -575,3 +581,4 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
 
     return true
 end
+Base.precompile(apply_reform, (GeneralOracle, Model, Model, Int))

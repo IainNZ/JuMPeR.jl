@@ -97,8 +97,8 @@ function RobustModel(; solver=JuMP.UnsetSolver(),
     # Add the robust extensions
     m.ext[:JuMPeR] = RobustData(cutsolver)
     # Override the default printing and solving calls
-    JuMP.setPrintHook(m, _print_robust)
-    JuMP.setSolveHook(m, _solve_robust)
+    JuMP.setPrintHook(m, print_robust)
+    JuMP.setSolveHook(m, solve_robust)
     return m
 end
 

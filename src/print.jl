@@ -34,7 +34,7 @@ end
 ## RobustModel
 #------------------------------------------------------------------------
 # Called by the JuMP print hook
-function _print_robust(io::IO, m::Model)
+function print_robust(io::IO, m::Model)
     rd = getRobust(m)
     # First, display normal model stuff
     JuMP.print(io, m, ignore_print_hook=true)
