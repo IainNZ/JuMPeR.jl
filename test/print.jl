@@ -40,6 +40,8 @@ facts("[print] RobustModel") do
     @defUnc(mod_1,      bnd_lowb[2:5] >= 2)
     @defUnc(mod_1,      bnd_high[2:5] <= 5)
     @defUnc(mod_1, 2 <= bnd_both[2:5] <= 5)
+    @defUnc(mod_1, mat2d[1:3,1:3])
+    @defUnc(mod_1, mat3d[1:3,1:3,1:3])
 
     @setObjective(mod_1, Max, 2*vars[1])
     # Deterministic
@@ -60,11 +62,13 @@ Uncertain constraints:
 a vars[5] $le 5
 Uncertainty set:
 a + b $le 2
-‖a,b‖₂ $leq 1
+‖a,b‖₂ $le 1
 bnd_free[i] free for all i in {2,3,4,5}
 bnd_lowb[i] $ge 2 for all i in {2,3,4,5}
 bnd_high[i] $le 5 for all i in {2,3,4,5}
 2 $le bnd_both[i] $le 5 for all i in {2,3,4,5}
+mat2d[i,j] free for all i in {1,2,3}, j in {1,2,3}
+mat3d[i,j,k] free for all i in {1,2,3}, j in {1,2,3}, k in {1,2,3}
 a $ge 1
 b $le 1
 -1 $le c $le 1

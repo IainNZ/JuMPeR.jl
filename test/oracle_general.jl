@@ -33,7 +33,7 @@ context("$(typeof(solver)), cuts=$cuts") do
     @setObjective(m, Max, x[1] + x[2])
     @addConstraint(m, u*x[1] + 1*x[2] <= 2)
     @addConstraint(m, 1*x[1] + 1*x[2] <= 6)
-    @fact solve(m, prefer_cuts=cuts) --> :Optimal
+    @fact solve(m, prefer_cuts=cuts, report=true) --> :Optimal
     @fact getValue(x[1]) --> roughly(4.0,TOL)
     @fact getValue(x[2]) --> roughly(0.0,TOL)
 end; end; end
