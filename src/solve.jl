@@ -30,13 +30,15 @@ copy_quadconstr(old_con::QuadConstraint, new_vars) =
 #-----------------------------------------------------------------------
 
 function solve_robust(rm::Model; suppress_warnings=false, report=false,
-                        active_cuts=false, add_box=false, kwargs...)
-    _solve_robust(rm,suppress_warnings,report,active_cuts,add_box,kwargs)
+                        active_cuts=false, add_box=false, show_cuts=false,
+                        kwargs...)
+    _solve_robust(rm,suppress_warnings,report,active_cuts,add_box,
+                    show_cuts,kwargs)
 end
 
 function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
                         active_cuts::Bool, add_box::Union(Float64,Bool),
-                        kwargs::Vector{Any})
+                        show_cuts::Bool, kwargs::Vector{Any})
     robdata = getRobust(rm)::RobustData
 
     # Pull out extra keyword arguments that we will pas through to oracles
@@ -179,7 +181,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
                                                  set has at least one value.
                                                * the problem actually being unbounded.""")
         end
-    else
+    else # not a MIP
         # In the event of unboundedness, and if we have a ray, we will see if we get the
         # same ray twice. To do so, we will store the ray on the first iteration and
         # check against it in the next iteration.
@@ -261,8 +263,10 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
             # Generate cuts
             cut_added = false
             tic()
+            show_cuts && print_with_color(:white, "Cutting round $(cutting_rounds)\n")
             for oracle in keys(oracle_to_cons)
                 cons_to_add = generateCut(oracle, master, rm, oracle_to_cons[oracle])
+                show_cuts && _show_cuts(rm, oracle, oracle_to_cons[oracle], cons_to_add)
                 for new_con in cons_to_add
                     addConstraint(master, new_con)
                     cut_added = true
@@ -340,3 +344,22 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
 end
 Base.precompile(_solve_robust, (Model,Bool,Bool,Bool,Bool,Vector{Any}))
 Base.precompile(_solve_robust, (Model,Bool,Bool,Bool,Float64,Vector{Any}))
+
+
+function _show_cuts(rm, oracle, con_indices, cons_added)
+    rd = getRobust(rm)
+    println("Oracle: ", typeof(oracle))
+    println("Constraint", length(con_indices) <= 1 ? ":" : "s:")
+    for idx in con_indices
+        con = rd.uncertainconstr[idx]
+        println("  ", con)
+    end
+    if length(cons_added) == 0
+        println("No generated cuts")
+    else
+        println("Generated cut", length(cons_added) == 1 ? ":" : "s:")
+        for con in cons_added
+            println("  ", con)
+        end
+    end
+end

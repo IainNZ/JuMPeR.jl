@@ -191,8 +191,6 @@ for solver in lp_solvers, cuts in [true,false]
 # Exemptions:
 # - IpoptSolver reports UserLimit, which isn't too helpful.
 contains("$(typeof(solver))","IpoptSolver") && continue
-# - ECOSSolver has a bug, it reports Unbounded
-contains("$(typeof(solver))","ECOSSolver") && continue
 
 context("$(typeof(solver)), cuts=$cuts") do
     m = RobustModel(solver=solver)
@@ -469,3 +467,15 @@ context("$(typeof(solver)), cuts=$cuts") do
         @fact getValue(B[2]) --> roughly(5.0,TOL)
     end
 end; end; end
+
+
+facts("[oracle_gen] show_cuts") do
+    m = RobustModel()
+    @defVar(m, 0 <= x <= 10)
+    @defUnc(m, 0 <= u <= 10)
+    @setObjective(m, Max, 10x)
+    @addConstraint(m, u*x <= 7)
+    @addConstraint(m, u <= 7)
+    solve(m, prefer_cuts=true, show_cuts=true)
+    @fact getValue(x) --> roughly(1.0)
+end

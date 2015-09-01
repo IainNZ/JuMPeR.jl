@@ -33,9 +33,6 @@ type GeneralOracle <: AbstractOracle
     dual_l1_lhs_idxs::Vector{Int}
     dual_ω_idxs::Vector{Vector{Int}}
     dual_ω′_idxs::Vector{Vector{Int}}
-
-    # Options
-    debug_printcut::Bool
 end
 # Default constructor
 GeneralOracle() = 
@@ -44,8 +41,7 @@ GeneralOracle() =
                     0, Vector{@compat Tuple{Int,Float64}}[], Float64[], Symbol[], Symbol[], 
                     Vector{Int}[], Int[],           # Reformulation, 2-norm
                     Vector{Int}[], Int[],           # Reformulation, 1-norm
-                    Vector{Int}[], Vector{Int}[],   # Reformulation, ∞-norm
-                    false)
+                    Vector{Int}[], Vector{Int}[])   # Reformulation, ∞-norm
 
 
 # registerConstraint
@@ -64,7 +60,6 @@ function setup(gen::GeneralOracle, rm::Model, prefs::Dict{Symbol,Any})
     # Extract preferences we care about
     gen.use_cuts          = get(prefs, :prefer_cuts, false)
     gen.cut_tol           = get(prefs, :cut_tol, 1e-6)
-    gen.debug_printcut    = get(prefs, :debug_printcut, false)
 
     rd = getRobust(rm)
 
@@ -359,44 +354,17 @@ function generateCut(gen::GeneralOracle, master::Model, rm::Model, inds::Vector{
         
         # Check violation
         if check_cut_status(con, lhs_of_cut, gen.cut_tol) != :Violate
-            gen.debug_printcut && debug_printcut(rm,master,gen,lhs_of_cut,con,nothing)
             continue  # No violation, no new cut
         end
         
         # Create and add the new constraint
         new_con = JuMPeR.build_certain_constraint(master, con, gen.cut_model.colVal)
-        gen.debug_printcut && debug_printcut(rm,master,gen,lhs_of_cut,con,new_con)
         push!(new_cons, new_con)
     end
     
     return new_cons
 end
 Base.precompile(generateCut, (GeneralOracle, Model, Model, Vector{Int}, Bool))
-
-
-function debug_printcut(rm,m,w,lhs,con,new_con)
-    println("BEGIN DEBUG :debug_printcut")
-    #convert_model!(con, rm)
-    println("  Constraint:  ", con)
-    #convert_model!(con, m)
-    println("  Master sol:  ")
-    for j in 1:length(m.colNames)
-        println("    ", m.colNames[j], "  ", m.colVal[j])
-    end
-    print(w.cut_model)
-    #println("  Solve status ", cut_solve_status)
-    println("  Cut sol:     ")
-    for j in 1:length(w.cut_model.colNames)
-        println("    ", w.cut_model.colNames[j], "  ", w.cut_model.colVal[j])
-    end
-    println("  OrigLHS val: ", lhs)
-    println("  Sense:       ", sense(con))
-    println("  con.lb/ub:   ", con.lb, "  ", con.ub)
-    println("  new con:  ", new_con)
-    println("END DEBUG   :debug_printcut")
-end
-
-
 
 
 #-----------------------------------------------------------------------
