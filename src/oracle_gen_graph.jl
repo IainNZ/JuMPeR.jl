@@ -28,17 +28,13 @@ type GeneralGraphOracle <: AbstractOracle
     unc_to_comp::Vector{Int}
     unc_to_comp_unc::Vector{Vector{Int}}
     con_to_comp::Vector{Int}
-
-    # Options
-    debug_printcut::Bool
 end
 # Default constructor
 GeneralGraphOracle() = 
     GeneralGraphOracle( Model[], Vector{Variable}[], 0.0, false,
                         Int[], Int[], Vector{Vector{@compat Tuple{Int,Float64}}}[], Vector{Float64}[],
                         Vector{Symbol}[], Vector{Symbol}[],
-                        Int[], Vector{Int}[], Int[],
-                        false)
+                        Int[], Vector{Int}[], Int[])
 
 
 # registerConstraint
@@ -54,7 +50,6 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
     # Extract preferences we care about
     gen.use_cuts          = get(prefs, :prefer_cuts, false)
     gen.cut_tol           = get(prefs, :cut_tol, 1e-6)
-    gen.debug_printcut    = get(prefs, :debug_printcut, false)
 
     rd = getRobust(rm)
 
@@ -62,7 +57,7 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
     gen.unc_to_comp, gen.con_to_comp = detect_components(rd.numUncs, rd.uncertaintyset)
     num_components = maximum(gen.unc_to_comp)
     #@show num_components
-    gen.debug_printcut && println("GeneralGraphOracle: $num_components components detected.")
+    #gen.debug_printcut && println("GeneralGraphOracle: $num_components components detected.")
     comp_to_unc = [Int[] for c in 1:num_components]
     for i = 1:rd.numUncs
         push!(comp_to_unc[gen.unc_to_comp[i]], i)
@@ -366,13 +361,11 @@ function generateCut(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Ve
         
         # Check violation
         if check_cut_status(con, lhs_of_cut, gen.cut_tol) != :Violate
-            #gen.debug_printcut && debug_printcut(rm,master,gen,lhs_of_cut,con,nothing)
             continue  # No violation, no new cut
         end
         
         # Create and add the new constraint
         new_con = JuMPeR.build_certain_constraint(master, con, full_colVal)
-        #gen.debug_printcut && debug_printcut(rm,master,gen,lhs_of_cut,con,new_con)
         push!(new_cons, new_con)
     end
     
