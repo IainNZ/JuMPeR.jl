@@ -1,12 +1,16 @@
-#############################################################################
-# JuMPeR
-# Julia for Mathematical Programming - extension for Robust Optimization
-# See http://github.com/IainNZ/JuMPeR.jl
-#############################################################################
-# solve.jl
-# All the logic for solving robust optimization problems. Communicates with
-# oracles to build and solve the robust counterpart.
-#############################################################################
+#-----------------------------------------------------------------------
+# JuMPeR  --  JuMP Extension for Robust Optimization
+# http://github.com/IainNZ/JuMPeR.jl
+#-----------------------------------------------------------------------
+# Copyright (c) 2015: Iain Dunning
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#-----------------------------------------------------------------------
+# src/solve.jl
+# All the logic for solving robust optimization problems. Communicates
+# with oracles to build and solve deterministic equivalents.
+#-----------------------------------------------------------------------
 
 # Utility functions for moving an expression to a new model
 copy_quad(old_quad::QuadExpr, new_vars) =
@@ -23,24 +27,27 @@ copy_linconstr(old_con::LinearConstraint, new_vars) =
 copy_quadconstr(old_con::QuadConstraint, new_vars) =
     QuadConstraint(copy_quad(old_con.terms, new_vars), old_con.sense)
 
-#############################################################################
+#-----------------------------------------------------------------------
 
-function solveRobust(rm::Model; kwargs...)
-    Base.warn("""
-solveRobust() has been deprecated in favour of solve().
-solveRobust() will be removed in JuMPeR v0.2""")
-    _solve_robust(rm; kwargs...)
-end
-function _solve_robust(rm::Model;
+# Catch key word arguments here to help with type inference of
+# _solve_robust
+function solve_robust(rm::Model;
                         suppress_warnings=false,
                         report=false,
                         active_cuts=false,
                         add_box=false,
                         kwargs...)
-    robdata = getRobust(rm)
+    _solve_robust(rm,suppress_warnings,report,active_cuts,add_box,kwargs)
+end
+
+function _solve_robust(rm::Model, suppress_warnings::Bool,
+                        report::Bool, active_cuts::Bool,
+                        add_box::Union(Float64,Bool),
+                        kwargs::Vector{Any})
+    robdata = getRobust(rm)::RobustData
 
     # Pull out extra keyword arguments that we will pas through to oracles
-    prefs = [name => value for (name,value) in kwargs]
+    prefs = @compat Dict{Symbol,Any}([name => value for (name,value) in kwargs])
     prefs[:active_cuts] = active_cuts
 
     start_time = time()
@@ -338,3 +345,5 @@ function _solve_robust(rm::Model;
     # Return solve status
     return master_status
 end
+Base.precompile(_solve_robust, (Model,Bool,Bool,Bool,Bool,Vector{Any}))
+Base.precompile(_solve_robust, (Model,Bool,Bool,Bool,Float64,Vector{Any}))

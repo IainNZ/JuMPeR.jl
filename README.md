@@ -1,6 +1,6 @@
 ![JuMPeR Logo](http://iainnz.github.io/JuMPeR.jl/logo.svg)
 
-[![Build Status](https://travis-ci.org/IainNZ/JuMPeR.jl.png?branch=master)](https://travis-ci.org/IainNZ/JuMPeR.jl)
+[![Build Status](https://travis-ci.org/IainNZ/JuMPeR.jl.svg?branch=master)](https://travis-ci.org/IainNZ/JuMPeR.jl)
 [![Coverage Status](https://img.shields.io/coveralls/IainNZ/JuMPeR.jl.svg)](https://coveralls.io/r/IainNZ/JuMPeR.jl?branch=master)
 [![JuMPeR](http://pkg.julialang.org/badges/JuMPeR_release.svg)](http://pkg.julialang.org/?pkg=JuMPeR&ver=release)
 

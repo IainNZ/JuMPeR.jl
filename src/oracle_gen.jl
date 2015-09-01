@@ -1,23 +1,27 @@
-#############################################################################
-# JuMPeR
-# Julia for Mathematical Programming - extension for Robust Optimization
-# See http://github.com/IainNZ/JuMPeR.jl
-#############################################################################
-# GeneralOracle
-# The default oracle - uses uncertainty bounds and the uncertainty set
-# built up with linear constraints and ellipses and either use cutting planes
-# or reformulate to obtain a deterministic problem.
-#############################################################################
+#-----------------------------------------------------------------------
+# JuMPeR  --  JuMP Extension for Robust Optimization
+# http://github.com/IainNZ/JuMPeR.jl
+#-----------------------------------------------------------------------
+# Copyright (c) 2015: Iain Dunning
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#-----------------------------------------------------------------------
+# src/oracle_gen.jl
+# The "default" oracle - using the bounds and constraints on the
+# uncertain parameters, either create and repeated solve the cutting
+# plane model, or refomulate all the constraints using duality.
+#-----------------------------------------------------------------------
 
 type GeneralOracle <: AbstractOracle
     use_cuts::Bool
 
-    # Cutting plane algorithm
+    # Cutting plane-specific options
     cut_model::Model
     cut_vars::Vector{Variable}
     cut_tol::Float64
 
-    # Reformulation (see setup() for details)
+    # Reformulation structure, generated in setup
     num_dualvar::Int
     dual_A::Vector{Vector{@compat Tuple{Int,Float64}}}
     dual_objs::Vector{Float64}
@@ -25,41 +29,49 @@ type GeneralOracle <: AbstractOracle
     dual_contype::Vector{Symbol}
     dual_ell_rhs_idxs::Vector{Vector{Int}}
     dual_ell_lhs_idxs::Vector{Int}
+    dual_l1_rhs_idxs::Vector{Vector{Int}}
+    dual_l1_lhs_idxs::Vector{Int}
+    dual_ω_idxs::Vector{Vector{Int}}
+    dual_ω′_idxs::Vector{Vector{Int}}
 
     # Options
     debug_printcut::Bool
-    debug_printreform::Bool
 end
 # Default constructor
 GeneralOracle() = 
     GeneralOracle(  false,
                     Model(), Variable[], 0.0, # Cutting plane
                     0, Vector{@compat Tuple{Int,Float64}}[], Float64[], Symbol[], Symbol[], 
-                    Vector{Int}[], Int[],
-                    false, false)
+                    Vector{Int}[], Int[],           # Reformulation, 2-norm
+                    Vector{Int}[], Int[],           # Reformulation, 1-norm
+                    Vector{Int}[], Vector{Int}[],   # Reformulation, ∞-norm
+                    false)
 
 
 # registerConstraint
 # We must handle this constraint, and the users preferences have been
 # communicated through prefs. We don't need to take any action here.
-registerConstraint(gen::GeneralOracle, rm::Model, ind::Int, prefs) = nothing
+function registerConstraint(gen::GeneralOracle, rm::Model,
+                                ind::Int, prefs::Dict{Symbol,Any})
+    nothing
+end
 
-
+#-----------------------------------------------------------------------
 # setup
-# Generate the cutting plane model or precompute the reformulation structure.
-function setup(gen::GeneralOracle, rm::Model, prefs)
+# Generate the cutting plane model or precompute the reformulation's structure.
+function setup(gen::GeneralOracle, rm::Model, prefs::Dict{Symbol,Any})
 
     # Extract preferences we care about
     gen.use_cuts          = get(prefs, :prefer_cuts, false)
     gen.cut_tol           = get(prefs, :cut_tol, 1e-6)
     gen.debug_printcut    = get(prefs, :debug_printcut, false)
-    gen.debug_printreform = get(prefs, :debug_printreform, false)
 
     rd = getRobust(rm)
 
+    #-------------------------------------------------------------------
     # Cutting plane setup
     if gen.use_cuts || prefs[:active_cuts]
-        # Create an LP that we'll use to solve the cut problem
+        # Create an LP/SOCP that we'll use to solve the cut problem
         # Copy the uncertainty set from the original problem
         gen.cut_model = Model()
         gen.cut_model.solver   = isa(rd.cutsolver,JuMP.UnsetSolver) ? rm.solver : rd.cutsolver
@@ -68,168 +80,255 @@ function setup(gen::GeneralOracle, rm::Model, prefs)
         gen.cut_model.colLower = rd.uncLower
         gen.cut_model.colUpper = rd.uncUpper
         gen.cut_model.colCat   = rd.uncCat
-        gen.cut_vars = [Variable(gen.cut_model, i) for i = 1:rd.numUncs]
-        # Polyhedral constraints
+        gen.cut_vars = [Variable(gen.cut_model, i) for i in 1:rd.numUncs]
+
+        # Covert polyhedral constraints
         for c in rd.uncertaintyset
-            newcon = LinearConstraint(AffExpr(), c.lb, c.ub)
-            newcon.terms.coeffs = c.terms.coeffs
-            newcon.terms.vars   = [gen.cut_vars[u.unc] for u in c.terms.vars]
-            push!(gen.cut_model.linconstr, newcon)
+            push!(gen.cut_model.linconstr, 
+                LinearConstraint(uaff_to_aff(c.terms,gen.cut_vars), c.lb, c.ub))
         end
-        # Ellipse constraints
-        # Take || Fu + g || <= Gamma and rewrite as
-        # y = Fu+g, y^T y <= Gamma^2
-        for el_c in rd.normconstraints
-            yty = QuadExpr()
-            num_terms, num_uncs = size(el_c.F)
-            for term_ind = 1:num_terms
-                # Create new variable y_i
-                y   = Variable(gen.cut_model,-Inf,Inf,:Cont,"_el_$term_ind")
-                Fug = AffExpr(Variable[gen.cut_vars[i] for i in el_c.u],
-                              Float64[el_c.F[term_ind,i] for i in 1:num_uncs],
-                              el_c.g[term_ind])
-                @addConstraint(gen.cut_model, y == Fug)
-                push!(yty.qvars1, y)
-                push!(yty.qvars2, y)
-                push!(yty.qcoeffs, 1.0)
+        # Norm constraints
+        for norm_c in rd.normconstraints
+            if isa(norm_c, UncNormConstraint{2})
+                # Ellispoidal constraint
+                # Input: ‖[a₁ᵀu, a₂ᵀu, ...]‖₂ ≤ Γ
+                # Output: yᵢ = aᵢᵀu, t = Γ
+                #         Σyᵢ^2 ≤ t^2
+                normexp = norm_c.normexpr
+                terms   = normexp.norm.terms
+                rhs     = -normexp.aff.constant / normexp.coeff
+                n_terms = length(terms)
+                @defVar(gen.cut_model, y[1:n_terms])
+                for i in 1:n_terms
+                    @addConstraint(gen.cut_model, y[i] ==
+                        uaff_to_aff(terms[i],gen.cut_vars))
+                end
+                @defVar(gen.cut_model, t == rhs)
+                @addConstraint(gen.cut_model, dot(y,y) <= t^2)
+            elseif isa(norm_c, UncNormConstraint{1})
+                # L1 norm constraint
+                # Input: ‖[a₁ᵀu, a₂ᵀu, ...]‖₁ ≤ Γ
+                # Output: yᵢ ≥ aᵢᵀu, yᵢ ≥ -aᵢᵀu
+                #         ∑yᵢ ≤ Γ
+                normexp = norm_c.normexpr
+                terms   = normexp.norm.terms
+                rhs     = -normexp.aff.constant / normexp.coeff
+                n_terms = length(terms)
+                @defVar(gen.cut_model, y[1:n_terms])
+                for i in 1:n_terms
+                    @addConstraint(gen.cut_model, y[i] ≥
+                         uaff_to_aff(terms[i],gen.cut_vars))
+                    @addConstraint(gen.cut_model, y[i] ≥
+                        -uaff_to_aff(terms[i],gen.cut_vars))
+                end
+                @addConstraint(gen.cut_model, sum(y) <= rhs)
+            elseif isa(norm_c, UncNormConstraint{Inf})
+                # L∞ norm constraint
+                # Input: ‖[a₁ᵀu, a₂ᵀu, ...]‖∞ ≤ Γ
+                # Output: aᵢᵀu ≤ Γ, aᵢᵀu ≥ -Γ
+                normexp = norm_c.normexpr
+                terms   = normexp.norm.terms
+                rhs     = -normexp.aff.constant / normexp.coeff
+                n_terms = length(terms)
+                for i in 1:n_terms
+                    @addConstraint(gen.cut_model, 
+                        uaff_to_aff(terms[i],gen.cut_vars) ≤ +rhs)
+                    @addConstraint(gen.cut_model,
+                        uaff_to_aff(terms[i],gen.cut_vars) ≥ -rhs)
+                end
+            else
+                error("Unrecognized norm in uncertainty set!")
             end
-            # Normally we'd do
-            # @addConstraint(gen.cut_model, yty <= el_c.Gamma^2)
-            # But unfortunately this isn't a SOC constraint so ECOS
-            # won't like it (Gurobi can handle it). We just need
-            # an auxiliary variable set to equal the RHS.
-            rhs_aux = Variable(gen.cut_model,0,Inf,:Cont,"_el_rhs_aux")
-            @addConstraint(gen.cut_model, rhs_aux == el_c.Gamma)
-            @addConstraint(gen.cut_model, yty <= rhs_aux^2)
         end
     end
 
+    #-------------------------------------------------------------------
+    # Reformulation setup
     if !gen.use_cuts
-        #####################################################################
-        # Reformulation setup
-        #
-        # We have 
-        # - one new variable for every constraint in the uncertainty set
-        # - one new variable for every term in each ellipse
-        # - one new variable for each ellipse in general
-        # We have one constraint for every uncertainty.
-        #
-        # Statement of primal-dual pair for the one ellipse case:
+        # Statement of primal-dual pair:
         # PRIMAL
-        # max  cx.x  + cy.y
-        #  st  Ax.x  + Ay.y   ==  b
-        #          ||Fy+g||2  <=  Gamma
+        # max  cᵀx
+        #  st  A x     ≤ b   ::  π       [  #(linear constraints) ]
+        #      ‖Fx+f‖₂ ≤ Γ₂  ::  β,β′    [ 1 + #(terms in 2-norm) ]
+        #      ‖Gx+g‖₁ ≤ Γ₁  ::  α,α′    [ 1 + #(terms in 1-norm) ]
+        #      ‖Hx+h‖∞ ≤ Γ∞  ::  ω,ω′    [ 2 × #(terms in ∞-norm) ]
         #
         # DUAL
-        # min   b.pi +  g.bz + Gamma*bt
-        #  st Ax'.pi          == cx
-        #     Ay'.pi - F'.bz  == cy
-        #         pi free
-        #             (bt,bz) in Q^n+1
+        #          {  ELLIPSE } {    L1 NORM     } {      L∞ NORM      }
+        # min  bᵀπ + fᵀβ + Γ₂β′ + gᵀα + (gᵀ1+Γ₁)α′ + (Γ∞-hᵀω) - (Γ∞+hᵀω)
+        #  st  Aᵀπ - Fᵀβ        - Gᵀα - (Gᵀ1   )α′ +     Hᵀω  +     Hᵀω′ = c
+        #      π  ≥ 0
+        #      β′ ≥ ‖β‖₂  ('ell_lhs' ≥ 'ell_rhs')
+        #      α′ ≥ -½α   ( 'l1_lhs' ≥  'l1_rhs')
+        #      α ≤ 0, α′ ≥ 0
+        #      ω ≥ 0, ω′ ≤ 0
         #
         # In this setup phase we build the structure of the dual but do not
         # attach it to the model. Rather, for each constraint we will spawn
         # a new set of variables and constraints according to the structure
         # we determine here.
-        #####################################################################
+        
+        # Number of dual variables
+        # =   Number of linear constraints 
+        #  +  Number of terms in 2-norm constraints + 1
+        #  +  Number of terms in 1-norm constraints + 1
+        #  +  Number of terms in ∞-norm constraints × 2
+        #  +  Number of bounds on uncertain parameters (later)
         num_dualvar = length(rd.uncertaintyset)
-        for el_c in rd.normconstraints
-            num_dualvar += length(el_c.u) + 1
+        for norm_c in rd.normconstraints
+            if isa(norm_c, UncNormConstraint{2}) || isa(norm_c, UncNormConstraint{1})
+                num_dualvar += length(norm_c.normexpr.norm.terms) + 1
+            elseif isa(norm_c, UncNormConstraint{Inf})
+                num_dualvar += length(norm_c.normexpr.norm.terms) * 2
+            else
+                error("Unrecognized norm in uncertainty set!")
+            end
         end
-        num_dualcon = rd.numUncs
-        # Sparse representation of the transpose of the matrix defining
-        # the linear constraints
-        dual_A       = [(@compat Tuple{Int,Float64})[] for i = 1:rd.numUncs]
-        # Objective coefficient in dual obj
+        # Number of linear dual constraints = number of uncertain parameters
+        num_dualcon  = rd.numUncs
+        # Store Aᵀ as row-wise sparse vectors
+        dual_A       = [(@compat Tuple{Int,Float64})[] for i in 1:rd.numUncs]
+        # Store dual objective coefficients
         dual_objs    = zeros(num_dualvar)
-        # Primal constr. sense -> dual variable sense, >=0, <=0, free (:==)
-        # Initially it is just the primal constraint sense, but might need
-        # to be flipped later
-        dual_vartype = [:>= for i = 1:num_dualvar]
-        # Dual constr. sense
-        dual_contype = [:>= for i = 1:num_dualcon]
+        # Store dual variable sense
+        dual_vartype = fill(:(>=), num_dualvar)
+        # Store dual linear constraint sense
+        # All are at equality because all bounds on the uncertain parameters
+        # are converted to constraints
+        dual_contype = fill(:(==), num_dualcon)
 
-        # First, use linear constraints to
-        # - form matrix transpose of linear constraints
-        # - set objective coefficients for linear constraint duals
-        # - set variable types for linear constraint duals
-        for uncset_i = 1:length(rd.uncertaintyset)
-            lhs = rd.uncertaintyset[uncset_i].terms
-            for unc_j = 1:length(lhs.vars)
-                push!(dual_A[lhs.vars[unc_j].unc], (uncset_i, lhs.coeffs[unc_j]))
+        # Linear constraints form Aᵀ, and set vartype and objective of π
+        for (aff_ind, aff_con) in enumerate(rd.uncertaintyset)
+            lhs = aff_con.terms
+            for (coef,uncp) in lhs
+                push!(dual_A[uncp.id], (aff_ind, coef))
             end
-            dual_objs[uncset_i]    = rhs(rd.uncertaintyset[uncset_i])
-            dual_vartype[uncset_i] = sense(rd.uncertaintyset[uncset_i])
+            dual_objs[aff_ind]    =   rhs(aff_con)
+            dual_vartype[aff_ind] = sense(aff_con)
         end
 
-        # Next, use the ellipses to set objective coefficients of the duals
-        # relating to the ellipses
-        start_index = length(rd.uncertaintyset)
-        for el_c in rd.normconstraints
-            # Duals corresponding to terms in ellipse
-            dual_ell_rhs_idx = Int[]
-            for term_ind = 1:length(el_c.g)
-                # The index of this dual variable
-                dual_idx = start_index+term_ind
-                # Objective coefficient is constant part of this
-                # term in the ellipse
-                dual_objs[dual_idx]     = el_c.g[term_ind]
-                dual_vartype[dual_idx]  = :Qrhs
-                # Store the indices for this ellipse so we inject them
-                # into constraints later
-                push!(dual_ell_rhs_idx, dual_idx)
-            end
-            push!(gen.dual_ell_rhs_idxs, dual_ell_rhs_idx)
+        # Set ellipse objective coefficients for each β.β′
+        # Track index of last set dual - in this case dual for the
+        # last linear constraint. We'll update after each ellipse.
+        start_ind = length(rd.uncertaintyset)
+        for norm_c in rd.normconstraints
+            if isa(norm_c, UncNormConstraint{2})
+                # Extract fields from norm constraint
+                normexp = norm_c.normexpr
+                terms   = normexp.norm.terms
+                rhs     = -normexp.aff.constant / normexp.coeff
 
-            # Dual corresponding to the RHS dual
-            lhs_idx = start_index+length(el_c.g)+1
-            dual_objs[lhs_idx]      = el_c.Gamma
-            dual_vartype[lhs_idx]   = :Qlhs
-            push!(gen.dual_ell_lhs_idxs, lhs_idx)
-            start_index += length(el_c.g) + 1
+                # Dual β, the RHS of β′ ≥ ‖β‖
+                dual_ell_rhs_idx = Int[]
+                for (term_ind, term) in enumerate(terms)
+                    dual_ind = start_ind + term_ind
+                    dual_objs[dual_ind]    = term.constant
+                    dual_vartype[dual_ind] = :Qrhs
+                    # Track indices for this ellipse
+                    push!(dual_ell_rhs_idx, dual_ind)
+                end
+                push!(gen.dual_ell_rhs_idxs, dual_ell_rhs_idx)
+
+                # Dual β′, the LHS of β′ ≥ ‖β‖
+                dual_ind = start_ind + length(terms) + 1
+                dual_objs[dual_ind]    = rhs
+                dual_vartype[dual_ind] = :Qlhs
+                push!(gen.dual_ell_lhs_idxs, dual_ind)
+                start_ind += length(terms) + 1
+            end
         end
 
-        # We will handle bounds on the coefficients as linear constraints,
-        # which means adding to the matrix transpose and objective
-        for unc_i = 1:rd.numUncs
+        # Same as above, but for 1-norm constraints
+        for norm_c in rd.normconstraints
+            if isa(norm_c, UncNormConstraint{1})
+                # Extract fields from norm constraint
+                normexp = norm_c.normexpr
+                terms   = normexp.norm.terms
+                rhs     = -normexp.aff.constant / normexp.coeff
+
+                # Dual α, the RHS of α′ ≥ -½α
+                total_g = 0.0
+                dual_l1_rhs_idx = Int[]
+                for (term_ind, term) in enumerate(terms)
+                    dual_ind = start_ind + term_ind
+                    total_g += term.constant
+                    dual_objs[dual_ind]    = term.constant
+                    dual_vartype[dual_ind] = :L1rhs
+                    # Track indices for this ellipse
+                    push!(dual_l1_rhs_idx, dual_ind)
+                end
+                push!(gen.dual_l1_rhs_idxs, dual_l1_rhs_idx)
+
+                # Dual β′, the LHS of β′ ≥ ‖β‖
+                dual_ind = start_ind + length(terms) + 1
+                dual_objs[dual_ind]    = total_g + rhs
+                dual_vartype[dual_ind] = :L1lhs
+                push!(gen.dual_l1_lhs_idxs, dual_ind)
+                start_ind += length(terms) + 1
+            end
+        end
+
+        # Same as above, but for ∞-norm constraints
+        for norm_c in rd.normconstraints
+            if isa(norm_c, UncNormConstraint{Inf})
+                # Extract fields from norm constraint
+                normexp = norm_c.normexpr
+                terms   = normexp.norm.terms
+                rhs     = -normexp.aff.constant / normexp.coeff
+
+                # Dual ω and ω′
+                dual_ω_idx, dual_ω′_idx = Int[], Int[]
+                for (term_ind, term) in enumerate(terms)
+                    # First do ωᵢ
+                    dual_ind = start_ind + term_ind
+                    dual_objs[dual_ind]    =+rhs - term.constant
+                    dual_vartype[dual_ind] = :(ω)
+                    push!(dual_ω_idx, dual_ind)
+                    # Then do ω′ᵢ
+                    dual_ind = start_ind + term_ind + length(terms)
+                    dual_objs[dual_ind]    = -rhs - term.constant
+                    dual_vartype[dual_ind] = :(ω′)
+                    push!(dual_ω′_idx, dual_ind)
+                end
+                push!(gen.dual_ω_idxs,  dual_ω_idx)
+                push!(gen.dual_ω′_idxs, dual_ω′_idx)
+                start_ind += length(terms) * 2
+            end
+        end
+
+        # Bounds on uncertain parameters are handled as linear constraints
+        for i in 1:rd.numUncs
+            L, U = rd.uncLower[i], rd.uncUpper[i]
             # If it has a lower bound...
-            if rd.uncLower[unc_i] != -Inf
+            if L != -Inf
                 num_dualvar += 1
-                push!(dual_A[unc_i], (num_dualvar, 1.0))
-                push!(dual_objs,     rd.uncLower[unc_i])
-                push!(dual_vartype,  :(>=))
+                push!(dual_A[i],    (num_dualvar, 1.0))
+                push!(dual_objs,    L)
+                push!(dual_vartype, :(>=))
             end
-            # If it has an upper bound
-            if rd.uncUpper[unc_i] != +Inf
+            # If it has an upper bound...
+            if U != +Inf
                 num_dualvar += 1
-                push!(dual_A[unc_i], (num_dualvar, 1.0))
-                push!(dual_objs,     rd.uncUpper[unc_i])
-                push!(dual_vartype,  :(<=))
+                push!(dual_A[i],    (num_dualvar, 1.0))
+                push!(dual_objs,    U)
+                push!(dual_vartype, :(<=))
             end
-            # Now we just treat the variable as being free
-            dual_contype[unc_i] = :(==)
         end
 
-        gen.num_dualvar   = num_dualvar
-        gen.dual_A        = dual_A
-        gen.dual_objs     = dual_objs
-        gen.dual_vartype  = dual_vartype
-        gen.dual_contype  = dual_contype
-
-        if gen.debug_printreform
-            println("BEGIN DEBUG :debug_printreform")
-            println("Num dual var ", num_dualvar)
-            println("Objective")
-            dump(dual_objs)
-            println("dual_A")
-            println(dual_A)
-            println("lhs,rhs idx")
-            dump(gen.dual_ell_lhs_idxs)
-            dump(gen.dual_ell_rhs_idxs)
-            println("END DEBUG   :debug_printreform")
-        end
+        # Store the reformulation in the oracle
+        gen.num_dualvar  = num_dualvar
+        gen.dual_A       = dual_A
+        gen.dual_objs    = dual_objs
+        gen.dual_vartype = dual_vartype
+        gen.dual_contype = dual_contype
     end  # end reformulation preparation
 end
+Base.precompile(setup, (GeneralOracle, Model, Dict{Symbol,Any}))
+
+#-----------------------------------------------------------------------
+# Cutting planes
+# Given constraints with uncertain parameters, create new constraints
+# if they would cause the current solution to be infeasible
 
 function generateCut(gen::GeneralOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)
     # If not doing cuts...
@@ -272,6 +371,7 @@ function generateCut(gen::GeneralOracle, master::Model, rm::Model, inds::Vector{
     
     return new_cons
 end
+Base.precompile(generateCut, (GeneralOracle, Model, Model, Vector{Int}, Bool))
 
 
 function debug_printcut(rm,m,w,lhs,con,new_con)
@@ -299,10 +399,15 @@ end
 
 
 
-#############################################################################
-# REFORMULATION
-#############################################################################
+#-----------------------------------------------------------------------
+# Reformulation
+# In setup() the 'template' for reformulations was calculated. We now
+# apply this template to every constraint that the user would like to
+# reformulate.
 
+# generateReform
+# Modifies the master problem in place, returning the number of
+# constraints that were reformulated
 function generateReform(gen::GeneralOracle, master::Model, rm::Model, inds::Vector{Int})
     # If not doing reform...
     gen.use_cuts && return 0
@@ -312,148 +417,168 @@ function generateReform(gen::GeneralOracle, master::Model, rm::Model, inds::Vect
     end
     return length(inds)
 end
-    
+Base.precompile(generateReform, (GeneralOracle, Model, Model, Vector{Int}))
 
+# apply_reform
+# Does the hard work for a given constraint
 function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int)
     rd = getRobust(rm)
     con = get_uncertain_constraint(rm, con_ind)
 
-    num_dualvar = gen.num_dualvar
-    num_dualcon = rd.numUncs
-    dual_A      = gen.dual_A
-    dual_objs   = gen.dual_objs
-    dual_vartype= gen.dual_vartype
-    dual_contype= gen.dual_contype 
-    # These are the objective coefficients of the cutting plane problem
-    # that are the right-hand-side of the dual problem.
-    dual_rhs    = [AffExpr() for i = 1:num_dualcon]
-    # This is the reformulated "main" constraint that will replace the
-    # existing uncertain constraint
-    new_lhs     = AffExpr()
+    # Pull the 'template' out of the oracle for easier access
+    num_dualvar  = gen.num_dualvar
+    num_dualcon  = rd.numUncs
+    dual_A       = gen.dual_A
+    dual_objs    = gen.dual_objs
+    dual_vartype = gen.dual_vartype
+    dual_contype = gen.dual_contype 
 
-    # We will do all reformulation as if the constraint is a <=
-    # constraint. This necessitates mulitplying through by -1
-    # if the original constraint is not of this form
+    # Initialize the affine expressions that are equal to the coefficients
+    # of the uncertain parameters in the primal of the cutting plane
+    # problem, and RHS values for the dual problem
+    dual_rhs    = [AffExpr() for i in 1:num_dualcon]
+    # This is constraint that will replace the existing uncertain constraint
+    new_lhs     = AffExpr()
+    # We do all reformulation as if the constraint is a <= constraint
+    # This necessitates mulitplying through by -1 if it is a >= constraint
     sign_flip   = sense(con) == :(<=) ? +1.0 : -1.0
-    # The right-hand-side of the new constraint
+    # Initialize the RHS of the new constraint
     new_rhs     = rhs(con) * sign_flip
-    # The uncertain constraint left-hand-side
+    # Extract the LHS of the constraint
     orig_lhs    = con.terms
 
-    # First collect the certain terms of the uncertain constraint - they
-    # won't take part in the reformulation, so we can append them to the
-    # new LHS directly
-    num_lhs_terms = length(orig_lhs.vars)
-    for term_i = 1:num_lhs_terms
-        var_col = orig_lhs.vars[term_i].col
-        if orig_lhs.coeffs[term_i].constant != 0.0
-            push!(new_lhs,  orig_lhs.coeffs[term_i].constant * sign_flip,
-                            Variable(master, var_col) )
+    # Original LHS terms are of form (aᵢᵀu + bᵢ) xᵢ. 
+    # Collect the certain terms (bᵢxᵢ) of the uncertain constraint,
+    # and append them to the new LHS directly
+    for (uaff,var) in orig_lhs
+        if uaff.constant != 0.0
+            push!(new_lhs, uaff.constant * sign_flip,
+                    Variable(master, var.col))
         end
     end
     
-    # We have terms (a^T u + b) x_i, we now need to get (c^T x) u_j
-    # The "c^T x" will form the new right-hand-side
-    # At same time, we'll check for integral uncertainties, which
-    # are a not allowed in the reformulation
-    for term_i = 1:num_lhs_terms
-        var_col     = orig_lhs.vars[term_i].col
-        term_coeff  = orig_lhs.coeffs[term_i]
-        for coeff_term_j = 1:length(term_coeff.coeffs)
-            coeff = term_coeff.coeffs[coeff_term_j]
-            unc   = term_coeff.vars[coeff_term_j].unc
-            rd.uncCat[unc] != :Cont && 
-                error("No integer uncertainties allowed in reformulation!")
-            push!(dual_rhs[unc], coeff * sign_flip, 
-                                 Variable(master, var_col))
+    # Rearrange from ∑ᵢ (aᵢᵀu) xᵢ to ∑ⱼ (cⱼᵀx) uⱼ, as the cⱼᵀx 
+    # are the RHS of the dual. While constructing, we check for
+    # integer uncertain parameters, which we cannot reformulate
+    for (uaff,var) in orig_lhs
+        for (coeff, uncparam) in uaff
+            getCategory(uncparam) != :Cont &&
+                error("Integer uncertain parameters not supported in reformulation.")
+            push!(dual_rhs[uncparam.id], coeff * sign_flip,
+                    Variable(master, var.col))
         end
     end
-    # We also need the standalone (a^T u) not related to any variable
-        for const_term_j = 1:length(orig_lhs.constant.coeffs)
-            coeff = orig_lhs.constant.coeffs[const_term_j]
-            unc   = orig_lhs.constant.vars[const_term_j].unc
-            rd.uncCat[unc] != :Cont && 
-                error("No integer uncertainties allowed in reformulation!")
-            dual_rhs[unc].constant += coeff * sign_flip
+    # We also need the standalone aᵀu not related to any variable
+        for (coeff, uncparam) in orig_lhs.constant
+            getCategory(uncparam) != :Cont &&
+                error("Integer uncertain parameters not supported in reformulation.")
+            dual_rhs[uncparam.id].constant += coeff * sign_flip
         end
 
-    # The right-hand-side is the only thing unique to this particular
-    # constraint. We now need to create dual variables for this specific
-    # contraint and add them to the new constraint's LHS
+    # Create dual variables for this specific contraint and add
+    # them to the new constraint's LHS
     dual_vars = Variable[]
-    for ind = 1:num_dualvar
-        # Determine bounds for case where contraint is <= (maximize)
-        # then flip if otherwise
-        var_name = "_µ$(con_ind)_$(ind)"
-        lbound = -Inf
-        ubound = +Inf
+    for ind in 1:num_dualvar
+        # Free:   equality,     RHS of ellipse
+        # NonNeg: less-than,    LHS of ellipse, LHS of L1 norm, ω
+        # NonPos: greater-than,                 RHS of L1 norm, ω′
         vt = dual_vartype[ind]
-        # Less-than and LHS of cone -->  v >= 0
-        if vt == :(<=) || vt == :Qlhs
-            lbound = 0
-        end
-        # Greater-than -->  v <= 0
-        if vt == :(>=)
-            ubound = 0
-        end
-        # Equality and RHS of cone -->  free
-        new_v = Variable(master,lbound,ubound,:Cont,var_name)
+        lbound = (vt == :(<=) || vt == :Qlhs || vt == :L1lhs || vt == :ω ) ? 0 : -Inf
+        ubound = (vt == :(>=) ||                vt == :L1rhs || vt == :ω′) ? 0 : +Inf
+        vname = "π"
+        vt == :Qlhs  && (vname="β′")
+        vt == :Qrhs  && (vname="β" )
+        vt == :L1lhs && (vname="α′")
+        vt == :L1rhs && (vname="α" )
+        vt == :ω     && (vname="ω")
+        vt == :ω′    && (vname="ω′" )
+        new_v = Variable(master,lbound,ubound,:Cont,"_$(vname)_$(con_ind)_$(ind)")
         push!(dual_vars, new_v)
         push!(new_lhs, dual_objs[ind], new_v)
     end
 
-    gen.debug_printreform && println("DEBUG new_lhs ", new_lhs)
-
-    # Add the new constraint which "replaces" the original constraint
+    # Add the new deterministic constraint to the master problem
     @addConstraint(master, new_lhs <= new_rhs)
 
     # Add the additional new constraints
-    # - If the uncertainty wasn't involved in an ellipse, its just dual_A
-    # - If it was, we need to add in additional terms (from .F)
-    for unc = 1:rd.numUncs
+    for unc in 1:rd.numUncs
         new_lhs = AffExpr()
-        # Add the linear constraint segment
-        for pair in dual_A[unc]
-            push!(new_lhs, pair[2], dual_vars[pair[1]])
+        # aᵀπ
+        for (ind,coeff) in dual_A[unc]
+            push!(new_lhs, coeff, dual_vars[ind])
         end
 
-        # Check if this uncertain is in an ellipse
-        ell_idx = 0
-        for el_c in rd.normconstraints
-            ell_idx += 1
-            el_matrix_col = 0
-            for el_term = 1:length(el_c.u)
-                if el_c.u[el_term] == unc
-                    el_matrix_col = el_term
+        # Norms
+        ell_idx, l1_idx, l∞_idx = 0, 0, 0
+        for norm_c in rd.normconstraints
+            # 2-norm    -Fᵀβ
+            if isa(norm_c, UncNormConstraint{2})
+                ell_idx += 1
+                terms = norm_c.normexpr.norm.terms
+                for (term_ind, term) in enumerate(terms)
+                    for (coeff,uncparam) in term
+                        # Is it a match?
+                        uncparam.id != unc && continue
+                        # F ≠ 0 for this uncertain parameter and term
+                        ell_rhs_idxs = gen.dual_ell_rhs_idxs[ell_idx]
+                        push!(new_lhs, -coeff, dual_vars[ell_rhs_idxs[term_ind]])
+                    end
+                end
+            # 1-norm    -Gᵀα -(Gᵀ1)α′
+            elseif isa(norm_c, UncNormConstraint{1})
+                l1_idx += 1
+                terms = norm_c.normexpr.norm.terms
+                for (term_ind, term) in enumerate(terms)
+                    for (coeff,uncparam) in term
+                        # Is it a match?
+                        uncparam.id != unc && continue
+                        # G ≠ 0 for this uncertain parameter and term
+                        push!(new_lhs, -coeff, dual_vars[gen.dual_l1_rhs_idxs[l1_idx][term_ind]])
+                        push!(new_lhs, -coeff, dual_vars[gen.dual_l1_lhs_idxs[l1_idx]          ])
+                    end
+                end
+            # ∞-norm    Hᵀω + Hᵀω′
+            elseif isa(norm_c, UncNormConstraint{Inf})
+                l∞_idx += 1
+                terms = norm_c.normexpr.norm.terms
+                for (term_ind, term) in enumerate(terms)
+                    for (coeff,uncparam) in term
+                        # Is it a match?
+                        uncparam.id != unc && continue
+                        # H ≠ 0 for this uncertain parameter and term
+                        push!(new_lhs, coeff, dual_vars[gen.dual_ω_idxs[ l∞_idx][term_ind]])
+                        push!(new_lhs, coeff, dual_vars[gen.dual_ω′_idxs[l∞_idx][term_ind]])
+                    end
                 end
             end
-            el_matrix_col == 0 && continue
-            F_slice = el_c.F[:,el_matrix_col]
-            for el_matrix_row = 1:length(F_slice)
-                push!(new_lhs, -F_slice[el_matrix_row], 
-                      dual_vars[gen.dual_ell_rhs_idxs[ell_idx][el_matrix_row]] )
+        end
+
+        ct = dual_contype[unc]
+        ct == :(==) && @addConstraint(master, new_lhs == dual_rhs[unc])
+        ct == :(<=) && @addConstraint(master, new_lhs <= dual_rhs[unc])
+        ct == :(>=) && @addConstraint(master, new_lhs >= dual_rhs[unc])
+    end
+
+
+    ell_idx,  l1_idx = 0, 0
+    for norm_c in rd.normconstraints
+        # Impose β′ ≥ ‖β‖₂
+        if isa(norm_c, UncNormConstraint{2})
+            ell_idx += 1
+            β′ = dual_vars[gen.dual_ell_lhs_idxs[ell_idx]]
+            β  = dual_vars[gen.dual_ell_rhs_idxs[ell_idx]]
+            @addConstraint(master, dot(β,β) <= β′*β′)
+        # Impose α′ ≥ -½α
+        elseif isa(norm_c, UncNormConstraint{1})
+            l1_idx += 1
+            α′ = dual_vars[gen.dual_l1_lhs_idxs[l1_idx]]
+            α  = dual_vars[gen.dual_l1_rhs_idxs[l1_idx]]
+            for αᵢ in α
+                @addConstraint(master, α′ >= -0.5αᵢ)
             end
         end
-
-        dualtype = dual_contype[unc]
-        if     dualtype == :(==)
-            @addConstraint(master, new_lhs == dual_rhs[unc])
-        elseif dualtype == :(<=)
-            @addConstraint(master, new_lhs <= dual_rhs[unc])
-        else
-            @addConstraint(master, new_lhs >= dual_rhs[unc])
-        end
     end
 
-    # Finally we impose that the duals relating to the ellipse
-    # live in a cone
-    ell_idx = 0
-    for el_c in rd.normconstraints
-        ell_idx += 1
-        beta_t = dual_vars[gen.dual_ell_lhs_idxs[ell_idx]]
-        beta_zs = dual_vars[gen.dual_ell_rhs_idxs[ell_idx]]
-        @addConstraint(master, sum{beta_z^2, beta_z in beta_zs} <= beta_t^2)
-    end
-    
     return true
 end
+Base.precompile(apply_reform, (GeneralOracle, Model, Model, Int))

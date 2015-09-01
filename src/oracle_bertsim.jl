@@ -42,7 +42,7 @@ function registerConstraint(bs::BertSimOracle, rm::Model, ind::Int, prefs)
     con = get_uncertain_constraint(rm, ind)
     for term_ind in 1:length(con.terms.vars)
         for unc_ind in 1:length(con.terms.coeffs[term_ind].vars)
-            unc = con.terms.coeffs[term_ind].vars[unc_ind].unc
+            unc = con.terms.coeffs[term_ind].vars[unc_ind].id
             if isnan(bs.noms[unc])
                 lower, upper = rd.uncLower[unc], rd.uncUpper[unc]
                 upper == +Inf &&
@@ -96,7 +96,7 @@ function generateCut(bs::BertSimOracle, master::Model, rm::Model, inds::Vector{I
             col = orig_lhs.vars[var_ind].col
             nom_coeff_val = orig_lhs.coeffs[var_ind].constant
             if num_uncs == 1
-                unc = orig_lhs.coeffs[var_ind].vars[1].unc
+                unc = orig_lhs.coeffs[var_ind].vars[1].id
                 # Store |x|*deviation
                 push!(absx_devs, abs(master_sol[col]) * bs.devs[unc])
                 push!(uncx_inds, var_ind)
@@ -126,7 +126,7 @@ function generateCut(bs::BertSimOracle, master::Model, rm::Model, inds::Vector{I
         unc_val = bs.noms[:]
         for p in 1:length(perm)
             var_ind = uncx_inds[p]
-            unc     = orig_lhs.coeffs[var_ind].vars[1].unc
+            unc     = orig_lhs.coeffs[var_ind].vars[1].id
             col     = orig_lhs.vars[var_ind].col
             # Whether we add or remove a deviation depends on both the 
             # constraint sense and the sign of x

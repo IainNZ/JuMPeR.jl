@@ -9,11 +9,13 @@
 
 using JuMP, JuMPeR
 using FactCheck
+using Compat
 
 if !(:lp_solvers in names(Main))
     println("Loading solvers...")
     include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 end
+lp_solvers = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
 
 type IncompleteOracle <: AbstractOracle end
 
@@ -41,36 +43,36 @@ facts("[oracle] Test oracle utilities") do
 
     # -------------------
     sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective(rm, unc_con, col_val)
-    @fact sense => :Max
-    @fact unc_coeffs[1] => roughly(3.0*2.0+4.0, 1e-6)
-    @fact unc_coeffs[2] => roughly(3.0, 1e-6)
-    @fact unc_coeffs[3] => roughly(4.0+5.0, 1e-6)
-    @fact unc_coeffs[4] => roughly(2*5.0, 1e-6)
-    @fact unc_coeffs[5] => roughly(-1.0, 1e-6)
-    @fact lhs_const     => roughly(2.0*2.0-1.0*3.0, 1e-6)
+    @fact sense --> :Max
+    @fact unc_coeffs[1] --> roughly(3.0*2.0+4.0, 1e-6)
+    @fact unc_coeffs[2] --> roughly(3.0, 1e-6)
+    @fact unc_coeffs[3] --> roughly(4.0+5.0, 1e-6)
+    @fact unc_coeffs[4] --> roughly(2*5.0, 1e-6)
+    @fact unc_coeffs[5] --> roughly(-1.0, 1e-6)
+    @fact lhs_const     --> roughly(2.0*2.0-1.0*3.0, 1e-6)
 
     # -------------------
     sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective_sparse(unc_con, col_val)
     sort!(unc_coeffs)
     
-    @fact sense => :Max
+    @fact sense --> :Max
     for i = 1:5
-        @fact unc_coeffs[i][1] => i
+        @fact unc_coeffs[i][1] --> i
     end
-    @fact unc_coeffs[1][2] => roughly(3.0*2.0+4.0, 1e-6)
-    @fact unc_coeffs[2][2] => roughly(3.0, 1e-6)
-    @fact unc_coeffs[3][2] => roughly(4.0+5.0, 1e-6)
-    @fact unc_coeffs[4][2] => roughly(2*5.0, 1e-6)
-    @fact unc_coeffs[5][2] => roughly(-1.0, 1e-6)
-    @fact lhs_const        => roughly(2.0*2.0-1.0*3.0, 1e-6)
+    @fact unc_coeffs[1][2] --> roughly(3.0*2.0+4.0, 1e-6)
+    @fact unc_coeffs[2][2] --> roughly(3.0, 1e-6)
+    @fact unc_coeffs[3][2] --> roughly(4.0+5.0, 1e-6)
+    @fact unc_coeffs[4][2] --> roughly(2*5.0, 1e-6)
+    @fact unc_coeffs[5][2] --> roughly(-1.0, 1e-6)
+    @fact lhs_const        --> roughly(2.0*2.0-1.0*3.0, 1e-6)
 
     # -------------------
     unc_val = [1.0, 2.0, 3.0, 4.0, 5.0]
     new_con = JuMPeR.build_certain_constraint(rm, unc_con, unc_val)
-    if VERSION > v"0.4.0-"
-        @fact conToStr(new_con) => "x[2] + 5 x[1] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+    if VERSION < v"0.4.0-"
+        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
     else
-        @fact conToStr(new_con) => "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
     end
 
     # Bit of a hack to test build from JuMPDict
@@ -79,17 +81,17 @@ facts("[oracle] Test oracle utilities") do
     @setObjective(inner_m, Max, sum(inner_u))
     solve(inner_m)
     new_con = JuMPeR.build_certain_constraint(rm, unc_con, getValue(inner_u))
-    if VERSION > v"0.4.0-"
-        @fact conToStr(new_con) => "x[2] + 5 x[1] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+    if VERSION < v"0.4.0-"
+        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
     else
-        @fact conToStr(new_con) => "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl_leq) 10"
+        @fact conToStr(new_con) --> "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
     end
 
     # -------------------
     lhs_val = dot([5,1,4,11],[2,3,4,5])
-    @fact JuMPeR.check_cut_status(new_con, lhs_val, 1e-6) => :Violate
+    @fact JuMPeR.check_cut_status(new_con, lhs_val, 1e-6) --> :Violate
     lhs_val = dot([5,1,4,11],[2,0,0,0])
-    @fact JuMPeR.check_cut_status(new_con, lhs_val, 1e+6) => :Active
+    @fact JuMPeR.check_cut_status(new_con, lhs_val, 1e+6) --> :Active
     lhs_val = dot([5,1,4,11],[0,0,0,0])
-    @fact JuMPeR.check_cut_status(new_con, lhs_val, 1e-6) => :Slack
+    @fact JuMPeR.check_cut_status(new_con, lhs_val, 1e-6) --> :Slack
 end

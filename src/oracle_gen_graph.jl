@@ -83,7 +83,7 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
             m.colNames = rd.uncNames[comp_to_unc[comp]]
             m.colLower = rd.uncLower[comp_to_unc[comp]]
             m.colUpper = rd.uncUpper[comp_to_unc[comp]]
-            m.colCat   = rd.uncCat  [comp_to_unc[comp]]
+            m.colCat   = rd.uncCat[  comp_to_unc[comp]]
             cut_vars   = [Variable(m, i) for i = 1:length(comp_to_unc[comp])]
             # Polyhedral constraints only right now
             for con_ind in 1:length(rd.uncertaintyset)
@@ -91,7 +91,7 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
                 c = rd.uncertaintyset[con_ind]
                 newcon = LinearConstraint(AffExpr(), c.lb, c.ub)
                 newcon.terms.coeffs = c.terms.coeffs
-                newcon.terms.vars   = [cut_vars[unc_to_comp_unc[u.unc]] for u in c.terms.vars]
+                newcon.terms.vars   = [cut_vars[unc_to_comp_unc[u.id]] for u in c.terms.vars]
                 push!(m.linconstr, newcon)
             end
 
@@ -130,7 +130,7 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
             for uncset_i = 1:length(comp_uncset)    # WAS: length(rd.uncertaintyset)
                 lhs = comp_uncset[uncset_i].terms   # WAS: rd.uncertaintyset[uncset_i].terms
                 for unc_j = 1:length(lhs.vars)
-                    push!(dual_A[unc_to_comp_unc[lhs.vars[unc_j].unc]],  # WAS: [lhs.vars[unc_j].unc],
+                    push!(dual_A[unc_to_comp_unc[lhs.vars[unc_j].id]],  # WAS: [lhs.vars[unc_j].unc],
                                 (uncset_i, lhs.coeffs[unc_j]))
                 end
                 dual_objs[uncset_i]    = rhs(comp_uncset[uncset_i])
@@ -190,14 +190,14 @@ function generateReform(gen::GeneralGraphOracle, master::Model, rm::Model, inds:
         for var_ind = 1:length(unc_lhs.vars)
             uaff = unc_lhs.coeffs[var_ind]
             for unc_ind = 1:length(uaff.vars)
-                comp = gen.unc_to_comp[uaff.vars[unc_ind].unc]
+                comp = gen.unc_to_comp[uaff.vars[unc_ind].id]
                 break
             end
         end
         if comp == 0
             uaff = unc_lhs.constant
             for unc_ind = 1:length(uaff.vars)
-                comp = gen.unc_to_comp[uaff.vars[unc_ind].unc]
+                comp = gen.unc_to_comp[uaff.vars[unc_ind].id]
                 break
             end
         end
@@ -241,7 +241,7 @@ function generateReform(gen::GeneralGraphOracle, master::Model, rm::Model, inds:
             term_coeff  = orig_lhs.coeffs[term_i]
             for coeff_term_j = 1:length(term_coeff.coeffs)
                 coeff = term_coeff.coeffs[coeff_term_j]
-                unc   = term_coeff.vars[coeff_term_j].unc
+                unc   = term_coeff.vars[coeff_term_j].id
                 push!(dual_rhs[unc_to_comp_unc[unc]], 
                                     coeff * sign_flip, 
                                      Variable(master, var_col))
@@ -250,7 +250,7 @@ function generateReform(gen::GeneralGraphOracle, master::Model, rm::Model, inds:
         # From constant term
             for const_term_j = 1:length(orig_lhs.constant.coeffs)
                 coeff = orig_lhs.constant.coeffs[const_term_j]
-                unc   = orig_lhs.constant.vars[const_term_j].unc
+                unc   = orig_lhs.constant.vars[const_term_j].id
                 dual_rhs[unc_to_comp_unc[unc]].constant += coeff * sign_flip
             end
 
@@ -316,7 +316,7 @@ function generateCut(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Ve
         for var_ind = 1:length(unc_lhs.vars)
             uaff = unc_lhs.coeffs[var_ind]
             for unc_ind = 1:length(uaff.vars)
-                comp = gen.unc_to_comp[uaff.vars[unc_ind].unc]
+                comp = gen.unc_to_comp[uaff.vars[unc_ind].id]
                 break
             end
         end
@@ -324,14 +324,14 @@ function generateCut(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Ve
         if comp == 0
             uaff = unc_lhs.constant
             for unc_ind = 1:length(uaff.vars)
-                comp = gen.unc_to_comp[uaff.vars[unc_ind].unc]
+                comp = gen.unc_to_comp[uaff.vars[unc_ind].id]
                 break
             end
         end
 
         @assert comp != 0
-        cut_model       = gen.comp_cut_model[comp]
-        cut_vars        = gen.comp_cut_vars [comp]
+        cut_model       = gen.comp_cut_model[ comp]
+        cut_vars        = gen.comp_cut_vars[  comp]
         unc_to_comp_unc = gen.unc_to_comp_unc[comp]
 
         # Update the cutting plane problem's objective, and solve

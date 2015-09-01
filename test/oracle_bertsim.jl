@@ -9,11 +9,13 @@
 
 using JuMP, JuMPeR
 using FactCheck
+using Compat
 
 if !(:lp_solvers in names(Main))
     println("Loading solvers...")
     include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 end
+lp_solvers = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
 
 facts("[oracle_bertsim] +x, +coeff") do
 for solver in lp_solvers, cuts in [true]
@@ -24,7 +26,7 @@ context("$(typeof(solver)), cuts=$cuts") do
     values      = [0.1, 9.9]
 
     m = RobustModel(solver=solver)
-    @fact BertSimOracle() => anything
+    @fact BertSimOracle() --> not(nothing)
     setDefaultOracle!(m, BertSimOracle(1))
     
     @defVar(m, 0 <= x[1:n] <= 10)
@@ -34,9 +36,9 @@ context("$(typeof(solver)), cuts=$cuts") do
 
     @addConstraint(m, sum{u[i]*x[i], i=1:n} <= 21)
     
-    @fact solve(m, prefer_cuts=cuts) => :Optimal
-    @fact getValue(x[1]) => roughly(0.0,1e-6)
-    @fact getValue(x[2]) => roughly(3.0,1e-6)
+    @fact solve(m, prefer_cuts=cuts) --> :Optimal
+    @fact getValue(x[1]) --> roughly(0.0,1e-6)
+    @fact getValue(x[2]) --> roughly(3.0,1e-6)
 end; end; end
 
 
@@ -58,9 +60,9 @@ context("$(typeof(solver)), cuts=$cuts") do
 
     @addConstraint(m, sum{u[i]*x[i], i=1:n} >= -21)
     
-    @fact solve(m, prefer_cuts=cuts) => :Optimal
-    @fact getValue(x[1]) => roughly(0.0,1e-6)
-    @fact getValue(x[2]) => roughly(3.0,1e-6)
+    @fact solve(m, prefer_cuts=cuts) --> :Optimal
+    @fact getValue(x[1]) --> roughly(0.0,1e-6)
+    @fact getValue(x[2]) --> roughly(3.0,1e-6)
 end; end; end
 
 facts("[oracle_bertsim] -x, +coeff") do
@@ -81,9 +83,9 @@ context("$(typeof(solver)), cuts=$cuts") do
 
     @addConstraint(m, sum{u[i]*x[i], i=1:n} >= -21)
     
-    @fact solve(m, prefer_cuts=cuts) => :Optimal
-    @fact getValue(x[1]) => roughly( 0.0,1e-6)
-    @fact getValue(x[2]) => roughly(-3.0,1e-6)
+    @fact solve(m, prefer_cuts=cuts) --> :Optimal
+    @fact getValue(x[1]) --> roughly( 0.0,1e-6)
+    @fact getValue(x[2]) --> roughly(-3.0,1e-6)
 end; end; end
 
 
@@ -105,7 +107,7 @@ context("$(typeof(solver)), cuts=$cuts") do
 
     @addConstraint(m, sum{u[i]*x[i], i=1:n} <= 21)
     
-    @fact solve(m, prefer_cuts=cuts) => :Optimal
-    @fact getValue(x[1]) => roughly( 0.0,1e-6)
-    @fact getValue(x[2]) => roughly(-3.0,1e-6)
+    @fact solve(m, prefer_cuts=cuts) --> :Optimal
+    @fact getValue(x[1]) --> roughly( 0.0,1e-6)
+    @fact getValue(x[2]) --> roughly(-3.0,1e-6)
 end; end; end

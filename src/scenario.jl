@@ -1,20 +1,24 @@
-#############################################################################
-# JuMPeR
-# Julia for Mathematical Programming - extension for Robust Optimization
-# See http://github.com/IainNZ/JuMPeR.jl
-#############################################################################
-# scenario.jl
-# Logic for scenarios, which are samples from the uncertainty set, and can
-# be both provided and retrieved at optimality.
-#############################################################################
+#-----------------------------------------------------------------------
+# JuMPeR  --  JuMP Extension for Robust Optimization
+# http://github.com/IainNZ/JuMPeR.jl
+#-----------------------------------------------------------------------
+# Copyright (c) 2015: Iain Dunning
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#-----------------------------------------------------------------------
+# src/scenario.jl
+# Logic for scenarios, which are samples from the uncertainty set, and
+# can be both provided and retrieved at optimality.
+#-----------------------------------------------------------------------
 
 export Scenario, setUncValue, getUncValue, isBinding
 type Scenario
     data::Vector{Float64}  # Using NaN as undefined
     binding::Bool
 end
-setUncValue(s::Scenario, u::Uncertain, v::Float64) = (s.data[u.unc] = v)
-getUncValue(s::Scenario, u::Uncertain) = (s.data[u.unc])
+setUncValue(s::Scenario, u::Uncertain, v::Float64) = (s.data[u.id] = v)
+getUncValue(s::Scenario, u::Uncertain) = (s.data[u.id])
 isBinding(s::Scenario) = s.binding
 
 
@@ -24,7 +28,7 @@ export addScenario
 function addScenario(m::Model, data::Dict)
     scen = Scenario(fill(NaN,getRobust(m).numUncs), false)
     for u in keys(data)
-        scen.data[u.unc] = data[u]
+        scen.data[u.id] = data[u]
     end
     addScenario(m, scen)
 end
@@ -50,13 +54,13 @@ function scen_satisfies_con(scen::Scenario, con::UncConstraint)
     for var_ind = 1:length(con.terms.coeffs)
         coeff = con.terms.coeffs[var_ind]
         for unc_ind = 1:length(coeff.vars)
-            isnan(scen.data[coeff.vars[unc_ind].unc]) && return false
+            isnan(scen.data[coeff.vars[unc_ind].id]) && return false
         end
     end
     # Non variable part
         coeff = con.terms.constant
         for unc_ind = 1:length(coeff.vars)
-            isnan(scen.data[coeff.vars[unc_ind].unc]) && return false
+            isnan(scen.data[coeff.vars[unc_ind].id]) && return false
         end
     return true
 end

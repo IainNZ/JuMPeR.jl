@@ -1,20 +1,33 @@
-#############################################################################
-# JuMPeR
-# Julia for Mathematical Programming - extension for Robust Optimization
-# See http://github.com/IainNZ/JuMPeR.jl
-#############################################################################
+#-----------------------------------------------------------------------
+# JuMPeR  --  JuMP Extension for Robust Optimization
+# http://github.com/IainNZ/JuMPeR.jl
+#-----------------------------------------------------------------------
+# Copyright (c) 2015: Iain Dunning
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#-----------------------------------------------------------------------
+# src/JuMPeR.jl
+# Defines the module and main types: RobustData, Uncertain, and the
+# various constraints and norms.
+#-----------------------------------------------------------------------
+
+isdefined(Base, :__precompile__) && __precompile__()
 
 module JuMPeR
 
 using Compat
 
+importall Base.Operators
+
 # Import everything we need from JuMP, so we can build on it
 importall JuMP
-import JuMP.GenericAffExpr, JuMP.JuMPConstraint, JuMP.GenericRangeConstraint
-import JuMP.sense, JuMP.rhs
-import JuMP.IndexedVector, JuMP.addelt!, JuMP.isexpr
-import JuMP.JuMPContainer, JuMP.JuMPDict, JuMP.JuMPArray
-import JuMP.@gendict
+import JuMP: JuMPConstraint, sense, rhs
+import JuMP: GenericAffExpr, GenericRangeConstraint
+import JuMP: GenericNorm, GenericNormExpr
+import JuMP: addVectorizedConstraint
+import JuMP: IndexedVector, addelt!
+import JuMP: JuMPContainer, JuMPDict, JuMPArray
 
 # JuMPeRs exported interface
 export RobustModel, getNumUncs
@@ -22,33 +35,25 @@ export setDefaultOracle!
 export Uncertain, @defUnc, addEllipseConstraint
 export UAffExpr, FullAffExpr
 export UncConstraint, UncSetConstraint, EllipseConstraint
-# Deprecated
-export printRobust, solveRobust
 
 
-
-#############################################################################
+#-----------------------------------------------------------------------
 # RobustData contains all extensions to the base JuMP model type
 type RobustData
     # Variable-Uncertain mixed constraints
-    uncertainconstr
+    uncertainconstr::Vector
     # Oracles associated with each uncertainconstr
-    oracles
+    oracles::Vector
     # Uncertain-only constraints
-    uncertaintyset
-    normconstraints
+    uncertaintyset::Vector
+    normconstraints::Vector
     
     # Uncertainty data
     numUncs::Int
-    uncNames::Vector{String}
+    uncNames::Vector{UTF8String}
     uncLower::Vector{Float64}
     uncUpper::Vector{Float64}
     uncCat::Vector{Symbol}
-
-    # Adaptability
-    adapt_type::Dict{Int,Symbol}
-    adapt_on::Dict{Int,Vector}
-
     defaultOracle
 
     # Active cuts
@@ -59,42 +64,56 @@ type RobustData
 
     # For pretty printing
     dictList::Vector
+    uncDict::Dict{Symbol,Any}
+    uncData::ObjectIdDict
 
     # Provided scenarios
     scenarios::Vector
 
     solve_time::Float64
 end
-RobustData(cutsolver) = RobustData(Any[],Any[],Any[],Any[],
-                            0,String[],Float64[],Float64[],Symbol[],
-                            Dict{Int,Symbol}(), Dict{Int,Vector}(),
-                            GeneralOracle(), Any[],
-                            cutsolver,JuMP.JuMPContainer[],Any[], 0.0)
-
-function RobustModel(;solver=JuMP.UnsetSolver(),cutsolver=JuMP.UnsetSolver())
+RobustData(cutsolver) = RobustData(
+    Any[],          # uncertainconstr
+    Any[],          # oracles
+    Any[],          # uncertaintyset
+    Any[],          # normconstraints
+    0,              # numUncs
+    UTF8String[],   # uncNames
+    Float64[],      # uncLower
+    Float64[],      # uncUpper
+    Symbol[],       # uncCat
+    GeneralOracle(),# defaultOracle
+    Any[],          # activecuts
+    cutsolver,      # cutsolver
+    Any[],          # dictList
+    Dict{Symbol,Any}(), # uncDict
+    ObjectIdDict(), # uncData
+    Any[],          # scenarios
+    0.0)            # solve_time
+function RobustModel(; solver=JuMP.UnsetSolver(),
+                    cutsolver=JuMP.UnsetSolver())
+    # Create the underlying JuMP model
     m = Model(solver=solver)
-    m.ext[:Robust] = RobustData(cutsolver)
-    JuMP.setPrintHook(m, _print_robust)
-    JuMP.setSolveHook(m, _solve_robust)
+    # Add the robust extensions
+    m.ext[:JuMPeR] = RobustData(cutsolver)
+    # Override the default printing and solving calls
+    JuMP.setPrintHook(m, print_robust)
+    JuMP.setSolveHook(m, solve_robust)
     return m
 end
 
 function getRobust(m::Model)
-    if haskey(m.ext, :Robust)
-        return m.ext[:Robust]
-    else
-        error("This functionality is only available for RobustModels")
-    end
+    haskey(m.ext, :JuMPeR) && return m.ext[:JuMPeR]
+    error("This functionality is only available for JuMPeR RobustModels.")
 end
 
-getNumUncs(m::Model) = getRobust(m).numUncs
 
-#############################################################################
+#-----------------------------------------------------------------------
 # Uncertain
 # Similar to JuMP.Variable, has an reference back to the model and an id num
-type Uncertain
+type Uncertain <: JuMP.AbstractJuMPScalar
     m::Model
-    unc::Int
+    id::Int
 end
 function Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol, name::String)
     robdata = getRobust(m)
@@ -106,51 +125,70 @@ function Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol, name::St
     return Uncertain(m, robdata.numUncs)
 end
 Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol) = Uncertain(m,lower,upper,cat,"")
-getName(u::Uncertain) = unc_str(REPLMode, u.m, u.unc)
-Base.isequal(u1::Uncertain, u2::Uncertain) = isequal(u1.unc, u2.unc)
-Base.promote_rule{T<:Real}(::Type{Uncertain},::Type{T}) = UAffExpr
+getLower(u::Uncertain) = getRobust(u.m).uncLower[u.id]
+getUpper(u::Uncertain) = getRobust(u.m).uncUpper[u.id]
+getName(u::Uncertain) = unc_str(REPLMode, u.m, u.id)
+getCategory(u::Uncertain) = getRobust(u.m).uncCat[u.id]
+Base.zero(::Type{Uncertain}) = UAffExpr()
+Base.zero(::Uncertain) = zero(Uncertain)
+Base.one(::Type{Uncertain}) = UAffExpr(1)
+Base.one(::Uncertain) = one(Uncertain)
+Base.isequal(u1::Uncertain, u2::Uncertain) = (u1.m === u2.m) && isequal(u1.id, u2.id)
+getNumUncs(m::Model) = getRobust(m).numUncs
 
-#############################################################################
-# Uncertain Affine Expression class
+
+#-----------------------------------------------------------------------
+# UAffExpr   ∑ᵢ aᵢ uᵢ
 typealias UAffExpr GenericAffExpr{Float64,Uncertain}
 
-UAffExpr() = UAffExpr(Uncertain[],Float64[],0.)
-UAffExpr(c::Real) = UAffExpr(Uncertain[],Float64[],float(c))
-UAffExpr(u::Uncertain) = UAffExpr([u],[1.],0.)
-UAffExpr(u::Uncertain, c::Real) = UAffExpr([u],[float(c)],0.)
-# Next is a bit weird - its basically the vectorized version of UAffExpr(c) 
-UAffExpr(coeffs::Array{Float64,1}) = [UAffExpr(c) for c in coeffs]
-Base.zero(a::Type{UAffExpr}) = UAffExpr()  # For zeros(UAffExpr, dims...)
-Base.zero(a::UAffExpr) = zero(typeof(a))
-Base.convert(::Type{UAffExpr}, u::Uncertain) = UAffExpr(u)
-Base.convert(::Type{UAffExpr}, c::Number) = UAffExpr(c)
+UAffExpr() = zero(UAffExpr)
+UAffExpr(x::Union(Number,Uncertain)) = convert(UAffExpr, x)
+UAffExpr(c::Number,u::Uncertain) = UAffExpr(Uncertain[u],Float64[c],0.0)
+Base.convert(::Type{UAffExpr}, u::Uncertain) = UAffExpr(Uncertain[u],Float64[1],0.0)
+Base.convert(::Type{UAffExpr}, c::Number)    = UAffExpr(Uncertain[ ],Float64[ ],  c)
+# aff_to_uaff
+# Useful for oracles. Given a UAffExpr and a list of variables, create an
+# AffExpr such that Uncertain(i) maps to Variable(i), where i is the index,
+# in the new expression.
+uaff_to_aff(uaff::UAffExpr, x::Vector{Variable}) =
+    AffExpr(Variable[x[up.id] for up in uaff.vars],
+            copy(uaff.coeffs), uaff.constant)
 
-#############################################################################
-# Full Affine Expression class
-# Todo: better name. In my other robust modelling tools I called it
-# something like this, but the catch then was that there we only two types of
-# affexpr - the one with UAffExpr coefficients = Full, and the UAffExpr itself
+
+#-----------------------------------------------------------------------
+# FullAffExpr   ∑ⱼ (∑ᵢ aᵢⱼ uᵢ) xⱼ
 typealias FullAffExpr GenericAffExpr{UAffExpr,Variable}
 
-FullAffExpr() = FullAffExpr(Variable[], UAffExpr[], UAffExpr())
-Base.zero(a::Type{FullAffExpr}) = FullAffExpr()
-Base.zero(a::FullAffExpr) = zero(typeof(a))
-Base.convert(::Type{FullAffExpr}, x::Variable) = FullAffExpr([x],[UAffExpr(1)], UAffExpr())
-function Base.push!(faff::FullAffExpr, new_coeff::UAffExpr, new_var::Variable)
-    push!(faff.vars, new_var)
-    push!(faff.coeffs, new_coeff)
-end
+FullAffExpr() = zero(FullAffExpr)
+Base.convert(::Type{FullAffExpr}, c::Number) =
+    FullAffExpr(Variable[], UAffExpr[], UAffExpr(c))
+Base.convert(::Type{FullAffExpr}, x::Variable) =
+    FullAffExpr(Variable[x],UAffExpr[UAffExpr(1)], UAffExpr())
+Base.convert(::Type{FullAffExpr}, aff::AffExpr) =
+    FullAffExpr(copy(aff.vars), map(UAffExpr,aff.coeffs), UAffExpr(aff.constant))
+Base.convert(::Type{FullAffExpr}, uaff::UAffExpr) =
+    FullAffExpr(Variable[], UAffExpr[], uaff)
+
 function Base.push!(faff::FullAffExpr, new_coeff::Union(Real,Uncertain), new_var::Variable)
     push!(faff.vars, new_var)
     push!(faff.coeffs, UAffExpr(new_coeff))
 end
 
-#############################################################################
-# UncSetConstraint      Just uncertainties
+
+#-----------------------------------------------------------------------
+# UncSetConstraint      A constraint with just uncertain parameters
 typealias UncSetConstraint GenericRangeConstraint{UAffExpr}
 addConstraint(m::Model, c::UncSetConstraint) = push!(getRobust(m).uncertaintyset, c)
+addConstraint(m::Model, c::Array{UncSetConstraint}) =
+    error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
+function addVectorizedConstraint(m::Model, v::Array{UncSetConstraint})
+    map(c->addConstraint(m,c), v)
+    v
+end
 
-# UncConstraint         Mix of variables and uncertains
+
+#-----------------------------------------------------------------------
+# UncConstraint         A constraint with variables and uncertains
 typealias UncConstraint GenericRangeConstraint{FullAffExpr}
 function addConstraint(m::Model, c::UncConstraint, w=nothing)
     rd = getRobust(m)
@@ -167,63 +205,35 @@ function addConstraint(m::Model, c::UncConstraint, w=nothing)
     push!(rd.activecuts, Any[])
     return ConstraintRef{UncConstraint}(m,length(rd.uncertainconstr))
 end
-
-
-#############################################################################
-# EllipseConstraint
-# Capture uncertainty set constraints of the form  || F u + g ||_2 <= Gamma
-type EllipseConstraint <: JuMP.JuMPConstraint
-    m::Model
-    F::Array{Float64, 2}
-    u::Array{Int, 1}
-    g::Array{Float64, 1}
-    Gamma::Float64
+addConstraint(m::Model, c::Array{UncConstraint}) =
+    error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
+function addVectorizedConstraint(m::Model, v::Array{UncConstraint})
+    map(c->addConstraint(m,c), v)
+    v
 end
 
-# build_ellipse_constraint
-# Given || vec ||_2 <= Gamma, return an EllipseConstraint by expanding 
-# `vec` out to its full `Fu+g` form.
-function build_ellipse_constraint(m::Model, vec::Vector, Gamma::Float64)
-    
-    # In the first pass we determine a unique set of uncertainties
-    # present so we can allocate the correct size F and u
-    unc_map  = Dict{Int,Int}()
-    rev_map  = Dict{Int,Int}()
-    function record(v::Uncertain)
-        if !(v.unc in keys(unc_map))
-            unc_map[v.unc] = length(unc_map) + 1
-            rev_map[length(unc_map)] = v.unc
-        end
-    end
-    record(v::UAffExpr) = map(record, v.vars)
-    record(v) = ArgumentError()
-    map(record, vec)
 
-    # Create F and g
-    num_uncs  = length(unc_map)
-    num_terms = length(vec)
-    F = zeros(num_terms, num_uncs)
-    g = zeros(num_terms)
-    for (i,v) in enumerate(vec)
-        if typeof(v) <: UAffExpr
-            g[i] = v.constant
-            for (j,u) in enumerate(v.vars)
-                F[i,unc_map[u.unc]] += v.coeffs[j]
-            end
-        elseif typeof(v) <: Uncertain
-            F[i,unc_map[v.unc]] += 1.0
-        end
-    end
+#-----------------------------------------------------------------------
+# Norms of uncertain parameters
+typealias UncSetNorm{Typ} GenericNorm{Typ,Float64,Uncertain}
+JuMP._build_norm(Lp, terms::Vector{UAffExpr}) = UncSetNorm{Lp}(terms)
 
-    return EllipseConstraint(m,F,[rev_map[i] for i=1:num_uncs],g,Gamma)
+type UncNormConstraint{P} <: JuMPConstraint
+    normexpr::GenericNormExpr{P,Float64,Uncertain}
 end
 
-function addEllipseConstraint(m::Model, vec::Vector, Gamma::Real)
-    push!(getRobust(m).normconstraints, build_ellipse_constraint(m,vec,float(Gamma)))
+function addConstraint(m::Model, c::UncNormConstraint)
+    push!(getRobust(m).normconstraints,c)
     getRobust(m).normconstraints[end]
 end
 
-#############################################################################
+addEllipseConstraint(m::Model, vec::Vector, Gamma::Real) =
+    error("""addEllipseConstraint not supported as of JuMPeR v0.2.
+             Please use, e.g., @addConstraint(m, norm(x) <= Γ)
+                               @addConstraint(m, norm2{x[i],i=1:n} <= Γ""")
+
+
+#-----------------------------------------------------------------------
 # Scenarios
 include("scenario.jl")
 
@@ -245,6 +255,7 @@ include("print.jl")
 # Graph algorithms
 include("graph.jl")
 
-#############################################################################
+
+#-----------------------------------------------------------------------
 end  # module
-#############################################################################
+#-----------------------------------------------------------------------
