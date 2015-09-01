@@ -1,6 +1,7 @@
 language: julia
 os:
     - linux
+    - osx
 julia:
     - release
     - nightly
@@ -15,10 +16,6 @@ addons:
         - libglpk-dev
 script:
     - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-    - julia -e 'Pkg.add("JuMP"); Pkg.checkout("JuMP")'
-    - julia -e 'Pkg.clone(pwd())'
-    - julia -e 'Pkg.test("JuMPeR", coverage=true)'
+    - julia -e 'Pkg.clone(pwd()); Pkg.test("JuMPeR", coverage=true)'
 after_success:
-    - julia -e 'Pkg.add("Coverage")'
-    - julia -e 'cd(Pkg.dir("JuMPeR")); using Coverage; Coveralls.submit(process_folder())'
-    - julia -e 'cd(Pkg.dir("JuMPeR")); using Coverage; Codecov.submit(process_folder())'
+    - julia -e 'cd(Pkg.dir("JuMPeR")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'

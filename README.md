@@ -1,13 +1,16 @@
 ![JuMPeR Logo](http://iainnz.github.io/JuMPeR.jl/logo.svg)
 
 [![Build Status](https://travis-ci.org/IainNZ/JuMPeR.jl.svg?branch=master)](https://travis-ci.org/IainNZ/JuMPeR.jl)
-[![Coverage Status](https://img.shields.io/coveralls/IainNZ/JuMPeR.jl.svg)](https://coveralls.io/r/IainNZ/JuMPeR.jl?branch=master)
-[![JuMPeR](http://pkg.julialang.org/badges/JuMPeR_release.svg)](http://pkg.julialang.org/?pkg=JuMPeR&ver=release)
+[![codecov.io](http://codecov.io/github/IainNZ/JuMPeR.jl/coverage.svg?branch=master)](http://codecov.io/github/IainNZ/JuMPeR.jl?branch=master)
 
-**[JuMPeR]** is a modeling language for [robust optimization]. It is embedded in the [Julia programming language], and is an extension to the [JuMP] modeling language.
+[![JuMPeR](http://pkg.julialang.org/badges/JuMPeR_0.3.svg)](http://pkg.julialang.org/?pkg=JuMPeR&ver=release)
+[![JuMPeR](http://pkg.julialang.org/badges/JuMPeR_0.4.svg)](http://pkg.julialang.org/?pkg=JuMPeR&ver=nightly)
+
+**[JuMPeR]** is a modeling language for [robust optimization].
+It is embedded in the [Julia programming language], and is an extension to the [JuMP] modeling language.
 
 * [Read documentation to learn more](http://iainnz.github.io/JuMPeR.jl)
-* Install with Julia package manager: `Pkg.add("JuMPeR")`
+* Install with Julia package manager: `julia> Pkg.add("JuMPeR")`
 
 
 [Julia programming language]: http://julialang.org/
