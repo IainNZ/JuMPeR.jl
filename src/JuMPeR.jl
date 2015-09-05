@@ -154,6 +154,16 @@ uaff_to_aff(uaff::UncExpr, x::Vector{Variable}) =
     AffExpr(Variable[x[up.id] for up in uaff.vars],
             copy(uaff.coeffs), uaff.constant)
 
+# UncSetConstraint      A constraint with just uncertain parameters
+typealias UncSetConstraint GenericRangeConstraint{UncExpr}
+addConstraint(m::Model, c::UncSetConstraint) = push!(getRobust(m).uncertaintyset, c)
+addConstraint(m::Model, c::Array{UncSetConstraint}) =
+    error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
+function addVectorizedConstraint(m::Model, v::Array{UncSetConstraint})
+    map(c->addConstraint(m,c), v)
+    v
+end
+
 
 #-----------------------------------------------------------------------
 # UncAffExpr   ∑ⱼ (∑ᵢ aᵢⱼ uᵢ) xⱼ
@@ -174,20 +184,6 @@ function Base.push!(faff::UncAffExpr, new_coeff::Union(Real,Uncertain), new_var:
     push!(faff.coeffs, UncExpr(new_coeff))
 end
 
-
-#-----------------------------------------------------------------------
-# UncSetConstraint      A constraint with just uncertain parameters
-typealias UncSetConstraint GenericRangeConstraint{UncExpr}
-addConstraint(m::Model, c::UncSetConstraint) = push!(getRobust(m).uncertaintyset, c)
-addConstraint(m::Model, c::Array{UncSetConstraint}) =
-    error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
-function addVectorizedConstraint(m::Model, v::Array{UncSetConstraint})
-    map(c->addConstraint(m,c), v)
-    v
-end
-
-
-#-----------------------------------------------------------------------
 # UncConstraint         A constraint with variables and uncertains
 typealias UncConstraint GenericRangeConstraint{UncAffExpr}
 function addConstraint(m::Model, c::UncConstraint, w=nothing)
