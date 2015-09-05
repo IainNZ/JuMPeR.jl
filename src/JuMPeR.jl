@@ -33,7 +33,7 @@ import JuMP: JuMPContainer, JuMPDict, JuMPArray
 export RobustModel, getNumUncs
 export setDefaultOracle!
 export Uncertain, @defUnc, addEllipseConstraint
-export UncExpr, FullAffExpr
+export UncExpr, UncAffExpr
 export UncConstraint, UncSetConstraint, EllipseConstraint
 
 
@@ -156,20 +156,20 @@ uaff_to_aff(uaff::UncExpr, x::Vector{Variable}) =
 
 
 #-----------------------------------------------------------------------
-# FullAffExpr   ∑ⱼ (∑ᵢ aᵢⱼ uᵢ) xⱼ
-typealias FullAffExpr GenericAffExpr{UncExpr,Variable}
+# UncAffExpr   ∑ⱼ (∑ᵢ aᵢⱼ uᵢ) xⱼ
+typealias UncAffExpr GenericAffExpr{UncExpr,Variable}
 
-FullAffExpr() = zero(FullAffExpr)
-Base.convert(::Type{FullAffExpr}, c::Number) =
-    FullAffExpr(Variable[], UncExpr[], UncExpr(c))
-Base.convert(::Type{FullAffExpr}, x::Variable) =
-    FullAffExpr(Variable[x],UncExpr[UncExpr(1)], UncExpr())
-Base.convert(::Type{FullAffExpr}, aff::AffExpr) =
-    FullAffExpr(copy(aff.vars), map(UncExpr,aff.coeffs), UncExpr(aff.constant))
-Base.convert(::Type{FullAffExpr}, uaff::UncExpr) =
-    FullAffExpr(Variable[], UncExpr[], uaff)
+UncAffExpr() = zero(UncAffExpr)
+Base.convert(::Type{UncAffExpr}, c::Number) =
+    UncAffExpr(Variable[], UncExpr[], UncExpr(c))
+Base.convert(::Type{UncAffExpr}, x::Variable) =
+    UncAffExpr(Variable[x],UncExpr[UncExpr(1)], UncExpr())
+Base.convert(::Type{UncAffExpr}, aff::AffExpr) =
+    UncAffExpr(copy(aff.vars), map(UncExpr,aff.coeffs), UncExpr(aff.constant))
+Base.convert(::Type{UncAffExpr}, uaff::UncExpr) =
+    UncAffExpr(Variable[], UncExpr[], uaff)
 
-function Base.push!(faff::FullAffExpr, new_coeff::Union(Real,Uncertain), new_var::Variable)
+function Base.push!(faff::UncAffExpr, new_coeff::Union(Real,Uncertain), new_var::Variable)
     push!(faff.vars, new_var)
     push!(faff.coeffs, UncExpr(new_coeff))
 end
@@ -189,7 +189,7 @@ end
 
 #-----------------------------------------------------------------------
 # UncConstraint         A constraint with variables and uncertains
-typealias UncConstraint GenericRangeConstraint{FullAffExpr}
+typealias UncConstraint GenericRangeConstraint{UncAffExpr}
 function addConstraint(m::Model, c::UncConstraint, w=nothing)
     rd = getRobust(m)
     # Handle the odd special case where there are actually no variables in

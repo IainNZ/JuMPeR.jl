@@ -64,10 +64,10 @@ context("Core JuMPeR type methods") do
     @fact typeof(zero(uaff)) --> UncExpr
     @fact affToStr(zero(UncExpr)) --> "0"
 
-    # FullAffExpr
-    @fact affToStr(FullAffExpr()) --> "0"
-    @fact typeof(zero(faff)) --> FullAffExpr
-    @fact affToStr(zero(FullAffExpr)) --> "0"
+    # UncAffExpr
+    @fact affToStr(UncAffExpr()) --> "0"
+    @fact typeof(zero(faff)) --> UncAffExpr
+    @fact affToStr(zero(UncAffExpr)) --> "0"
     pusher = a * x
     @fact affToStr(pusher) --> "a x"
     push!(pusher, 2.0, y)
@@ -88,7 +88,7 @@ context("Number--... tests") do
     @fact affToStr(1.5 - uaff) --> "-2.3 a - 4"
     @fact affToStr(2.0 * uaff) --> "4.6 a + 11"
     @fact_throws 2.94 / uaff
-    # Number--FullAffExpr
+    # Number--UncAffExpr
     @fact affToStr(2.3 + faff) --> "(5 a + 1) x + 2 b + 5.3"
     @fact affToStr(1.0 - faff) --> "(-5 a - 1) x + -2 b - 2"
     @fact affToStr(2.0 * faff) --> "(10 a + 2) x + 4 b + 6"
@@ -107,7 +107,7 @@ context("Variable--... tests") do
     @fact affToStr(x - uaff) --> "x + -2.3 a - 5.5"
     @fact affToStr(x * uaff) --> "(2.3 a + 5.5) x"
     @fact_throws affToStr(x / uaff)
-    # Variable--FullAffExpr
+    # Variable--UncAffExpr
     @fact affToStr(x + faff) --> "(5 a + 1) x + x + 2 b + 3"
     @fact affToStr(x - faff) --> "(-5 a - 1) x + x + -2 b - 3"
     @fact_throws x * faff
@@ -126,7 +126,7 @@ context("AffExpr--... tests") do
     @fact affToStr(aff - uaff) --> "7.1 x + -2.3 a - 3"
     @fact affToStr(aff * uaff) --> "(16.33 a + 39.05) x + 5.75 a + 13.75"
     @fact_throws aff / uaff
-    # AffExpr--FullAffExpr
+    # AffExpr--UncAffExpr
     @fact affToStr(aff + faff) --> "7.1 x + (5 a + 1) x + 2 b + 5.5"
     @fact affToStr(aff - faff) --> "7.1 x + (-5 a - 1) x + -2 b - 0.5"
     @fact_throws aff * faff
@@ -160,7 +160,7 @@ context("Uncertain--... tests") do
     @fact affToStr(b - uaff) --> "b - 2.3 a - 5.5"
     @fact_throws b * uaff
     @fact_throws b / uaff
-    # Uncertain--FullAffExpr (faff = (5a + 1)x + 2b + 3)
+    # Uncertain--UncAffExpr (faff = (5a + 1)x + 2b + 3)
     @fact affToStr(a + faff) --> "(5 a + 1) x + a + 2 b + 3"
     @fact affToStr(a - faff) --> "(-5 a - 1) x + a - 2 b - 3"
     @fact_throws a * faff
@@ -194,7 +194,7 @@ context("UncExpr--... tests") do
     @fact affToStr(uaff - uaff2) --> "2.3 a - 3.4 b + 4.4"
     @fact_throws uaff * uaff2
     @fact_throws uaff / uaff2
-    # UncExpr--FullAffExpr (faff = (5a + 1)x + 2b + 3)
+    # UncExpr--UncAffExpr (faff = (5a + 1)x + 2b + 3)
     @fact affToStr(uaff + faff) --> "(5 a + 1) x + 2.3 a + 2 b + 8.5"
     @fact affToStr(uaff - faff) --> "(-5 a - 1) x + 2.3 a - 2 b + 2.5"
     @fact_throws uaff * faff
@@ -202,34 +202,34 @@ context("UncExpr--... tests") do
 end
 
 
-context("FullAffExpr--... tests") do
+context("UncAffExpr--... tests") do
     # faff = (5a + 1)x + 2b + 3)
-    # FullAffExpr--Number
+    # UncAffExpr--Number
     @fact affToStr(faff + 4.0) --> "(5 a + 1) x + 2 b + 7"
     @fact affToStr(faff - 2.0) --> "(5 a + 1) x + 2 b + 1"
     @fact affToStr(faff * 2.0) --> "(10 a + 2) x + 4 b + 6"
     @fact affToStr(faff / 2.0) --> "(2.5 a + 0.5) x + b + 1.5"
-    # FullAffExpr--Variable
+    # UncAffExpr--Variable
     @fact affToStr(faff + y) --> "(5 a + 1) x + y + 2 b + 3"
     @fact affToStr(faff - y) --> "(5 a + 1) x - y + 2 b + 3"
     @fact_throws faff * y
     @fact_throws faff / y
-    # FullAffExpr--AffExpr (aff2 = 1.2y + 1.2)
+    # UncAffExpr--AffExpr (aff2 = 1.2y + 1.2)
     @fact affToStr(faff + aff2) --> "1.2 y + (5 a + 1) x + 2 b + 4.2"
     @fact affToStr(faff - aff2) --> "(5 a + 1) x - 1.2 y + 2 b + 1.8"
     @fact_throws faff * aff2
     @fact_throws faff / aff2
-    # FullAffExpr--Uncertain
+    # UncAffExpr--Uncertain
     @fact affToStr(faff + a) --> "(5 a + 1) x + a + 2 b + 3"
     @fact affToStr(faff - a) --> "(5 a + 1) x + -a + 2 b + 3"
     @fact_throws faff * a
     @fact_throws faff / a
-    # FullAffExpr--UncExpr (uaff = 2.3 * a + 5.5)
+    # UncAffExpr--UncExpr (uaff = 2.3 * a + 5.5)
     @fact affToStr(faff + uaff) --> "(5 a + 1) x + 2 b + 2.3 a + 8.5"
     @fact affToStr(faff - uaff) --> "(5 a + 1) x + 2 b - 2.3 a - 2.5"
     @fact_throws faff * uaff
     @fact_throws faff / uaff
-    # FullAffExpr--FullAffExpr
+    # UncAffExpr--UncAffExpr
     @fact affToStr(faff + faff) --> "(5 a + 1) x + (5 a + 1) x + 4 b + 6"
     @fact affToStr(faff - faff) --> "(5 a + 1) x + (-5 a - 1) x"
     @fact_throws faff * faff

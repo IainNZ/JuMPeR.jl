@@ -19,7 +19,7 @@
 # 6. [Generic]NormExpr
 # 7. Uncertain
 # 8. UncExpr
-# 9. FullAffExpr
+# 9. UncAffExpr
 #-----------------------------------------------------------------------
 
 # Define error message names for the sake of consistency
@@ -37,25 +37,25 @@ const UNM = "a norm of uncertain parameters"
 (*)(lhs::Number, rhs::Uncertain) = UncExpr(lhs, rhs)
 (/)(lhs::Number, rhs::Uncertain) = error("Cannot divide a number by $UNC")
 # Number--UncExpr        - handled by JuMP
-# Number--FullAffExpr     - handled by JuMP
+# Number--UncAffExpr     - handled by JuMP
 
 #-----------------------------------------------------------------------
 # 2. Variable
 # Variable--Uncertain
-(+)(lhs::Variable, rhs::Uncertain) = FullAffExpr([lhs],[UncExpr(  1)], UncExpr(rhs))
-(-)(lhs::Variable, rhs::Uncertain) = FullAffExpr([lhs],[UncExpr(  1)],-UncExpr(rhs))
-(*)(lhs::Variable, rhs::Uncertain) = FullAffExpr([lhs],[UncExpr(rhs)], UncExpr())
+(+)(lhs::Variable, rhs::Uncertain) = UncAffExpr([lhs],[UncExpr(  1)], UncExpr(rhs))
+(-)(lhs::Variable, rhs::Uncertain) = UncAffExpr([lhs],[UncExpr(  1)],-UncExpr(rhs))
+(*)(lhs::Variable, rhs::Uncertain) = UncAffExpr([lhs],[UncExpr(rhs)], UncExpr())
 (/)(lhs::Variable, rhs::Uncertain) = error("Cannot divide a variable by $UNC")
 # Variable--UncExpr
-(+)(lhs::Variable, rhs::UncExpr) = FullAffExpr([lhs],[UncExpr(1)],       rhs)
-(-)(lhs::Variable, rhs::UncExpr) = FullAffExpr([lhs],[UncExpr(1)],      -rhs)
-(*)(lhs::Variable, rhs::UncExpr) = FullAffExpr([lhs],[        rhs],UncExpr())
+(+)(lhs::Variable, rhs::UncExpr) = UncAffExpr([lhs],[UncExpr(1)],       rhs)
+(-)(lhs::Variable, rhs::UncExpr) = UncAffExpr([lhs],[UncExpr(1)],      -rhs)
+(*)(lhs::Variable, rhs::UncExpr) = UncAffExpr([lhs],[        rhs],UncExpr())
 (/)(lhs::Variable, rhs::UncExpr) = error("Cannot divide a variable by $UAE")
-# Variable--FullAffExpr
-(+)(lhs::Variable, rhs::FullAffExpr) = FullAffExpr(vcat(rhs.vars,lhs),vcat(    rhs.coeffs,UncExpr(1)), rhs.constant)
-(-)(lhs::Variable, rhs::FullAffExpr) = FullAffExpr(vcat(rhs.vars,lhs),vcat(-1.*rhs.coeffs,UncExpr(1)),-rhs.constant)
-(*)(lhs::Variable, rhs::FullAffExpr) = error("Cannot multiply a variable by $FAE")
-(/)(lhs::Variable, rhs::FullAffExpr) = error("Cannot divide a variable by $FAE")
+# Variable--UncAffExpr
+(+)(lhs::Variable, rhs::UncAffExpr) = UncAffExpr(vcat(rhs.vars,lhs),vcat(    rhs.coeffs,UncExpr(1)), rhs.constant)
+(-)(lhs::Variable, rhs::UncAffExpr) = UncAffExpr(vcat(rhs.vars,lhs),vcat(-1.*rhs.coeffs,UncExpr(1)),-rhs.constant)
+(*)(lhs::Variable, rhs::UncAffExpr) = error("Cannot multiply a variable by $FAE")
+(/)(lhs::Variable, rhs::UncAffExpr) = error("Cannot divide a variable by $FAE")
 
 #-----------------------------------------------------------------------
 # 3. Norm
@@ -64,26 +64,26 @@ const UNM = "a norm of uncertain parameters"
 #-----------------------------------------------------------------------
 # 4. AffExpr
 # AffExpr--Uncertain
-(+)(lhs::AffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars, map(UncExpr,lhs.coeffs), UncExpr([rhs],[ 1.],lhs.constant))
-(-)(lhs::AffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars, map(UncExpr,lhs.coeffs), UncExpr([rhs],[-1.],lhs.constant))
-(*)(lhs::AffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars,         rhs.*lhs.coeffs , UncExpr([rhs],[lhs.constant],0.0))
+(+)(lhs::AffExpr, rhs::Uncertain) = UncAffExpr(lhs.vars, map(UncExpr,lhs.coeffs), UncExpr([rhs],[ 1.],lhs.constant))
+(-)(lhs::AffExpr, rhs::Uncertain) = UncAffExpr(lhs.vars, map(UncExpr,lhs.coeffs), UncExpr([rhs],[-1.],lhs.constant))
+(*)(lhs::AffExpr, rhs::Uncertain) = UncAffExpr(lhs.vars,         rhs.*lhs.coeffs , UncExpr([rhs],[lhs.constant],0.0))
 (/)(lhs::AffExpr, rhs::Uncertain) = error("Cannot divide $AFF by $UNC")
 # AffExpr-UncExpr
-(+)(lhs::AffExpr, rhs::UncExpr)  = FullAffExpr(lhs.vars, map(UncExpr,lhs.coeffs), lhs.constant+rhs)
-(-)(lhs::AffExpr, rhs::UncExpr)  = FullAffExpr(lhs.vars, map(UncExpr,lhs.coeffs), lhs.constant-rhs)
-(*)(lhs::AffExpr, rhs::UncExpr)  = FullAffExpr(lhs.vars,         rhs.*lhs.coeffs , lhs.constant*rhs)
+(+)(lhs::AffExpr, rhs::UncExpr)  = UncAffExpr(lhs.vars, map(UncExpr,lhs.coeffs), lhs.constant+rhs)
+(-)(lhs::AffExpr, rhs::UncExpr)  = UncAffExpr(lhs.vars, map(UncExpr,lhs.coeffs), lhs.constant-rhs)
+(*)(lhs::AffExpr, rhs::UncExpr)  = UncAffExpr(lhs.vars,         rhs.*lhs.coeffs , lhs.constant*rhs)
 (/)(lhs::AffExpr, rhs::UncExpr)  = error("Cannot divide $AFF by $UAE")
-# AffExpr-FullAffExpr
-(+)(lhs::AffExpr, rhs::FullAffExpr) = FullAffExpr(
+# AffExpr-UncAffExpr
+(+)(lhs::AffExpr, rhs::UncAffExpr) = UncAffExpr(
   vcat(lhs.vars, rhs.vars),
   vcat(map(UncExpr,lhs.coeffs), rhs.coeffs),
   lhs.constant + rhs.constant)
-(-)(lhs::AffExpr, rhs::FullAffExpr) = FullAffExpr(
+(-)(lhs::AffExpr, rhs::UncAffExpr) = UncAffExpr(
   vcat(lhs.vars, rhs.vars),
   vcat(map(UncExpr,lhs.coeffs), -1.*rhs.coeffs),
   lhs.constant - rhs.constant)
-(*)(lhs::AffExpr, rhs::FullAffExpr) = error("Cannot multiply $AFF by $FAE")
-(/)(lhs::AffExpr, rhs::FullAffExpr) = error("Cannot divide $AFF by $FAE")
+(*)(lhs::AffExpr, rhs::UncAffExpr) = error("Cannot multiply $AFF by $FAE")
+(/)(lhs::AffExpr, rhs::UncAffExpr) = error("Cannot divide $AFF by $FAE")
 # AffExpr -- GenericNormExpr{Uncertain}
 (+){P}(lhs::AffExpr, rhs::GenericNormExpr{P,Float64,Uncertain}) =
     length(lhs.vars) == 0 ? lhs.constant + rhs : error("Cannot add $AFF by $UNM")
@@ -108,11 +108,11 @@ const UNM = "a norm of uncertain parameters"
 (-){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::UncExpr) = error("Cannot subtract $UNM by $UAE")
 (*){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::UncExpr) = error("Cannot multiply $UNM by $UAE")
 (/){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::UncExpr) = error("Cannot divide $UNM by $UAE")
-# GenericNormExpr--FullAffExpr
-(+){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::FullAffExpr) = error("Cannot add $UNM to $FAE")
-(-){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::FullAffExpr) = error("Cannot subtract $UNM by $FAE")
-(*){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::FullAffExpr) = error("Cannot multiply $UNM by $FAE")
-(/){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::FullAffExpr) = error("Cannot divide $UNM by $FAE")
+# GenericNormExpr--UncAffExpr
+(+){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::UncAffExpr) = error("Cannot add $UNM to $FAE")
+(-){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::UncAffExpr) = error("Cannot subtract $UNM by $FAE")
+(*){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::UncAffExpr) = error("Cannot multiply $UNM by $FAE")
+(/){P,C,V<:Uncertain}(lhs::GenericNormExpr{P,C,V},rhs::UncAffExpr) = error("Cannot divide $UNM by $FAE")
 
 
 #-----------------------------------------------------------------------
@@ -125,12 +125,12 @@ const UNM = "a norm of uncertain parameters"
 (/)(lhs::Uncertain, rhs::Number) = UncExpr(1/rhs, lhs)
 # Uncertain--Variable
 (+)(lhs::Uncertain, rhs::Variable) = (+)(rhs, lhs)
-(-)(lhs::Uncertain, rhs::Variable) = FullAffExpr([rhs],[UncExpr(-1)],UncExpr(lhs))
+(-)(lhs::Uncertain, rhs::Variable) = UncAffExpr([rhs],[UncExpr(-1)],UncExpr(lhs))
 (*)(lhs::Uncertain, rhs::Variable) = (*)(rhs, lhs)
 (/)(lhs::Uncertain, rhs::Variable) = error("Cannot divide $UNC by a variable")
 # Uncertain--AffExpr
 (+)(lhs::Uncertain, rhs::AffExpr) = (+)(rhs, lhs)
-(-)(lhs::Uncertain, rhs::AffExpr) = FullAffExpr(rhs.vars, map(UncExpr,-rhs.coeffs), UncExpr([lhs],[1.0],-rhs.constant))
+(-)(lhs::Uncertain, rhs::AffExpr) = UncAffExpr(rhs.vars, map(UncExpr,-rhs.coeffs), UncExpr([lhs],[1.0],-rhs.constant))
 (*)(lhs::Uncertain, rhs::AffExpr) = (*)(rhs, lhs)
 (/)(lhs::Uncertain, rhs::AffExpr) = error("Cannot divide $UNC by $AFF")
 # Uncertain--GenericNormExpr
@@ -148,17 +148,17 @@ const UNM = "a norm of uncertain parameters"
 (-)(lhs::Uncertain, rhs::UncExpr) = UncExpr(vcat(lhs,rhs.vars),vcat(1.0,-rhs.coeffs),-rhs.constant)
 (*)(lhs::Uncertain, rhs::UncExpr) = error("Cannot multiply $UNC by $UAE")
 (/)(lhs::Uncertain, rhs::UncExpr) = error("Cannot divide $UNC by $UAE")
-# Uncertain--FullAffExpr
-(+)(lhs::Uncertain, rhs::FullAffExpr) = FullAffExpr(rhs.vars,    rhs.coeffs,lhs+rhs.constant)
-(-)(lhs::Uncertain, rhs::FullAffExpr) = FullAffExpr(rhs.vars,-1.*rhs.coeffs,lhs-rhs.constant)
-(*)(lhs::Uncertain, rhs::FullAffExpr) = error("Cannot multiply $UNC by $FAE")
-(/)(lhs::Uncertain, rhs::FullAffExpr) = error("Cannot divide $UNC by $FAE")
+# Uncertain--UncAffExpr
+(+)(lhs::Uncertain, rhs::UncAffExpr) = UncAffExpr(rhs.vars,    rhs.coeffs,lhs+rhs.constant)
+(-)(lhs::Uncertain, rhs::UncAffExpr) = UncAffExpr(rhs.vars,-1.*rhs.coeffs,lhs-rhs.constant)
+(*)(lhs::Uncertain, rhs::UncAffExpr) = error("Cannot multiply $UNC by $FAE")
+(/)(lhs::Uncertain, rhs::UncAffExpr) = error("Cannot divide $UNC by $FAE")
 
 # UncExpr
 # UncExpr--Number        - handled by JuMP
 # UncExpr--Variable
 (+)(lhs::UncExpr, rhs::Variable) = (+)(rhs,lhs)
-(-)(lhs::UncExpr, rhs::Variable) = FullAffExpr([rhs],[UncExpr(-1)],lhs)
+(-)(lhs::UncExpr, rhs::Variable) = UncAffExpr([rhs],[UncExpr(-1)],lhs)
 (*)(lhs::UncExpr, rhs::Variable) = (*)(rhs,lhs)
 (/)(lhs::UncExpr, rhs::Variable) = error("Cannot divide $UAE by a variable")
 # UncExpr--AffExpr
@@ -179,45 +179,45 @@ const UNM = "a norm of uncertain parameters"
 # UncExpr--UncExpr
 (*)(lhs::UncExpr, rhs::UncExpr) = error("Cannot multiply $UAE by $UAE")
 (/)(lhs::UncExpr, rhs::UncExpr) = error("Cannot divide $UAE by $UAE")
-# UncExpr--FullAffExpr
-(+)(lhs::UncExpr, rhs::FullAffExpr) = FullAffExpr(rhs.vars,    rhs.coeffs,lhs+rhs.constant)
-(-)(lhs::UncExpr, rhs::FullAffExpr) = FullAffExpr(rhs.vars,-1.*rhs.coeffs,lhs-rhs.constant)
-(*)(lhs::UncExpr, rhs::FullAffExpr) = error("Cannot multiply $UAE by $FAE")
-(/)(lhs::UncExpr, rhs::FullAffExpr) = error("Cannot divide $UAE by $FAE")
+# UncExpr--UncAffExpr
+(+)(lhs::UncExpr, rhs::UncAffExpr) = UncAffExpr(rhs.vars,    rhs.coeffs,lhs+rhs.constant)
+(-)(lhs::UncExpr, rhs::UncAffExpr) = UncAffExpr(rhs.vars,-1.*rhs.coeffs,lhs-rhs.constant)
+(*)(lhs::UncExpr, rhs::UncAffExpr) = error("Cannot multiply $UAE by $FAE")
+(/)(lhs::UncExpr, rhs::UncAffExpr) = error("Cannot divide $UAE by $FAE")
 
-# FullAffExpr
-# FullAffExpr--Number     - handled by JuMP
-# FullAffExpr--Variable
-(+)(lhs::FullAffExpr, rhs::Variable) = (+)(rhs,lhs)
-(-)(lhs::FullAffExpr, rhs::Variable) = FullAffExpr(vcat(lhs.vars,rhs),vcat(lhs.coeffs,UncExpr(-1)), lhs.constant)
-(*)(lhs::FullAffExpr, rhs::Variable) = error("Cannot multiply $FAE by a variable")
-(/)(lhs::FullAffExpr, rhs::Variable) = error("Cannot divide $FAE by a variable")
-# FullAffExpr--AffExpr
-(+)(lhs::FullAffExpr, rhs::AffExpr) = (+)(rhs,lhs)
-(-)(lhs::FullAffExpr, rhs::AffExpr) = FullAffExpr(
+# UncAffExpr
+# UncAffExpr--Number     - handled by JuMP
+# UncAffExpr--Variable
+(+)(lhs::UncAffExpr, rhs::Variable) = (+)(rhs,lhs)
+(-)(lhs::UncAffExpr, rhs::Variable) = UncAffExpr(vcat(lhs.vars,rhs),vcat(lhs.coeffs,UncExpr(-1)), lhs.constant)
+(*)(lhs::UncAffExpr, rhs::Variable) = error("Cannot multiply $FAE by a variable")
+(/)(lhs::UncAffExpr, rhs::Variable) = error("Cannot divide $FAE by a variable")
+# UncAffExpr--AffExpr
+(+)(lhs::UncAffExpr, rhs::AffExpr) = (+)(rhs,lhs)
+(-)(lhs::UncAffExpr, rhs::AffExpr) = UncAffExpr(
   vcat(lhs.vars,    rhs.vars),
   vcat(lhs.coeffs, -rhs.coeffs),
   lhs.constant - rhs.constant)
-(*)(lhs::FullAffExpr, rhs::AffExpr) = error("Cannot multiply $FAE by $AFF")
-(/)(lhs::FullAffExpr, rhs::AffExpr) = error("Cannot divide $FAE by $AFF")
-# FullAffExpr--GenericNormExpr
-(+){P,C,V<:Uncertain}(lhs::FullAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot add $FAE to $UNM")
-(-){P,C,V<:Uncertain}(lhs::FullAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot subtract $FAE by $UNM")
-(*){P,C,V<:Uncertain}(lhs::FullAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot multiply $FAE by $UNM")
-(/){P,C,V<:Uncertain}(lhs::FullAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot divide $FAE by $UNM")
-# FullAffExpr--Uncertain
-(+)(lhs::FullAffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars,lhs.coeffs,lhs.constant+rhs)
-(-)(lhs::FullAffExpr, rhs::Uncertain) = FullAffExpr(lhs.vars,lhs.coeffs,lhs.constant-rhs)
-(*)(lhs::FullAffExpr, rhs::Uncertain) = error("Cannot multiply $FAE by $UNC")
-(/)(lhs::FullAffExpr, rhs::Uncertain) = error("Cannot divide $FAE by $UNC")
-# FullAffExpr--UncExpr
-(+)(lhs::FullAffExpr, rhs::UncExpr) = FullAffExpr(lhs.vars,lhs.coeffs,lhs.constant+rhs)
-(-)(lhs::FullAffExpr, rhs::UncExpr) = FullAffExpr(lhs.vars,lhs.coeffs,lhs.constant-rhs)
-(*)(lhs::FullAffExpr, rhs::UncExpr) = error("Cannot multiply $FAE by $UAE")
-(/)(lhs::FullAffExpr, rhs::UncExpr) = error("Cannot divide $FAE by $UAE")
-# FullAffExpr--FullAffExpr
-(*)(lhs::FullAffExpr, rhs::FullAffExpr) = error("Cannot multiply $FAE by $FAE")
-(/)(lhs::FullAffExpr, rhs::FullAffExpr) = error("Cannot divide $FAE by $FAE")
+(*)(lhs::UncAffExpr, rhs::AffExpr) = error("Cannot multiply $FAE by $AFF")
+(/)(lhs::UncAffExpr, rhs::AffExpr) = error("Cannot divide $FAE by $AFF")
+# UncAffExpr--GenericNormExpr
+(+){P,C,V<:Uncertain}(lhs::UncAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot add $FAE to $UNM")
+(-){P,C,V<:Uncertain}(lhs::UncAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot subtract $FAE by $UNM")
+(*){P,C,V<:Uncertain}(lhs::UncAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot multiply $FAE by $UNM")
+(/){P,C,V<:Uncertain}(lhs::UncAffExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot divide $FAE by $UNM")
+# UncAffExpr--Uncertain
+(+)(lhs::UncAffExpr, rhs::Uncertain) = UncAffExpr(lhs.vars,lhs.coeffs,lhs.constant+rhs)
+(-)(lhs::UncAffExpr, rhs::Uncertain) = UncAffExpr(lhs.vars,lhs.coeffs,lhs.constant-rhs)
+(*)(lhs::UncAffExpr, rhs::Uncertain) = error("Cannot multiply $FAE by $UNC")
+(/)(lhs::UncAffExpr, rhs::Uncertain) = error("Cannot divide $FAE by $UNC")
+# UncAffExpr--UncExpr
+(+)(lhs::UncAffExpr, rhs::UncExpr) = UncAffExpr(lhs.vars,lhs.coeffs,lhs.constant+rhs)
+(-)(lhs::UncAffExpr, rhs::UncExpr) = UncAffExpr(lhs.vars,lhs.coeffs,lhs.constant-rhs)
+(*)(lhs::UncAffExpr, rhs::UncExpr) = error("Cannot multiply $FAE by $UAE")
+(/)(lhs::UncAffExpr, rhs::UncExpr) = error("Cannot divide $FAE by $UAE")
+# UncAffExpr--UncAffExpr
+(*)(lhs::UncAffExpr, rhs::UncAffExpr) = error("Cannot multiply $FAE by $FAE")
+(/)(lhs::UncAffExpr, rhs::UncAffExpr) = error("Cannot divide $FAE by $FAE")
 
 
 #-----------------------------------------------------------------------

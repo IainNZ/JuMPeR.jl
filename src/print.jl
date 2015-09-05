@@ -337,18 +337,18 @@ affToStr(a::UncExpr) = aff_str(REPLMode,a)
 
 
 #------------------------------------------------------------------------
-## FullAffExpr
+## UncAffExpr
 #------------------------------------------------------------------------
-Base.print(io::IO, a::FullAffExpr) = print(io, aff_str(REPLMode,a))
-Base.show( io::IO, a::FullAffExpr) = print(io, aff_str(REPLMode,a))
-#Base.writemime(io::IO, ::MIME"text/latex", a::FullAffExpr) =
+Base.print(io::IO, a::UncAffExpr) = print(io, aff_str(REPLMode,a))
+Base.show( io::IO, a::UncAffExpr) = print(io, aff_str(REPLMode,a))
+#Base.writemime(io::IO, ::MIME"text/latex", a::UncAffExpr) =
 #    print(io, math(aff_str(IJuliaMode,a),false))
 # Generic string converter, called by mode-specific handlers
 # conToStr says showConstant = false, because if the constant term is
 # just a number for AffExpr. However in our case it might also contain
 # uncertains - which we ALWAYS want to show.
 # So we "partially" respect it.
-function aff_str(mode, a::FullAffExpr, show_constant=true)
+function aff_str(mode, a::UncAffExpr, show_constant=true)
     # If no variables, hand off to the constant part
     if length(a.vars) == 0
         return aff_str(mode, a.constant)
@@ -413,7 +413,7 @@ function aff_str(mode, a::FullAffExpr, show_constant=true)
 end
 
 # Backwards compatability shim
-affToStr(a::FullAffExpr) = aff_str(REPLMode,a)
+affToStr(a::UncAffExpr) = aff_str(REPLMode,a)
 
 
 #------------------------------------------------------------------------

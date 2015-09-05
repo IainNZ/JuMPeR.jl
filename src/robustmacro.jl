@@ -173,7 +173,7 @@ end
 storecontainerdata_unc(m::Model, variable, varname, idxsets, idxpairs, condition) =
     getRobust(m).uncData[variable] = JuMPContainerData(varname, idxsets, idxpairs, condition)
 
-function JuMP.constructconstraint!(faff::FullAffExpr, sense::Symbol)
+function JuMP.constructconstraint!(faff::UncAffExpr, sense::Symbol)
     offset = faff.constant.constant
     faff.constant.constant = 0.0
     if sense == :(<=) || sense == :≤
