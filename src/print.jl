@@ -38,6 +38,31 @@ function print_robust(io::IO, m::Model)
     rd = getRobust(m)
     # First, display normal model stuff
     JuMP.print(io, m, ignore_print_hook=true)
+    # Now print adaptive variable info
+    for i in 1:rd.numAdapt
+        adp_name = adp_str(REPLMode,m,i) * "(ξ)"
+        adp_lb, adp_ub = rd.adpLower[i], rd.adpUpper[i]
+        str_lb, str_ub = str_round(adp_lb), str_round(adp_ub)
+        adp_cat = rd.adpCat[i]
+        if adp_cat == :Bin  # x binary
+            str = string(adp_name, " ", repl[:in], " ",
+                        repl[:open_set], "0,1", repl[:close_set])
+        elseif adp_lb == -Inf && adp_ub == +Inf # Free
+            str = string(adp_name, " free")
+        elseif adp_lb == -Inf  # No lower bound
+            str = string(adp_name, " ", repl[:leq], " ", str_ub)
+        elseif adp_ub == +Inf  # No upper bound
+            str = string(adp_name, " ", repl[:geq], " ", str_lb)
+        else
+            str = string(str_lb, " ", repl[:leq], " ", adp_name,
+                            " ", repl[:leq], " ", str_ub)
+        end
+        if adp_cat == :Int
+            str *= string(", ", repl[:integer])
+        end
+        println(io, " ", str)
+    end
+
     # Now print stuff particular to JuMPeR
     println(io, "Uncertain constraints:")
     for uc in rd.uncertainconstr
@@ -220,7 +245,7 @@ function cont_str(mode, j::Union{JuMPContainer{Uncertain},Array{Uncertain}},
     # 2. construct part with what we index over
     idx_sets = sym[:for_all]*" "*join(map(dim->string(idxvars[dim], " ", sym[:in],
                                 " ", sym[:open_set],
-                                JuMP.cont_str_set(data.indexsets[dim],sym[:dots]),
+                                JuMP.cont_str_set(data.indexsets[dim], sym[:dots]),
                                 sym[:close_set]), 1:num_dims), ", ")
     # 3. Handle any conditionals
     #if isa(dict, JuMPDict) && !isempty(dict.condition)

@@ -30,21 +30,26 @@ import JuMP: JuMPContainer, JuMPDict, JuMPArray
 # JuMPeRs exported interface
 export RobustModel, getNumUncs
 export setDefaultOracle!
-export Uncertain, @defUnc, addEllipseConstraint
-export UncExpr, UncAffExpr
-export UncConstraint, UncSetConstraint, EllipseConstraint
-
+# Uncertain parameters
+export Uncertain, @defUnc, UncExpr, UncSetConstraint
+# Adaptive variables
+export AdaptAffExpr, AdaptConstraint
+# Mixes of uncertain parameters and adaptive variables
+export UncAffExpr, UncConstraint
+# Deprecated
+export addEllipseConstraint, EllipseConstraint
 
 #-----------------------------------------------------------------------
 # RobustData contains all extensions to the base JuMP model type
 type RobustData
     # Variable-Uncertain mixed constraints
-    uncertainconstr::Vector
+    uncertainconstr::Vector # {UncConstraint}
     # Oracles associated with each uncertainconstr
-    oracles::Vector
+    oracles::Vector # {Any}
     # Uncertain-only constraints
-    uncertaintyset::Vector
+    uncertaintyset::Vector # {UncSetConstraint}
     normconstraints::Vector
+    varaffcons::Vector # {AdaptConstraint}
 
     # Uncertainty data
     numUncs::Int
@@ -52,9 +57,9 @@ type RobustData
     uncLower::Vector{Float64}
     uncUpper::Vector{Float64}
     uncCat::Vector{Symbol}
+
     defaultOracle
 
-    # Active cuts
     activecuts
 
     # Can have different solver for cutting planes
@@ -66,7 +71,17 @@ type RobustData
     uncData::ObjectIdDict
 
     # Provided scenarios
-    scenarios::Vector
+    scenarios::Vector{Any}
+
+    # Adaptive variables
+    numAdapt::Int
+    adpNames::Vector{UTF8String}
+    adpLower::Vector{Float64}
+    adpUpper::Vector{Float64}
+    adpCat::Vector{Symbol}
+    adpPolicy::Vector{Symbol}
+    adpStage::Vector{Int}
+    adpDependsOn::Vector{Any}
 
     solve_time::Float64
 
@@ -75,10 +90,12 @@ type RobustData
     lazy_callbacks::Vector{Any}
 end
 RobustData(cutsolver) = RobustData(
-    Any[],          # uncertainconstr
-    Any[],          # oracles
-    Any[],          # uncertaintyset
-    Any[],          # normconstraints
+    UncConstraint[],    # uncertainconstr
+    Any[],              # oracles
+    UncSetConstraint[], # uncertaintyset
+    Any[],              # normconstraints
+    AdaptConstraint[],  # varaffcons
+    # Uncertainty set
     0,              # numUncs
     UTF8String[],   # uncNames
     Float64[],      # uncLower
@@ -91,6 +108,13 @@ RobustData(cutsolver) = RobustData(
     Dict{Symbol,Any}(), # uncDict
     ObjectIdDict(), # uncData
     Any[],          # scenarios
+    # Adaptive variables
+    0, UTF8String[],        # Number, names
+    Float64[],Float64[],    # Lower, upper
+    Symbol[],Symbol[],      # Category, adapt type
+    Int[],                  # Stage
+    Any[],                  # Depends on
+
     0.0,            # solve_time
     Any[])          # lazy_callbacks
 function RobustModel(; solver=JuMP.UnsetSolver(),
@@ -113,7 +137,7 @@ end
 
 #-----------------------------------------------------------------------
 # Uncertain
-# Similar to JuMP.Variable, has an reference back to the model and an id num
+# An uncertain parameter, implemented much the same as a JuMP.Variable
 type Uncertain <: JuMP.AbstractJuMPScalar
     m::Model
     id::Int
@@ -142,6 +166,7 @@ getNumUncs(m::Model) = getRobust(m).numUncs
 
 #-----------------------------------------------------------------------
 # UncExpr   ∑ᵢ aᵢ uᵢ
+# An affine expression of uncertain parameters and numbers
 typealias UncExpr GenericAffExpr{Float64,Uncertain}
 
 UncExpr() = zero(UncExpr)
@@ -169,20 +194,76 @@ end
 
 
 #-----------------------------------------------------------------------
+# Adaptive
+# An adaptive variable, a variable whose value depends on the realized
+# values of the uncertain parameters.
+type Adaptive <: JuMP.AbstractJuMPScalar
+    m::Model
+    id::Int
+end
+function Adaptive(m::Model, name::AbstractString, lower::Real, upper::Real,
+                    cat::Symbol, policy::Symbol,
+                    stage::Int, depends_on::Any)
+    rd = getRobust(m)
+    rd.numAdapt += 1
+    push!(rd.adpNames,  name)
+    push!(rd.adpLower,  lower)
+    push!(rd.adpUpper,  upper)
+    push!(rd.adpCat,    cat)
+    push!(rd.adpPolicy, policy)
+    push!(rd.adpStage,  stage)
+    push!(rd.adpDependsOn, depends_on)
+    return Adaptive(m, rd.numAdapt)
+end
+getName(a::Adaptive)        = adp_str(REPLMode, a.m, a.id)
+getLower(a::Adaptive)       = getRobust(a.m).adpLower[a.id]
+getUpper(a::Adaptive)       = getRobust(a.m).adpUpper[a.id]
+getCategory(a::Adaptive)    = getRobust(a.m).adpCat[a.id]
+getPolicy(a::Adaptive)      = getRobust(a.m).adpPolicy[a.id]
+getStage(a::Adaptive)       = getRobust(a.m).adpStage[a.id]
+getDependsOn(a::Adaptive)   = getRobust(a.m).adpDependsOn[a.id]
+Base.zero(::Type{Adaptive}) = AdaptAffExpr()
+Base.zero(     ::Adaptive)  = zero(Adaptive)
+Base.one(::Type{Adaptive})  = AdaptAffExpr(1)
+Base.one(     ::Adaptive)   = one(Adaptive)
+Base.isequal(a::Adaptive, b::Adaptive) = (a.m === b.m) && (a.id == b.id)
+
+typealias JuMPeRVar Union{Variable,Adaptive}
+
+
+#-----------------------------------------------------------------------
+# AdaptAffExpr
+# Equivalent to AffExpr, except the variable can be either a
+# JuMP.Variable or JuMPeR.Adaptive
+typealias AdaptAffExpr GenericAffExpr{Float64,JuMPeRVar}
+
+AdaptAffExpr() = zero(AdaptAffExpr)
+Base.convert(::Type{AdaptAffExpr}, c::Number) =
+    AdaptAffExpr(JuMPeRVar[ ], Float64[ ], 0.0)
+Base.convert(::Type{AdaptAffExpr}, x::JuMPeRVar) =
+    AdaptAffExpr(JuMPeRVar[x],Float64[1], 0.0)
+Base.convert(::Type{AdaptAffExpr}, aff::AffExpr) =
+    AdaptAffExpr(copy(aff.vars), copy(aff.coeffs), aff.constant)
+
+# AdaptConstraint         A constraint with variables and uncertains
+typealias AdaptConstraint GenericRangeConstraint{AdaptAffExpr}
+addConstraint(m::Model, c::AdaptConstraint) = push!(getRobust(m).varaffcons, c)
+
+#-----------------------------------------------------------------------
 # UncAffExpr   ∑ⱼ (∑ᵢ aᵢⱼ uᵢ) xⱼ
-typealias UncAffExpr GenericAffExpr{UncExpr,Variable}
+typealias UncAffExpr GenericAffExpr{UncExpr,JuMPeRVar}
 
 UncAffExpr() = zero(UncAffExpr)
 Base.convert(::Type{UncAffExpr}, c::Number) =
-    UncAffExpr(Variable[], UncExpr[], UncExpr(c))
-Base.convert(::Type{UncAffExpr}, x::Variable) =
-    UncAffExpr(Variable[x],UncExpr[UncExpr(1)], UncExpr())
+    UncAffExpr(JuMPeRVar[], UncExpr[], UncExpr(c))
+Base.convert(::Type{UncAffExpr}, x::JuMPeRVar) =
+    UncAffExpr(JuMPeRVar[x],UncExpr[UncExpr(1)], UncExpr())
 Base.convert(::Type{UncAffExpr}, aff::AffExpr) =
     UncAffExpr(copy(aff.vars), map(UncExpr,aff.coeffs), UncExpr(aff.constant))
 Base.convert(::Type{UncAffExpr}, uaff::UncExpr) =
-    UncAffExpr(Variable[], UncExpr[], uaff)
+    UncAffExpr(JuMPeRVar[], UncExpr[], uaff)
 
-function Base.push!(faff::UncAffExpr, new_coeff::Union{Real,Uncertain}, new_var::Variable)
+function Base.push!(faff::UncAffExpr, new_coeff::Union{Real,Uncertain}, new_var::JuMPeRVar)
     push!(faff.vars, new_var)
     push!(faff.coeffs, UncExpr(new_coeff))
 end
@@ -249,6 +330,11 @@ function addSpecialLazyCallback(m::Model, f::Function)
 end
 
 #-----------------------------------------------------------------------
+# Adaptive optimization
+include("adaptive/macro.jl")
+include("adaptive/operators.jl")
+include("adaptive/expand.jl")
+
 # Scenarios
 include("scenario.jl")
 
@@ -266,6 +352,7 @@ include("robustmacro.jl")
 
 # Pretty printing
 include("print.jl")
+include("adaptive/print.jl")
 
 # Graph algorithms
 include("graph.jl")

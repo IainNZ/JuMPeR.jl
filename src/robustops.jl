@@ -192,7 +192,9 @@ const UNM = "a norm of uncertain parameters"
 # UncExpr--UncAffExpr
 (+)(lhs::UncExpr, rhs::UncAffExpr) = UncAffExpr(rhs.vars,    rhs.coeffs,lhs+rhs.constant)
 (-)(lhs::UncExpr, rhs::UncAffExpr) = UncAffExpr(rhs.vars,-1.*rhs.coeffs,lhs-rhs.constant)
-(*)(lhs::UncExpr, rhs::UncAffExpr) = error("Cannot multiply $UAE by $FAE")
+(*)(lhs::UncExpr, rhs::UncAffExpr) = (length(lhs.vars) == 0) ?
+                                        lhs.constant * rhs : # LHS is just a constant, so OK
+                                        error("Cannot multiply $UAE by $FAE")
 (/)(lhs::UncExpr, rhs::UncAffExpr) = error("Cannot divide $UAE by $FAE")
 
 # UncAffExpr

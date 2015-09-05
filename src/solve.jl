@@ -39,6 +39,9 @@ end
 function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
                         active_cuts::Bool, add_box::Union{Float64,Bool},
                         show_cuts::Bool, kwargs::Vector{Any})
+
+    expand_adaptive(rm)
+
     robdata = getRobust(rm)::RobustData
 
     # Pull out extra keyword arguments that we will pas through to oracles
