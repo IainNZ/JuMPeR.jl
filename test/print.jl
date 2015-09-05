@@ -9,7 +9,8 @@
 
 using JuMP, JuMPeR
 using FactCheck
-import JuMP.REPLMode, JuMP.IJuliaMode
+import JuMP: REPLMode, IJuliaMode
+import JuMP: repl, ijulia
 
 # Helper function to test IO methods work correctly
 function io_test(mode, obj, exp_str; repl=:both)
@@ -22,7 +23,9 @@ function io_test(mode, obj, exp_str; repl=:both)
 end
 
 facts("[print] RobustModel") do
-    le, ge = JuMP.repl[:leq], JuMP.repl[:geq]
+    le, ge, fa = repl[:leq], repl[:geq], repl[:for_all]
+    inset, dots = repl[:in], repl[:dots]
+    infty, union = repl[:infty], repl[:union]
 
     mod_1 = RobustModel()
     @defVar(mod_1, vars[1:10])
@@ -57,32 +60,34 @@ facts("[print] RobustModel") do
 Max 2 vars[1]
 Subject to
  vars[10] $le 10
- vars[i] free for all i in {1,2..9,10}
+ vars[i] free $fa i $inset {1,2,$dots,9,10}
 Uncertain constraints:
 a vars[5] $le 5
 Uncertainty set:
 a + b $le 2
 ‖a,b‖₂ $le 1
-bnd_free[i] free for all i in {2,3,4,5}
-bnd_lowb[i] $ge 2 for all i in {2,3,4,5}
-bnd_high[i] $le 5 for all i in {2,3,4,5}
-2 $le bnd_both[i] $le 5 for all i in {2,3,4,5}
-mat2d[i,j] free for all i in {1,2,3}, j in {1,2,3}
-mat3d[i,j,k] free for all i in {1,2,3}, j in {1,2,3}, k in {1,2,3}
+bnd_free[i] free $fa i $inset {2,3,4,5}
+bnd_lowb[i] $ge 2 $fa i $inset {2,3,4,5}
+bnd_high[i] $le 5 $fa i $inset {2,3,4,5}
+2 $le bnd_both[i] $le 5 $fa i $inset {2,3,4,5}
+mat2d[i,j] free $fa i $inset {1,2,3}, j $inset {1,2,3}
+mat3d[i,j,k] free $fa i $inset {1,2,3}, j $inset {1,2,3}, k $inset {1,2,3}
 a $ge 1
 b $le 1
 -1 $le c $le 1
 a1 $ge 1, integer
 b1 $le 1, integer
 -1 $le c1 $le 1, integer
-x in {0,1}
+x $inset {0,1}
 y free
 z free, integer
 """, repl=:print)
 end
 
 facts("[print] JuMPContainer{Uncertain}") do
-    le, ge = JuMP.repl[:leq], JuMP.repl[:geq]
+    le, ge, fa = repl[:leq], repl[:geq], repl[:for_all]
+    inset, dots = repl[:in], repl[:dots]
+    infty, union = repl[:infty], repl[:union]
 
     m = RobustModel()
     @defUnc(m,      bnd_free[2:5])
@@ -95,13 +100,13 @@ facts("[print] JuMPContainer{Uncertain}") do
     @defUnc(m, i <= bnd_difflo_with_up[i=2:5] <= 5)
     @defUnc(m, 2 <= bnd_diffup_with_lo[i=2:5] <= i)
 
-    io_test(REPLMode, bnd_free, "bnd_free[i] free for all i in {2,3,4,5}")
-    io_test(REPLMode, bnd_lowb, "bnd_lowb[i] $ge 2 for all i in {2,3,4,5}")
-    io_test(REPLMode, bnd_high, "bnd_high[i] $le 5 for all i in {2,3,4,5}")
-    io_test(REPLMode, bnd_both, "2 $le bnd_both[i] $le 5 for all i in {2,3,4,5}")
-    io_test(REPLMode, bnd_difflo, "bnd_difflo[i] $ge .. for all i in {2,3,4,5}")
-    io_test(REPLMode, bnd_diffup, "bnd_diffup[i] $le .. for all i in {2,3,4,5}")
-    io_test(REPLMode, bnd_diffbo, ".. $le bnd_diffbo[i] $le .. for all i in {2,3,4,5}")
-    io_test(REPLMode, bnd_difflo_with_up, ".. $le bnd_difflo_with_up[i] $le 5 for all i in {2,3,4,5}")
-    io_test(REPLMode, bnd_diffup_with_lo, "2 $le bnd_diffup_with_lo[i] $le .. for all i in {2,3,4,5}")
+    io_test(REPLMode, bnd_free, "bnd_free[i] free $fa i $inset {2,3,4,5}")
+    io_test(REPLMode, bnd_lowb, "bnd_lowb[i] $ge 2 $fa i $inset {2,3,4,5}")
+    io_test(REPLMode, bnd_high, "bnd_high[i] $le 5 $fa i $inset {2,3,4,5}")
+    io_test(REPLMode, bnd_both, "2 $le bnd_both[i] $le 5 $fa i $inset {2,3,4,5}")
+    io_test(REPLMode, bnd_difflo, "bnd_difflo[i] $ge $dots $fa i $inset {2,3,4,5}")
+    io_test(REPLMode, bnd_diffup, "bnd_diffup[i] $le $dots $fa i $inset {2,3,4,5}")
+    io_test(REPLMode, bnd_diffbo, "$dots $le bnd_diffbo[i] $le $dots $fa i $inset {2,3,4,5}")
+    io_test(REPLMode, bnd_difflo_with_up, "$dots $le bnd_difflo_with_up[i] $le 5 $fa i $inset {2,3,4,5}")
+    io_test(REPLMode, bnd_diffup_with_lo, "2 $le bnd_diffup_with_lo[i] $le $dots $fa i $inset {2,3,4,5}")
 end

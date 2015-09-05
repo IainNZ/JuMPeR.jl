@@ -219,6 +219,36 @@ const UNM = "a norm of uncertain parameters"
 (*)(lhs::UncAffExpr, rhs::UncAffExpr) = error("Cannot multiply $FAE by $FAE")
 (/)(lhs::UncAffExpr, rhs::UncAffExpr) = error("Cannot divide $FAE by $FAE")
 
+#-----------------------------------------------------------------------
+# For matrix operations
+# 1. Number
+# 2. Variable
+# 3. [Generic]Norm
+# 4. [Generic]AffExpr
+# 5. QuadExpr <- We don't support any interactions with QuadExpr
+# 6. [Generic]NormExpr
+# 7. Uncertain
+# 8. UncExpr
+# 9. UncAffExpr
+Base.promote_rule{R<:Real}(::Type{R},         ::Type{Uncertain} ) = UncExpr
+Base.promote_rule{R<:Real}(::Type{R},         ::Type{UncExpr}   ) = UncExpr
+Base.promote_rule{R<:Real}(::Type{R},         ::Type{UncAffExpr}) = UncAffExpr
+
+Base.promote_rule{R<:Real}(::Type{Uncertain}, ::Type{R})          = UncExpr
+Base.promote_rule(         ::Type{Uncertain}, ::Type{Uncertain})  = UncExpr
+Base.promote_rule(         ::Type{Uncertain}, ::Type{UncExpr})    = UncExpr
+Base.promote_rule(         ::Type{Uncertain}, ::Type{UncAffExpr}) = UncAffExpr
+
+Base.promote_rule{R<:Real}(::Type{UncExpr},   ::Type{R})          = UncExpr
+Base.promote_rule(         ::Type{UncExpr},   ::Type{Uncertain})  = UncExpr
+Base.promote_rule(         ::Type{UncExpr},   ::Type{UncExpr})    = UncExpr
+Base.promote_rule(         ::Type{UncExpr},   ::Type{UncAffExpr}) = UncAffExpr
+
+Base.promote_rule{R<:Real}(::Type{UncAffExpr},::Type{R})          = UncAffExpr
+Base.promote_rule(         ::Type{UncAffExpr},::Type{Uncertain})  = UncAffExpr
+Base.promote_rule(         ::Type{UncAffExpr},::Type{UncExpr})    = UncAffExpr
+Base.promote_rule(         ::Type{UncAffExpr},::Type{UncAffExpr}) = UncAffExpr
+
 
 #-----------------------------------------------------------------------
 # High-level operators like sum and dot are handled by JuMP

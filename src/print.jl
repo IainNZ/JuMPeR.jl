@@ -220,7 +220,7 @@ function cont_str(mode, j::Union(JuMPContainer{Uncertain},Array{Uncertain}),
     # 2. construct part with what we index over
     idx_sets = sym[:for_all]*" "*join(map(dim->string(idxvars[dim], " ", sym[:in],
                                 " ", sym[:open_set],
-                                JuMP.cont_str_set(data.indexsets[dim],sym[:mid_set]),
+                                JuMP.cont_str_set(data.indexsets[dim],sym[:dots]),
                                 sym[:close_set]), 1:num_dims), ", ")
     # 3. Handle any conditionals
     #if isa(dict, JuMPDict) && !isempty(dict.condition)
@@ -260,14 +260,14 @@ function cont_str(mode, j::Union(JuMPContainer{Uncertain},Array{Uncertain}),
         return "$str_lb $(sym[:leq]) $name_idx $(sym[:leq]) $str_ub$idx_sets"
     end
     if all_same_lb && !all_same_ub 
-        unc_lb == -Inf && return "$name_idx $(sym[:leq]) ..$idx_sets"
-        return "$str_lb $(sym[:leq]) $name_idx $(sym[:leq]) ..$idx_sets"
+        unc_lb == -Inf && return "$name_idx $(sym[:leq]) $(sym[:dots])$idx_sets"
+        return "$str_lb $(sym[:leq]) $name_idx $(sym[:leq]) $(sym[:dots])$idx_sets"
     end
     if !all_same_lb && all_same_ub
-        unc_ub == +Inf && return "$name_idx $(sym[:geq]) ..$idx_sets"
-        return ".. $(sym[:leq]) $name_idx $(sym[:leq]) $str_ub$idx_sets"
+        unc_ub == +Inf && return "$name_idx $(sym[:geq]) $(sym[:dots])$idx_sets"
+        return "$(sym[:dots]) $(sym[:leq]) $name_idx $(sym[:leq]) $str_ub$idx_sets"
     end
-    return ".. $(sym[:leq]) $name_idx $(sym[:leq]) ..$idx_sets"
+    return "$(sym[:dots]) $(sym[:leq]) $name_idx $(sym[:leq]) $(sym[:dots])$idx_sets"
 end
 
 # Handlers to use correct symbols
