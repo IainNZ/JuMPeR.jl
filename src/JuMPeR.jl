@@ -33,7 +33,7 @@ import JuMP: JuMPContainer, JuMPDict, JuMPArray
 export RobustModel, getNumUncs
 export setDefaultOracle!
 export Uncertain, @defUnc, addEllipseConstraint
-export UAffExpr, FullAffExpr
+export UncExpr, FullAffExpr
 export UncConstraint, UncSetConstraint, EllipseConstraint
 
 
@@ -129,55 +129,55 @@ getLower(u::Uncertain) = getRobust(u.m).uncLower[u.id]
 getUpper(u::Uncertain) = getRobust(u.m).uncUpper[u.id]
 getName(u::Uncertain) = unc_str(REPLMode, u.m, u.id)
 getCategory(u::Uncertain) = getRobust(u.m).uncCat[u.id]
-Base.zero(::Type{Uncertain}) = UAffExpr()
+Base.zero(::Type{Uncertain}) = UncExpr()
 Base.zero(::Uncertain) = zero(Uncertain)
-Base.one(::Type{Uncertain}) = UAffExpr(1)
+Base.one(::Type{Uncertain}) = UncExpr(1)
 Base.one(::Uncertain) = one(Uncertain)
 Base.isequal(u1::Uncertain, u2::Uncertain) = (u1.m === u2.m) && isequal(u1.id, u2.id)
 getNumUncs(m::Model) = getRobust(m).numUncs
 
 
 #-----------------------------------------------------------------------
-# UAffExpr   ∑ᵢ aᵢ uᵢ
-typealias UAffExpr GenericAffExpr{Float64,Uncertain}
+# UncExpr   ∑ᵢ aᵢ uᵢ
+typealias UncExpr GenericAffExpr{Float64,Uncertain}
 
-UAffExpr() = zero(UAffExpr)
-UAffExpr(x::Union(Number,Uncertain)) = convert(UAffExpr, x)
-UAffExpr(c::Number,u::Uncertain) = UAffExpr(Uncertain[u],Float64[c],0.0)
-Base.convert(::Type{UAffExpr}, u::Uncertain) = UAffExpr(Uncertain[u],Float64[1],0.0)
-Base.convert(::Type{UAffExpr}, c::Number)    = UAffExpr(Uncertain[ ],Float64[ ],  c)
+UncExpr() = zero(UncExpr)
+UncExpr(x::Union(Number,Uncertain)) = convert(UncExpr, x)
+UncExpr(c::Number,u::Uncertain) = UncExpr(Uncertain[u],Float64[c],0.0)
+Base.convert(::Type{UncExpr}, u::Uncertain) = UncExpr(Uncertain[u],Float64[1],0.0)
+Base.convert(::Type{UncExpr}, c::Number)    = UncExpr(Uncertain[ ],Float64[ ],  c)
 # aff_to_uaff
-# Useful for oracles. Given a UAffExpr and a list of variables, create an
+# Useful for oracles. Given a UncExpr and a list of variables, create an
 # AffExpr such that Uncertain(i) maps to Variable(i), where i is the index,
 # in the new expression.
-uaff_to_aff(uaff::UAffExpr, x::Vector{Variable}) =
+uaff_to_aff(uaff::UncExpr, x::Vector{Variable}) =
     AffExpr(Variable[x[up.id] for up in uaff.vars],
             copy(uaff.coeffs), uaff.constant)
 
 
 #-----------------------------------------------------------------------
 # FullAffExpr   ∑ⱼ (∑ᵢ aᵢⱼ uᵢ) xⱼ
-typealias FullAffExpr GenericAffExpr{UAffExpr,Variable}
+typealias FullAffExpr GenericAffExpr{UncExpr,Variable}
 
 FullAffExpr() = zero(FullAffExpr)
 Base.convert(::Type{FullAffExpr}, c::Number) =
-    FullAffExpr(Variable[], UAffExpr[], UAffExpr(c))
+    FullAffExpr(Variable[], UncExpr[], UncExpr(c))
 Base.convert(::Type{FullAffExpr}, x::Variable) =
-    FullAffExpr(Variable[x],UAffExpr[UAffExpr(1)], UAffExpr())
+    FullAffExpr(Variable[x],UncExpr[UncExpr(1)], UncExpr())
 Base.convert(::Type{FullAffExpr}, aff::AffExpr) =
-    FullAffExpr(copy(aff.vars), map(UAffExpr,aff.coeffs), UAffExpr(aff.constant))
-Base.convert(::Type{FullAffExpr}, uaff::UAffExpr) =
-    FullAffExpr(Variable[], UAffExpr[], uaff)
+    FullAffExpr(copy(aff.vars), map(UncExpr,aff.coeffs), UncExpr(aff.constant))
+Base.convert(::Type{FullAffExpr}, uaff::UncExpr) =
+    FullAffExpr(Variable[], UncExpr[], uaff)
 
 function Base.push!(faff::FullAffExpr, new_coeff::Union(Real,Uncertain), new_var::Variable)
     push!(faff.vars, new_var)
-    push!(faff.coeffs, UAffExpr(new_coeff))
+    push!(faff.coeffs, UncExpr(new_coeff))
 end
 
 
 #-----------------------------------------------------------------------
 # UncSetConstraint      A constraint with just uncertain parameters
-typealias UncSetConstraint GenericRangeConstraint{UAffExpr}
+typealias UncSetConstraint GenericRangeConstraint{UncExpr}
 addConstraint(m::Model, c::UncSetConstraint) = push!(getRobust(m).uncertaintyset, c)
 addConstraint(m::Model, c::Array{UncSetConstraint}) =
     error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
@@ -216,7 +216,7 @@ end
 #-----------------------------------------------------------------------
 # Norms of uncertain parameters
 typealias UncSetNorm{Typ} GenericNorm{Typ,Float64,Uncertain}
-JuMP._build_norm(Lp, terms::Vector{UAffExpr}) = UncSetNorm{Lp}(terms)
+JuMP._build_norm(Lp, terms::Vector{UncExpr}) = UncSetNorm{Lp}(terms)
 
 type UncNormConstraint{P} <: JuMPConstraint
     normexpr::GenericNormExpr{P,Float64,Uncertain}

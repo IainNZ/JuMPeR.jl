@@ -278,14 +278,14 @@ cont_str(::Type{REPLMode}, j::JuMPContainer{Uncertain}; mathmode=false) =
 
 
 #------------------------------------------------------------------------
-## UAffExpr
+## UncExpr
 #------------------------------------------------------------------------
-Base.print(io::IO, a::UAffExpr) = print(io, aff_str(REPLMode,a))
-Base.show( io::IO, a::UAffExpr) = print(io, aff_str(REPLMode,a))
-#Base.writemime(io::IO, ::MIME"text/latex", a::UAffExpr) =
+Base.print(io::IO, a::UncExpr) = print(io, aff_str(REPLMode,a))
+Base.show( io::IO, a::UncExpr) = print(io, aff_str(REPLMode,a))
+#Base.writemime(io::IO, ::MIME"text/latex", a::UncExpr) =
 #    print(io, math(aff_str(IJuliaMode,a),false))
 # Generic string converter, called by mode-specific handlers
-function aff_str(mode, a::UAffExpr, show_constant=true)
+function aff_str(mode, a::UncExpr, show_constant=true)
     # If the expression is empty, return the constant (or 0)
     if length(a.vars) == 0
         return show_constant ? str_round(a.constant) : "0"
@@ -333,7 +333,7 @@ function aff_str(mode, a::UAffExpr, show_constant=true)
 end
 
 # Backwards compatability shim
-affToStr(a::UAffExpr) = aff_str(REPLMode,a)
+affToStr(a::UncExpr) = aff_str(REPLMode,a)
 
 
 #------------------------------------------------------------------------

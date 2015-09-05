@@ -51,7 +51,7 @@ context("$(typeof(solver)), cuts=$cuts, flip=$flip, macr=$macr") do
     a = Float64[2, 0, 0, 2, 2];
     c = Float64[5, 0, 0, 5, 5]
     I = [1, 4, 5]
-    z = convert(Vector{UAffExpr}, a.*u-c)
+    z = convert(Vector{UncExpr}, a.*u-c)
     !macr && @addConstraint(m, norm(z, Inf) <= 2)
      macr && @addConstraint(m, norm∞{a[i]*u[i]-c[i],i=I} <= 2)
     solve(m, suppress_warnings=true, prefer_cuts=cuts, cut_tol=1e-4)
