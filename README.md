@@ -3,8 +3,8 @@
 [![Build Status](https://travis-ci.org/IainNZ/JuMPeR.jl.svg?branch=master)](https://travis-ci.org/IainNZ/JuMPeR.jl)
 [![codecov.io](http://codecov.io/github/IainNZ/JuMPeR.jl/coverage.svg?branch=master)](http://codecov.io/github/IainNZ/JuMPeR.jl?branch=master)
 
-[![JuMPeR](http://pkg.julialang.org/badges/JuMPeR_0.3.svg)](http://pkg.julialang.org/?pkg=JuMPeR&ver=release)
-[![JuMPeR](http://pkg.julialang.org/badges/JuMPeR_0.4.svg)](http://pkg.julialang.org/?pkg=JuMPeR&ver=nightly)
+[![JuMPeR](http://pkg.julialang.org/badges/JuMPeR_0.3.svg)](http://pkg.julialang.org/?pkg=JuMPeR&ver=0.3)
+[![JuMPeR](http://pkg.julialang.org/badges/JuMPeR_0.4.svg)](http://pkg.julialang.org/?pkg=JuMPeR&ver=0.4)
 
 **[JuMPeR]** is a modeling language for [robust optimization].
 It is embedded in the [Julia programming language], and is an extension to the [JuMP] modeling language.
