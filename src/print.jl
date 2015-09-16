@@ -391,11 +391,23 @@ function aff_str(mode, a::UncAffExpr, show_constant=true)
                 term_str[numTerms] = string(prefix,aff_str(mode,uaff)," ",varn)
             else
                 # Constant - need (...)
-                term_str[numTerms] = string(prefix,"(",aff_str(mode,uaff),") ",varn)
+                ustr = aff_str(mode,uaff)
+                # Check its not an all-zero expression
+                if ustr == "0"
+                    term_str[numTerms] = ""
+                else
+                    term_str[numTerms] = string(prefix,"(",aff_str(mode,uaff),") ",varn)
+                end
             end
         # Coefficient is a more complicated expression
         else
-            term_str[numTerms] = string(prefix,"(",aff_str(mode,uaff),") ",varn)
+            ustr = aff_str(mode,uaff)
+            # Check its not an all-zero expression
+            if ustr == "0"
+                term_str[numTerms] = ""
+            else
+                term_str[numTerms] = string(prefix,"(",aff_str(mode,uaff),") ",varn)
+            end
         end
         first = false
     end
