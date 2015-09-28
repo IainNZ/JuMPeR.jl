@@ -37,7 +37,7 @@ function solve_robust(rm::Model; suppress_warnings=false, report=false,
 end
 
 function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
-                        active_cuts::Bool, add_box::Union(Float64,Bool),
+                        active_cuts::Bool, add_box::@compat(Union{Float64,Bool}),
                         show_cuts::Bool, kwargs::Vector{Any})
     robdata = getRobust(rm)::RobustData
 

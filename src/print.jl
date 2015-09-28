@@ -170,14 +170,14 @@ unc_str(::Type{REPLMode}, u::Uncertain) =
 #------------------------------------------------------------------------
 ## JuMPContainer{Uncertain}
 #------------------------------------------------------------------------
-Base.print(io::IO, j::Union(JuMPContainer{Uncertain},Array{Uncertain})) = print(io, cont_str(REPLMode,j))
-Base.show( io::IO, j::Union(JuMPContainer{Uncertain},Array{Uncertain})) = print(io, cont_str(REPLMode,j))
+Base.print(io::IO, j::@compat(Union{JuMPContainer{Uncertain},Array{Uncertain}})) = print(io, cont_str(REPLMode,j))
+Base.show( io::IO, j::@compat(Union{JuMPContainer{Uncertain},Array{Uncertain}})) = print(io, cont_str(REPLMode,j))
 #Base.writemime(io::IO, ::MIME"text/latex", j::JuMPContainer{Uncertain}) =
 #    print(io, cont_str(IJuliaMode,j,mathmode=false))
 # Generic string converter, called by mode-specific handlers
 _getmodel(j::Array{Uncertain}) = first(j).m
 _getmodel(j::JuMPContainer) = getmeta(j, :model)
-function cont_str(mode, j::Union(JuMPContainer{Uncertain},Array{Uncertain}),
+function cont_str(mode, j::@compat(Union{JuMPContainer{Uncertain},Array{Uncertain}}),
                     sym::PrintSymbols)
     # Check if anything in the container
     if isempty(j)

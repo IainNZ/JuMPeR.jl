@@ -115,7 +115,7 @@ type Uncertain <: JuMP.AbstractJuMPScalar
     m::Model
     id::Int
 end
-function Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol, name::String)
+function Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol, name::AbstractString)
     robdata = getRobust(m)
     robdata.numUncs += 1
     push!(robdata.uncNames, name)
@@ -142,7 +142,7 @@ getNumUncs(m::Model) = getRobust(m).numUncs
 typealias UncExpr GenericAffExpr{Float64,Uncertain}
 
 UncExpr() = zero(UncExpr)
-UncExpr(x::Union(Number,Uncertain)) = convert(UncExpr, x)
+UncExpr(x::@compat(Union{Number,Uncertain})) = convert(UncExpr, x)
 UncExpr(c::Number,u::Uncertain) = UncExpr(Uncertain[u],Float64[c],0.0)
 Base.convert(::Type{UncExpr}, u::Uncertain) = UncExpr(Uncertain[u],Float64[1],0.0)
 Base.convert(::Type{UncExpr}, c::Number)    = UncExpr(Uncertain[ ],Float64[ ],  c)
@@ -179,7 +179,7 @@ Base.convert(::Type{UncAffExpr}, aff::AffExpr) =
 Base.convert(::Type{UncAffExpr}, uaff::UncExpr) =
     UncAffExpr(Variable[], UncExpr[], uaff)
 
-function Base.push!(faff::UncAffExpr, new_coeff::Union(Real,Uncertain), new_var::Variable)
+function Base.push!(faff::UncAffExpr, new_coeff::@compat(Union{Real,Uncertain}), new_var::Variable)
     push!(faff.vars, new_var)
     push!(faff.coeffs, UncExpr(new_coeff))
 end
