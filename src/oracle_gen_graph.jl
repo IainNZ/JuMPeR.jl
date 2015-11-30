@@ -19,7 +19,7 @@ type GeneralGraphOracle <: AbstractOracle
     # Reformulation (see setup() for details)
     comp_num_dualvar::Vector{Int}
     comp_num_dualcon::Vector{Int}
-    comp_dual_A::Vector{Vector{Vector{@compat Tuple{Int,Float64}}}}
+    comp_dual_A::Vector{Vector{Vector{Tuple{Int,Float64}}}}
     comp_dual_objs::Vector{Vector{Float64}}
     comp_dual_vartype::Vector{Vector{Symbol}}
     comp_dual_contype::Vector{Vector{Symbol}}
@@ -30,9 +30,9 @@ type GeneralGraphOracle <: AbstractOracle
     con_to_comp::Vector{Int}
 end
 # Default constructor
-GeneralGraphOracle() = 
+GeneralGraphOracle() =
     GeneralGraphOracle( Model[], Vector{Variable}[], 0.0, false,
-                        Int[], Int[], Vector{Vector{@compat Tuple{Int,Float64}}}[], Vector{Float64}[],
+                        Int[], Int[], Vector{Vector{Tuple{Int,Float64}}}[], Vector{Float64}[],
                         Vector{Symbol}[], Vector{Symbol}[],
                         Int[], Vector{Int}[], Int[])
 
@@ -117,7 +117,7 @@ function setup(gen::GeneralGraphOracle, rm::Model, prefs)
 
             num_dualvar = length(comp_uncset)       # WAS: length(rd.uncertaintyset)
             num_dualcon = pos                       # WAS: rd.numUncs
-            dual_A      = [(@compat Tuple{Int,Float64})[] for i = 1:num_dualcon]   # WAS: rd.numUncs
+            dual_A      = [Tuple{Int,Float64}[] for i = 1:num_dualcon]   # WAS: rd.numUncs
             dual_objs   = zeros(num_dualvar)
             dual_vartype = [:>= for i = 1:num_dualvar]
             dual_contype = [:>= for i = 1:num_dualcon]
@@ -237,8 +237,8 @@ function generateReform(gen::GeneralGraphOracle, master::Model, rm::Model, inds:
             for coeff_term_j = 1:length(term_coeff.coeffs)
                 coeff = term_coeff.coeffs[coeff_term_j]
                 unc   = term_coeff.vars[coeff_term_j].id
-                push!(dual_rhs[unc_to_comp_unc[unc]], 
-                                    coeff * sign_flip, 
+                push!(dual_rhs[unc_to_comp_unc[unc]],
+                                    coeff * sign_flip,
                                      Variable(master, var_col))
             end
         end
@@ -331,7 +331,7 @@ function generateCut(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Ve
 
         # Update the cutting plane problem's objective, and solve
         cut_sense, unc_obj_coeffs, lhs_const = JuMPeR.build_cut_objective_sparse(con, master_sol)
-        
+
         cut_obj = AffExpr()
         for uoc in unc_obj_coeffs
             gen.unc_to_comp[uoc[1]] != comp && continue
@@ -343,7 +343,7 @@ function generateCut(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Ve
         cut_solve_status != :Optimal &&
             error("GeneralGraphOracle: Cutting plane problem infeasible or unbounded!")
         lhs_of_cut = getObjectiveValue(cut_model) + lhs_const
-        
+
         # Expand cut solution to full uncertainty set space
         full_colVal = zeros(rd.numUncs)
         for i in 1:rd.numUncs
@@ -353,21 +353,21 @@ function generateCut(gen::GeneralGraphOracle, master::Model, rm::Model, inds::Ve
 
         # SUBJECT TO CHANGE: active cut detection
         if active
-            push!(rd.activecuts[con_ind], 
-                cut_to_scen(full_colVal, 
+            push!(rd.activecuts[con_ind],
+                cut_to_scen(full_colVal,
                     check_cut_status(con, lhs_of_cut, gen.cut_tol) == :Active))
             continue
         end
-        
+
         # Check violation
         if check_cut_status(con, lhs_of_cut, gen.cut_tol) != :Violate
             continue  # No violation, no new cut
         end
-        
+
         # Create and add the new constraint
         new_con = JuMPeR.build_certain_constraint(master, con, full_colVal)
         push!(new_cons, new_con)
     end
-    
+
     return new_cons
 end

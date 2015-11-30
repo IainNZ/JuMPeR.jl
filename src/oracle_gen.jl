@@ -23,7 +23,7 @@ type GeneralOracle <: AbstractOracle
 
     # Reformulation structure, generated in setup
     num_dualvar::Int
-    dual_A::Vector{Vector{@compat Tuple{Int,Float64}}}
+    dual_A::Vector{Vector{Tuple{Int,Float64}}}
     dual_objs::Vector{Float64}
     dual_vartype::Vector{Symbol}
     dual_contype::Vector{Symbol}
@@ -35,10 +35,10 @@ type GeneralOracle <: AbstractOracle
     dual_ω′_idxs::Vector{Vector{Int}}
 end
 # Default constructor
-GeneralOracle() = 
+GeneralOracle() =
     GeneralOracle(  false,
                     Model(), Variable[], 0.0, # Cutting plane
-                    0, Vector{@compat Tuple{Int,Float64}}[], Float64[], Symbol[], Symbol[], 
+                    0, Vector{Tuple{Int,Float64}}[], Float64[], Symbol[], Symbol[],
                     Vector{Int}[], Int[],           # Reformulation, 2-norm
                     Vector{Int}[], Int[],           # Reformulation, 1-norm
                     Vector{Int}[], Vector{Int}[])   # Reformulation, ∞-norm
@@ -79,7 +79,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs::Dict{Symbol,Any})
 
         # Covert polyhedral constraints
         for c in rd.uncertaintyset
-            push!(gen.cut_model.linconstr, 
+            push!(gen.cut_model.linconstr,
                 LinearConstraint(uaff_to_aff(c.terms,gen.cut_vars), c.lb, c.ub))
         end
         # Norm constraints
@@ -126,7 +126,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs::Dict{Symbol,Any})
                 rhs     = -normexp.aff.constant / normexp.coeff
                 n_terms = length(terms)
                 for i in 1:n_terms
-                    @addConstraint(gen.cut_model, 
+                    @addConstraint(gen.cut_model,
                         uaff_to_aff(terms[i],gen.cut_vars) ≤ +rhs)
                     @addConstraint(gen.cut_model,
                         uaff_to_aff(terms[i],gen.cut_vars) ≥ -rhs)
@@ -162,9 +162,9 @@ function setup(gen::GeneralOracle, rm::Model, prefs::Dict{Symbol,Any})
         # attach it to the model. Rather, for each constraint we will spawn
         # a new set of variables and constraints according to the structure
         # we determine here.
-        
+
         # Number of dual variables
-        # =   Number of linear constraints 
+        # =   Number of linear constraints
         #  +  Number of terms in 2-norm constraints + 1
         #  +  Number of terms in 1-norm constraints + 1
         #  +  Number of terms in ∞-norm constraints × 2
@@ -182,7 +182,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs::Dict{Symbol,Any})
         # Number of linear dual constraints = number of uncertain parameters
         num_dualcon  = rd.numUncs
         # Store Aᵀ as row-wise sparse vectors
-        dual_A       = [(@compat Tuple{Int,Float64})[] for i in 1:rd.numUncs]
+        dual_A       = [Tuple{Int,Float64}[] for i in 1:rd.numUncs]
         # Store dual objective coefficients
         dual_objs    = zeros(num_dualvar)
         # Store dual variable sense
@@ -346,22 +346,22 @@ function generateCut(gen::GeneralOracle, master::Model, rm::Model, inds::Vector{
 
         # SUBJECT TO CHANGE: active cut detection
         if active
-            push!(rd.activecuts[con_ind], 
-                cut_to_scen(gen.cut_model.colVal, 
+            push!(rd.activecuts[con_ind],
+                cut_to_scen(gen.cut_model.colVal,
                     check_cut_status(con, lhs_of_cut, gen.cut_tol) == :Active))
             continue
         end
-        
+
         # Check violation
         if check_cut_status(con, lhs_of_cut, gen.cut_tol) != :Violate
             continue  # No violation, no new cut
         end
-        
+
         # Create and add the new constraint
         new_con = JuMPeR.build_certain_constraint(master, con, gen.cut_model.colVal)
         push!(new_cons, new_con)
     end
-    
+
     return new_cons
 end
 Base.precompile(generateCut, (GeneralOracle, Model, Model, Vector{Int}, Bool))
@@ -399,7 +399,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
     dual_A       = gen.dual_A
     dual_objs    = gen.dual_objs
     dual_vartype = gen.dual_vartype
-    dual_contype = gen.dual_contype 
+    dual_contype = gen.dual_contype
 
     # Initialize the affine expressions that are equal to the coefficients
     # of the uncertain parameters in the primal of the cutting plane
@@ -415,7 +415,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
     # Extract the LHS of the constraint
     orig_lhs    = con.terms
 
-    # Original LHS terms are of form (aᵢᵀu + bᵢ) xᵢ. 
+    # Original LHS terms are of form (aᵢᵀu + bᵢ) xᵢ.
     # Collect the certain terms (bᵢxᵢ) of the uncertain constraint,
     # and append them to the new LHS directly
     for (uaff,var) in orig_lhs
@@ -424,8 +424,8 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
                     Variable(master, var.col))
         end
     end
-    
-    # Rearrange from ∑ᵢ (aᵢᵀu) xᵢ to ∑ⱼ (cⱼᵀx) uⱼ, as the cⱼᵀx 
+
+    # Rearrange from ∑ᵢ (aᵢᵀu) xᵢ to ∑ⱼ (cⱼᵀx) uⱼ, as the cⱼᵀx
     # are the RHS of the dual. While constructing, we check for
     # integer uncertain parameters, which we cannot reformulate
     for (uaff,var) in orig_lhs

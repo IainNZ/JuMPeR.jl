@@ -12,11 +12,9 @@
 # various constraints and norms.
 #-----------------------------------------------------------------------
 
-isdefined(Base, :__precompile__) && __precompile__()
+__precompile__()
 
 module JuMPeR
-
-using Compat
 
 importall Base.Operators
 
@@ -47,7 +45,7 @@ type RobustData
     # Uncertain-only constraints
     uncertaintyset::Vector
     normconstraints::Vector
-    
+
     # Uncertainty data
     numUncs::Int
     uncNames::Vector{UTF8String}
@@ -142,7 +140,7 @@ getNumUncs(m::Model) = getRobust(m).numUncs
 typealias UncExpr GenericAffExpr{Float64,Uncertain}
 
 UncExpr() = zero(UncExpr)
-UncExpr(x::@compat(Union{Number,Uncertain})) = convert(UncExpr, x)
+UncExpr(x::Union{Number,Uncertain}) = convert(UncExpr, x)
 UncExpr(c::Number,u::Uncertain) = UncExpr(Uncertain[u],Float64[c],0.0)
 Base.convert(::Type{UncExpr}, u::Uncertain) = UncExpr(Uncertain[u],Float64[1],0.0)
 Base.convert(::Type{UncExpr}, c::Number)    = UncExpr(Uncertain[ ],Float64[ ],  c)
@@ -179,7 +177,7 @@ Base.convert(::Type{UncAffExpr}, aff::AffExpr) =
 Base.convert(::Type{UncAffExpr}, uaff::UncExpr) =
     UncAffExpr(Variable[], UncExpr[], uaff)
 
-function Base.push!(faff::UncAffExpr, new_coeff::@compat(Union{Real,Uncertain}), new_var::Variable)
+function Base.push!(faff::UncAffExpr, new_coeff::Union{Real,Uncertain}, new_var::Variable)
     push!(faff.vars, new_var)
     push!(faff.coeffs, UncExpr(new_coeff))
 end

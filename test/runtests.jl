@@ -1,6 +1,5 @@
 using JuMP, JuMPeR
 using Base.Test, FactCheck
-using Compat
 #FactCheck.setstyle(:compact)
 
 # Create list of solvers using JuMP's code

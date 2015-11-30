@@ -13,7 +13,6 @@
 
 using JuMP, JuMPeR
 using FactCheck
-using Compat
 
 if !(:lp_solvers in names(Main))
     println("Loading solvers...")
@@ -33,11 +32,11 @@ context("$(typeof(solver)), cuts=$cuts") do
 
     # Now we get tricky and add a scenario that is actually
     # outside the uncertainty set - but we don't check that
-    addScenario(rm, @compat Dict(u => 1.5, v => 3.0))
-    
+    addScenario(rm, Dict(u => 1.5, v => 3.0))
+
     # This scenario shouldn't be added because it isn't
     # able to complete define a constraint
-    addScenario(rm, @compat Dict(v => 9999.0))
+    addScenario(rm, Dict(v => 9999.0))
 
     @fact solve(rm, prefer_cuts=cuts) --> :Optimal
     @fact getValue(x) --> roughly(0.5, 1e-4)

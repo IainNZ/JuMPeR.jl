@@ -37,12 +37,12 @@ function solve_robust(rm::Model; suppress_warnings=false, report=false,
 end
 
 function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
-                        active_cuts::Bool, add_box::@compat(Union{Float64,Bool}),
+                        active_cuts::Bool, add_box::Union{Float64,Bool},
                         show_cuts::Bool, kwargs::Vector{Any})
     robdata = getRobust(rm)::RobustData
 
     # Pull out extra keyword arguments that we will pas through to oracles
-    prefs = @compat Dict{Symbol,Any}([name => value for (name,value) in kwargs])
+    prefs = Dict{Symbol,Any}([name => value for (name,value) in kwargs])
     prefs[:active_cuts] = active_cuts
 
     start_time = time()
@@ -69,7 +69,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
     master.dictList  = copy(rm.dictList)
     # Copy the callbacks, even though they won't all work correctly
     master.callbacks = copy(rm.callbacks)
-   
+
     num_unccons      = length(robdata.uncertainconstr)
 
     # If the problem is a MIP, we are going to have to do more work
@@ -80,7 +80,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
         for ind in 1:num_unccons
             con = robdata.uncertainconstr[ind]
             !scen_satisfies_con(scen, con) && continue
-            addConstraint(master, 
+            addConstraint(master,
                 copy_linconstr(
                     build_certain_constraint(master, con, scen_to_vec(scen)),
                 mastervars))
@@ -101,7 +101,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
 
     #########################################################################
     # PART 2: ORACLE SETUP
-    
+
     for ind in 1:num_unccons
         # Associate constraints with the default oracle if they haven't been
         # assigned one otherwise
@@ -190,7 +190,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
         while true
             cutting_rounds += 1
             get(prefs, :debug_printcut, false) && println("CUTTING ROUND $cutting_rounds")
-            
+
             # Solve master
             tic()
             master_status = solve(master, suppress_warnings=true)
@@ -238,7 +238,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
                         # it goes haywire somewhere
                         if norm(unbound_ray .- master.colVal) <= 1e-6
                             # Same ray again
-                            !suppress_warnings && 
+                            !suppress_warnings &&
                             Base.warn("""JuMPeR: master problem (continuous) is unbounded, but
                                          ray is available. Attempted to add cuts using this ray, but same
                                          ray was returned by solver again, so assuming problem is
@@ -281,7 +281,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
             # * or no cuts were generated from the ray
             # then we'll never display a message from the code above.
             if master_status == :Unbounded && !cut_added
-                !suppress_warnings && 
+                !suppress_warnings &&
                 Base.warn("""JuMPeR: master problem (continuous) is unbounded, but
                              ray is available. No cuts were added by oracles, so assuming
                              problem is unbounded and terminating. Unboundedness may be due to:

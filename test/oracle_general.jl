@@ -13,7 +13,6 @@
 
 using JuMP, JuMPeR
 using FactCheck
-using Compat
 
 if !(:lp_solvers in names(Main))
     println("Loading solvers...")
@@ -410,7 +409,7 @@ context("$(typeof(solver)), cuts=$cuts") do
     m = RobustModel(solver=solver)
     @defVar(m, B[1:2] >= 0)
     @defVar(m, S[1:2] >= 0)
-    
+
     # Uncertainty set
     @defUnc(m, D[1:2])
     @addConstraint(m,  (D[1] - 20)/10 + (D[2] - 10)/5 <= 1.5)
@@ -437,7 +436,7 @@ context("$(typeof(solver)), cuts=$cuts") do
     @fact getValue(B[1]) --> roughly(5.0,TOL)
     @fact getValue(B[2]) --> roughly(2.5,TOL)
 
-    # Tighten uncertainty set 
+    # Tighten uncertainty set
     @addConstraint(m,  (D[1] - 20)/10 + (D[2] - 10)/5 <= 1.0)
     @addConstraint(m,  (D[1] - 20)/10 - (D[2] - 10)/5 <= 1.0)
     @addConstraint(m, -(D[1] - 20)/10 + (D[2] - 10)/5 <= 1.0)

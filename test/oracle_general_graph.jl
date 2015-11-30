@@ -9,7 +9,6 @@
 
 using JuMP, JuMPeR
 using FactCheck
-using Compat
 
 if !(:lp_solvers in names(Main))
     println("Loading solvers...")
