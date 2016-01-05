@@ -1,19 +1,31 @@
+#-----------------------------------------------------------------------
+# JuMPeR  --  JuMP Extension for Robust Optimization
+# http://github.com/IainNZ/JuMPeR.jl
+#-----------------------------------------------------------------------
+# Copyright (c) 2015: Iain Dunning
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#-----------------------------------------------------------------------
+# test/runtests.jl
+# Launch all JuMPeR tests. Run by Pkg.test("JuMPeR")
+#-----------------------------------------------------------------------
+
 using JuMP, JuMPeR
 using FactCheck
 using BaseTestNext
 
-# Create list of solvers using JuMP's code
-print_with_color(:yelow, "Loading solvers...\n")
+# Use JuMP's testing code to load available solvers
+# and provide vectors of solvers by capability
+print_with_color(:yellow, "Loading solvers...\n")
 include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 
 @testset "JuMPeR" begin
     include("operators.jl")
+    include("print.jl")
 end
 
-tests=[ #"operators.jl",
-        #"matrixops.jl",
-        "print.jl",
-        "macro.jl",
+tests=[ "macro.jl",
         "oracle.jl",
         "oracle_general.jl",
         "oracle_general_L1.jl",

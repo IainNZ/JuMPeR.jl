@@ -1,28 +1,33 @@
-#############################################################################
-# JuMPeR
-# Julia for Mathematical Programming - extension for Robust Optimization
-# See http://github.com/IainNZ/JuMPeR.jl
-#############################################################################
+#-----------------------------------------------------------------------
+# JuMPeR  --  JuMP Extension for Robust Optimization
+# http://github.com/IainNZ/JuMPeR.jl
+#-----------------------------------------------------------------------
+# Copyright (c) 2015: Iain Dunning
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#-----------------------------------------------------------------------
 # test/print.jl
-# Testing for all pretty-printing-related functionality
-#############################################################################
+# Test pretty-printing-related functionality not otherwise covered
+#-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using FactCheck
+using BaseTestNext
 import JuMP: REPLMode, IJuliaMode
 import JuMP: repl, ijulia
 
 # Helper function to test IO methods work correctly
 function io_test(mode, obj, exp_str; repl=:both)
     if mode == REPLMode
-        repl != :show  && @fact sprint(print, obj) --> exp_str
-        repl != :print && @fact sprint(show,  obj) --> exp_str
+        repl != :show  && @test sprint(print, obj) == exp_str
+        repl != :print && @test sprint(show,  obj) == exp_str
     else
-        @fact sprint(writemime, "text/latex", obj) --> "\$\$ $exp_str \$\$"
+        @test sprint(writemime, "text/latex", obj) == "\$\$ $exp_str \$\$"
     end
 end
 
-facts("[print] RobustModel") do
+@testset "Printing" begin
+@testset "RobustModel" begin
     le, ge, fa = repl[:leq], repl[:geq], repl[:for_all]
     inset, dots = repl[:in], repl[:dots]
     infty, union = repl[:infty], repl[:union]
@@ -82,9 +87,9 @@ x $inset {0,1}
 y free
 z free, integer
 """, repl=:print)
-end
+end  # "RobustModel"
 
-facts("[print] JuMPContainer{Uncertain}") do
+@testset "JuMPContainer{Uncertain}" begin
     le, ge, fa = repl[:leq], repl[:geq], repl[:for_all]
     inset, dots = repl[:in], repl[:dots]
     infty, union = repl[:infty], repl[:union]
@@ -109,4 +114,6 @@ facts("[print] JuMPContainer{Uncertain}") do
     io_test(REPLMode, bnd_diffbo, "$dots $le bnd_diffbo[i] $le $dots $fa i $inset {2,3,4,5}")
     io_test(REPLMode, bnd_difflo_with_up, "$dots $le bnd_difflo_with_up[i] $le 5 $fa i $inset {2,3,4,5}")
     io_test(REPLMode, bnd_diffup_with_lo, "2 $le bnd_diffup_with_lo[i] $le $dots $fa i $inset {2,3,4,5}")
-end
+end  # "JuMPContainer{Uncertain}"
+
+end  # "Printing"
