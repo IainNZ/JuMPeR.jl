@@ -1,12 +1,16 @@
 using JuMP, JuMPeR
-using Base.Test, FactCheck
-#FactCheck.setstyle(:compact)
+using FactCheck
+using BaseTestNext
 
 # Create list of solvers using JuMP's code
 println("Loading solvers...")
 include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 
-tests=[ "operators.jl",
+@testset "JuMPeR" begin
+    include("operators.jl")
+end
+
+tests=[ #"operators.jl",
         "matrixops.jl",
         "print.jl",
         "macro.jl",
