@@ -68,7 +68,30 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
     # Copy JuMPContainers over so we get good printing
     master.dictList  = copy(rm.dictList)
     # Copy the callbacks, even though they won't all work correctly
-    master.callbacks = copy(rm.callbacks)
+    if !isempty(rm.callbacks)
+        if !suppress_warnings
+            Base.warn("""Only informational callbacks will work as expected with JuMPeR.
+                         If you wish to use lazy constraint callbacks, see the JuMPeR
+                         source code for addSpecialLazyCallback() for help.""")
+        end
+        master.callbacks = copy(rm.callbacks)
+    end
+    # Create the wrapper for special lazy callbacks
+    function callback_passthru(cb)
+        # Copy primal solution back to outer RobustModel
+        rm.colVal = copy(master.colVal)
+        # Collect constraints to add, which will be for the RobustModel
+        outer_cons = Any[]
+        for f in robdata.lazy_callbacks
+            ret = f(cb)
+            ret != nothing && append!(outer_cons, ret)
+        end
+        # Convert constraints and add to master
+        map(con ->JuMP.addLazyConstraint(cb, copy_linconstr(con, mastervars)), outer_cons)
+    end
+    if !isempty(robdata.lazy_callbacks)
+        addLazyCallback(master, callback_passthru)
+    end
 
     num_unccons      = length(robdata.uncertainconstr)
 

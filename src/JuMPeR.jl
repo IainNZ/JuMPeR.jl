@@ -69,6 +69,10 @@ type RobustData
     scenarios::Vector
 
     solve_time::Float64
+
+    # Custom lazy constraint callbacks, which need special handling due
+    # to normal lazy constraint callbacks attaching to the outer RobustModel
+    lazy_callbacks::Vector{Any}
 end
 RobustData(cutsolver) = RobustData(
     Any[],          # uncertainconstr
@@ -87,7 +91,8 @@ RobustData(cutsolver) = RobustData(
     Dict{Symbol,Any}(), # uncDict
     ObjectIdDict(), # uncData
     Any[],          # scenarios
-    0.0)            # solve_time
+    0.0,            # solve_time
+    Any[])          # lazy_callbacks
 function RobustModel(; solver=JuMP.UnsetSolver(),
                     cutsolver=JuMP.UnsetSolver())
     # Create the underlying JuMP model
@@ -221,11 +226,27 @@ function addConstraint(m::Model, c::UncNormConstraint)
     getRobust(m).normconstraints[end]
 end
 
-addEllipseConstraint(m::Model, vec::Vector, Gamma::Real) =
-    error("""addEllipseConstraint not supported as of JuMPeR v0.2.
-             Please use, e.g., @addConstraint(m, norm(x) <= Γ)
-                               @addConstraint(m, norm2{x[i],i=1:n} <= Γ""")
-
+#-----------------------------------------------------------------------
+# Provide a way to provide a lazy constraint callback for JuMPeR models
+# The key problem is that the solution to the internal reformulated
+# model is not made available to the JuMPeR model for use in a normal
+# JuMP-style callback, and that constraints added to the JuMPeR model
+# aren't added to the internal model. Thus, this function provides a
+# mechanism to avoid that.
+# "Special" lazy callbacks can be written exactly like normal JuMP
+# lazy callbacks, except that instead of using @addLazyConstraint, the
+# function should return an array of constraints to add. For example,
+# function lazycut(cb)
+#   x_val = getValue(x)
+#   if sum(x_val) > 5
+#     return [@LinearConstraint(sum(x) <= 5)]
+#   else
+#     return nothing
+#   end
+# end
+function addSpecialLazyCallback(m::Model, f::Function)
+    push!(getRobust(m).lazy_callbacks, f)
+end
 
 #-----------------------------------------------------------------------
 # Scenarios
