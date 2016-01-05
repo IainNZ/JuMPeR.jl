@@ -3,7 +3,7 @@ using FactCheck
 using BaseTestNext
 
 # Create list of solvers using JuMP's code
-println("Loading solvers...")
+print_with_color(:yelow, "Loading solvers...\n")
 include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 
 @testset "JuMPeR" begin
@@ -11,7 +11,7 @@ include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 end
 
 tests=[ #"operators.jl",
-        "matrixops.jl",
+        #"matrixops.jl",
         "print.jl",
         "macro.jl",
         "oracle.jl",
