@@ -22,6 +22,7 @@ const geq = JuMP.repl[:geq]
 const  eq = JuMP.repl[:eq]
 
 @testset "Operators" begin
+print_with_color(:yellow, "Operators...\n")
 
 @testset "Basics" begin
 

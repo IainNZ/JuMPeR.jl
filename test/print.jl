@@ -27,6 +27,8 @@ function io_test(mode, obj, exp_str; repl=:both)
 end
 
 @testset "Printing" begin
+print_with_color(:yellow, "Printing...\n")
+
 @testset "RobustModel" begin
     le, ge, fa = repl[:leq], repl[:geq], repl[:for_all]
     inset, dots = repl[:in], repl[:dots]

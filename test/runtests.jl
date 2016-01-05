@@ -23,10 +23,10 @@ include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 @testset "JuMPeR" begin
     include("operators.jl")
     include("print.jl")
+    include("macro.jl")
 end
 
-tests=[ "macro.jl",
-        "oracle.jl",
+tests=[ "oracle.jl",
         "oracle_general.jl",
         "oracle_general_L1.jl",
         "oracle_general_Linf.jl",
