@@ -26,6 +26,7 @@ include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
     include("macro.jl")
     include("oracle.jl")
     include("oracle_general.jl")
+    include("adp_newsvendor.jl")
 end
 
 tests=[ "oracle_general_L1.jl",
