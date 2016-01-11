@@ -12,47 +12,119 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using FactCheck
+using FactCheck, BaseTestNext
+
+const TOL = 1e-4
 
 if !(:lp_solvers in names(Main))
-    println("Loading solvers...")
+    print_with_color(:yellow, "Loading solvers...\n")
     include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 end
 lp_solvers  = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
 soc_solvers = filter(s->(!contains(string(typeof(s)),"SCSSolver")), soc_solvers)
 
-const TOL = 1e-4
+@testset "GeneralOracle" begin
+print_with_color(:yellow, "GeneralOracle...\n")
 
-facts("[oracle_gen_poly] Test 1") do
-for solver in lp_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x[1:2] >= 0)
-    @defUnc(m, 0.3 <= u <= 0.5)
-    @setObjective(m, Max, x[1] + x[2])
-    @addConstraint(m, u*x[1] + 1*x[2] <= 2)
-    @addConstraint(m, 1*x[1] + 1*x[2] <= 6)
-    @fact solve(m, prefer_cuts=cuts, report=true) --> :Optimal
-    @fact getValue(x[1]) --> roughly(4.0,TOL)
-    @fact getValue(x[2]) --> roughly(0.0,TOL)
-end; end; end
+@testset "With lp_solver $(typeof(solver)), cuts=$cuts" for
+                        solver in lp_solvers, cuts in [true,false]
 
+    @testset "Test 1" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x[1:2] >= 0)
+        @defUnc(m, 0.3 <= u <= 0.5)
+        @setObjective(m, Max, x[1] + x[2])
+        @addConstraint(m, u*x[1] + 1*x[2] <= 2)
+        @addConstraint(m, 1*x[1] + 1*x[2] <= 6)
+        @test solve(m, prefer_cuts=cuts) == :Optimal
+        @test isapprox(getValue(x[1]), 4.0, atol=TOL)
+        @test isapprox(getValue(x[2]), 0.0, atol=TOL)
+    end  # "Test 1"
 
-facts("[oracle_gen_poly] Test 2") do
-for solver in lp_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x[1:2] >= 0)
-    @defUnc(m, 0.3 <= u1 <= 0.5)
-    @defUnc(m, 0.0 <= u2 <= 2.0)
-    @setObjective(m, Max, x[1] + x[2])
-    @addConstraint(m, u1*x[1] + 1*x[2] <= 2)
-    @addConstraint(m, u2*x[1] + 1*x[2] <= 6)
-    @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
-    @fact getValue(x[1]) --> roughly(2.0+2.0/3.0,TOL)
-    @fact getValue(x[2]) --> roughly(    2.0/3.0,TOL)
-end; end; end
+    @testset "Test 2" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x[1:2] >= 0)
+        @defUnc(m, 0.3 <= u1 <= 0.5)
+        @defUnc(m, 0.0 <= u2 <= 2.0)
+        @setObjective(m, Max, x[1] + x[2])
+        @addConstraint(m, u1*x[1] + 1*x[2] <= 2)
+        @addConstraint(m, u2*x[1] + 1*x[2] <= 6)
+        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test isapprox(getValue(x[1]), 2.0+2.0/3.0, atol=TOL)
+        @test isapprox(getValue(x[2]),     2.0/3.0, atol=TOL)
+    end  # "Test 2"
 
+    @testset "Test 3" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x[1:2] >= 0)
+        @defUnc(m, 0.3 <= u1 <= 1.5)
+        @defUnc(m, 0.5 <= u2 <= 1.5)
+        @setObjective(m, Max, x[1] + x[2])
+        @addConstraint(m, u1*x[1] <= 3)
+        @addConstraint(m, u2*x[2] <= 1)
+        @addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) <= +1)
+        @addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) >= -1)
+        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test isapprox(getValue(x[1]), 2.0,       atol=TOL)
+        @test isapprox(getValue(x[2]), 10.0/11.0, atol=TOL)
+    end  # "Test 3"
+
+    @testset "Test 4" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x >= 0)
+        @defUnc(m, u <= 4.0)
+        @addConstraint(m, u >= 3.0)
+        @setObjective(m, Max, 1.0x)
+        @addConstraint(m, x <= u)
+        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test isapprox(getValue(x), 3.0, atol=TOL)
+    end  # "Test 4"
+
+    @testset "Test 5" begin
+        m = RobustModel(solver=solver)
+        @defUnc(m, u[1:5] >= 0)
+        for ix = 1:5
+            @addConstraint(m, u[ix] <= float(ix))
+        end
+        @addConstraint(m, sum(u) <= 5)
+        @defVar(m, t >= 0)
+        @addConstraint(m, t >= sum(u))
+        @setObjective(m, Min, t)
+        @test solve(m, prefer_cuts=cuts) == :Optimal
+        @test isapprox(getObjectiveValue(m), 5.0, atol=TOL)
+    end  # "Test 5"
+
+    @testset "Test 6 variant $variant" for variant in 0:7
+        rm = RobustModel(solver=solver)
+        @defUnc(rm, u >=0)
+        @addConstraint(rm, u <=0)
+        @defVar(rm, x >=0)
+        @defVar(rm, shed >=0)
+        @setObjective(rm, Min, x + shed)
+        variant == 0 && @addConstraint(rm, x - u + 3.46 - shed <= 0)
+        variant == 1 && @addConstraint(rm, x - u + 3.46 <= shed)
+        variant == 2 && @addConstraint(rm, x - u <= shed - 3.46)
+        variant == 3 && @addConstraint(rm, x <= u + shed - 3.46)
+        variant == 4 && @addConstraint(rm, 0 <= -x + u + shed - 3.46)
+        variant == 5 && @addConstraint(rm, 3.46 <= -x + u + shed)
+        variant == 6 && @addConstraint(rm, 3.46 - shed <= -x + u)
+        variant == 7 && @addConstraint(rm, 3.46 + x <= shed + u)
+        @test solve(rm, prefer_cuts=cuts) == :Optimal
+        @test isapprox(getObjectiveValue(rm), 3.46, atol=TOL)
+    end  # "Test 6"
+
+    @testset "Test 7" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x >= 0)
+        @defUnc(m, 0.5 <= u <= 0.5)
+        @setObjective(m, Max, x)
+        @addConstraint(m, u*x + u <= 2)
+        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test isapprox(getValue(x), 3.0, atol=TOL)
+    end
+
+end  # with lp_solvers
+end  # "GeneralOracle"
 
 facts("[oracle_gen_poly] Test 2-IP") do
 for solver in lazy_solvers, cuts in [true,false]
@@ -67,24 +139,6 @@ context("$(typeof(solver)), cuts=$cuts") do
     @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
     @fact getValue(x[1]) --> roughly(3.0,TOL)
     @fact getValue(x[2]) --> roughly(0.0,TOL)
-end; end; end
-
-
-facts("[oracle_gen_poly] Test 3") do
-for solver in lp_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x[1:2] >= 0)
-    @defUnc(m, 0.3 <= u1 <= 1.5)
-    @defUnc(m, 0.5 <= u2 <= 1.5)
-    @setObjective(m, Max, x[1] + x[2])
-    @addConstraint(m, u1*x[1] <= 3)
-    @addConstraint(m, u2*x[2] <= 1)
-    @addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) <= +1)
-    @addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) >= -1)
-    @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
-    @fact getValue(x[1]) --> roughly(2.0,TOL)
-    @fact getValue(x[2]) --> roughly(10.0/11.0,TOL)
 end; end; end
 
 
@@ -106,60 +160,7 @@ context("$(typeof(solver)), cuts=$cuts") do
 end; end; end
 
 
-facts("[oracle_gen_poly] Test 4") do
-for solver in lp_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x >= 0)
-    @defUnc(m, u <= 4.0)
-    @addConstraint(m, u >= 3.0)
-    @setObjective(m, Max, 1.0x)
-    @addConstraint(m, x <= u)
-    @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
-    @fact getValue(x) --> roughly(3.0,TOL)
-end; end; end
-
-
-facts("[oracle_gen_poly] Test 5") do
-for solver in lp_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defUnc(m, u[1:5] >= 0)
-    for ix = 1:5
-        @addConstraint(m, u[ix] <= float(ix))
-    end
-    @addConstraint(m, sum(u) <= 5)
-    @defVar(m, t >= 0)
-    @addConstraint(m, t >= sum(u))
-    @setObjective(m, Min, t)
-    @fact solve(m, prefer_cuts=cuts) --> :Optimal
-    @fact getObjectiveValue(m) --> roughly(5.0,TOL)
-end; end; end
-
-
-facts("[oracle_gen_poly] Test 6") do
-for solver in lp_solvers, cuts in [true,false], variant in 0:7
-context("$(typeof(solver)), cuts=$cuts, variant=$variant") do
-    rm = RobustModel(solver=solver)
-    @defUnc(rm, u >=0)
-    @addConstraint(rm, u <=0)
-    @defVar(rm, x >=0)
-    @defVar(rm, shed >=0)
-    @setObjective(rm, Min, x + shed)
-    variant == 0 && @addConstraint(rm, x - u + 3.46 - shed <= 0)
-    variant == 1 && @addConstraint(rm, x - u + 3.46 <= shed)
-    variant == 2 && @addConstraint(rm, x - u <= shed - 3.46)
-    variant == 3 && @addConstraint(rm, x <= u + shed - 3.46)
-    variant == 4 && @addConstraint(rm, 0 <= -x + u + shed - 3.46)
-    variant == 5 && @addConstraint(rm, 3.46 <= -x + u + shed)
-    variant == 6 && @addConstraint(rm, 3.46 - shed <= -x + u)
-    variant == 7 && @addConstraint(rm, 3.46 + x <= shed + u)
-    @fact solve(rm, prefer_cuts=cuts) --> :Optimal
-    @fact getObjectiveValue(rm) --> roughly(3.46,TOL)
-end; end; end
-
-
-facts("[oracle_gen_poly] Test 7 (integer uncertainty set)") do
+facts("[oracle_gen_poly] Test 8 (integer uncertainty set)") do
 for solver in lazy_solvers
 context("$(typeof(solver))") do
     rm = RobustModel(solver=solver)
@@ -169,19 +170,6 @@ context("$(typeof(solver))") do
     @addConstraint(rm, x <= u)
     @fact solve(rm, prefer_cuts=true) --> :Optimal
     @fact getValue(x) --> roughly(1.0,TOL)
-end; end; end
-
-
-facts("[oracle_gen_poly] Test 8") do
-for solver in lp_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x >= 0)
-    @defUnc(m, 0.5 <= u <= 0.5)
-    @setObjective(m, Max, x)
-    @addConstraint(m, u*x + u <= 2)
-    @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
-    @fact getValue(x) --> roughly(3.0,TOL)
 end; end; end
 
 
