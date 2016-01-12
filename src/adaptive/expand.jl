@@ -2,7 +2,7 @@
 # JuMPeR  --  JuMP Extension for Robust Optimization
 # http://github.com/IainNZ/JuMPeR.jl
 #-----------------------------------------------------------------------
-# Copyright (c) 2015: Iain Dunning
+# Copyright (c) 2016: Iain Dunning
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -13,91 +13,101 @@
 
 any_adaptive(u::UncAffExpr) = any(v->isa(v,Adaptive), u.vars)
 
+
 function expand_adaptive(rm::Model)
+    # Extract robust-specifc part of model information
     rd = getRobust(rm)::RobustData
-
-    length(rd.adpPolicy) == 0 && return
-
+    # If no adaptive variables, bail right away
+    isempty(rd.adpPolicy) && return
+    # Collect the new variables or expressions that will replace
+    # the adaptive variables in the current constraints
+    new_vars = Any[]
+    # Collect the new constraints we'll be adding to make the
+    # policies make sense
     new_cons = UncConstraint[]
-
-    subs = Any[]
+    # For every adaptive variable...
     for i in 1:rd.numAdapt
-        pol = rd.adpPolicy[i]
+        pol = rd.adpPolicy[i]  # Extract the policy
+        #---------------------------------------------------------------
         if pol == :Static
-            # Static policy = no dependence
-            x_static = Variable(rm,rd.adpLower[i],rd.adpUpper[i],rd.adpCat[i],rd.adpNames[i])
-            push!(subs, x_static)
+            # Static policy - no dependence on the uncertain parameters
+            # Create a normal variable to replace this adaptive variable
+            push!(new_vars, Variable(rm,
+                rd.adpLower[i], rd.adpUpper[i],
+                rd.adpCat[i], rd.adpNames[i]) )
+        #---------------------------------------------------------------
         elseif pol == :Affine
+            # Extract the container of uncertain parameters that this
+            # adaptive variable depends on
             deps = rd.adpDependsOn[i]
-            if rd.adpStage[i] != 0                
-                # Stage-wise dependence being used
-                error("Not implemetned")
-            else
-                # Explicit dependency
-                # Create auxiliary variables
-                aff_pol = Dict()
-                for j in eachindex(deps)
-                    vname = utf8(string(adp_str(rm,i), "{", deps[j], "}"))
-                    aff_pol[j] = Variable(rm,-Inf,+Inf,:Cont,vname)
-                end
-                aff_con = Variable(rm,-Inf,+Inf,:Cont,string(adp_str(rm,i), utf8("{}")))
-                # Build the policy
-                x_aff = UncAffExpr()
-                for j in eachindex(deps)
-                    push!(x_aff, UncExpr(deps[j]), aff_pol[j])
-                end
-                push!(x_aff, UncExpr(1), aff_con)
-                push!(subs, x_aff)
-                # Add bound constraints on the policy
-                if rd.adpLower[i] != -Inf && rd.adpUpper[i] != +Inf
-                    push!(new_cons, UncConstraint(x_aff, rd.adpLower[i], rd.adpUpper[i]))
-                end
+            # Ensure stage-wise dependence not being used
+            if rd.adpStage[i] != 0
+                error("Not implemented!")
             end
+            # Create auxiliary variables - one for each uncertain parameter,
+            # and one for the independent term
+            aux_aff = Dict{Any,Variable}()
+            for j in eachindex(deps)
+                # Construct a roughly sensible name for the auxiliary using
+                # the adaptive variable and uncertain parameter names
+                vname = utf8(string(adp_str(rm,i), "{", deps[j], "}"))
+                aux_aff[j] = Variable(rm, -Inf, +Inf, :Cont, vname)
+            end
+            vname = string(utf8(adp_str(rm,i)), utf8("{_}"))
+            aux_con = Variable(rm, -Inf, +Inf, :Cont, vname)
+            # Build the policy
+            aff_policy = UncExpr(1) * aux_con
+            for j in eachindex(deps)
+                push!(aff_policy, UncExpr(deps[j]), aux_aff[j])
+            end
+            #println(aff_policy)
+            push!(new_vars, aff_policy)
+            # Add bound constraints on the policy
+            if rd.adpLower[i] != -Inf  # Lower bound?
+                push!(new_cons, UncConstraint(aff_policy, rd.adpLower[i], +Inf))
+            end
+            if rd.adpUpper[i] != +Inf  # Lower bound?
+                push!(new_cons, UncConstraint(aff_policy, -Inf, rd.adpUpper[i]))
+            end
+        #---------------------------------------------------------------
         else
-            error("errr")
+            error("Unknown policy type")
         end
     end
 
-
-    # Replace the other constraints
-    init_n = length(rd.uncertainconstr)
-    for i in 1:init_n
-        uncaffcon = rd.uncertainconstr[i]
+    # Create new constraints from uncertain-and-variable constraints
+    # that contained an adaptive variable
+    for uncaffcon in rd.uncertainconstr
         lhs = uncaffcon.terms
         !any_adaptive(lhs) && continue
-        new_lhs = UncAffExpr()
+        new_lhs = UncAffExpr(lhs.constant)
         for (coeff, var) in lhs
-            if isa(var, Adaptive)
-                new_var = subs[var.id]
-                new_lhs += coeff * new_var
-            else
-                push!(new_lhs, coeff, var)
-            end
+            new_lhs += coeff * (isa(var, Adaptive) ? new_vars[var.id] : var)
         end
-        new_lhs.constant = lhs.constant
         push!(new_cons, UncConstraint(new_lhs, uncaffcon.lb, uncaffcon.ub))
+        # Remove old constraint by emptying all fields
         lhs.vars = JuMPeRVar[]
         lhs.coeffs = UncExpr[]
         lhs.constant = UncExpr()
+        if uncaffcon.lb != -Inf
+            uncaffcon.lb = 0
+        end
+        if uncaffcon.ub != +Inf
+            uncaffcon.ub = 0
+        end
     end
-    
 
-    # Replace the number-and-adaptive constraints
+    # Create new constraints from number-and-adaptive constraints
     for varaffcon in rd.varaffcons
         lhs = varaffcon.terms
-        new_lhs = UncAffExpr()
+        new_lhs = UncAffExpr(lhs.constant)
         for (coeff, var) in lhs
-            if isa(var, Adaptive)
-                new_var = subs[var.id]
-                new_lhs += coeff * new_var
-            else
-                push!(new_lhs, coeff, var)
-            end
+            new_lhs += coeff * (isa(var, Adaptive) ? new_vars[var.id] : var)
         end
         push!(new_cons, UncConstraint(new_lhs, varaffcon.lb, varaffcon.ub))
+        # We don't need to do anything with the old constraints
     end
 
+    # Add these constraints to the RobustModel
     map(c->addConstraint(rm, c), new_cons)
-
-    #println(rm)
 end
