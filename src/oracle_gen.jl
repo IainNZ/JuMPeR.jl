@@ -195,7 +195,7 @@ function setup(gen::GeneralOracle, rm::Model, prefs::Dict{Symbol,Any})
         # Linear constraints form Aᵀ, and set vartype and objective of π
         for (aff_ind, aff_con) in enumerate(rd.uncertaintyset)
             lhs = aff_con.terms
-            for (coef,uncp) in lhs
+            for (coef,uncp) in linearterms(lhs)
                 push!(dual_A[uncp.id], (aff_ind, coef))
             end
             dual_objs[aff_ind]    =   rhs(aff_con)
@@ -418,7 +418,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
     # Original LHS terms are of form (aᵢᵀu + bᵢ) xᵢ.
     # Collect the certain terms (bᵢxᵢ) of the uncertain constraint,
     # and append them to the new LHS directly
-    for (uaff,var) in orig_lhs
+    for (uaff,var) in linearterms(orig_lhs)
         if uaff.constant != 0.0
             push!(new_lhs, uaff.constant * sign_flip,
                     Variable(master, var.col))
@@ -428,8 +428,8 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
     # Rearrange from ∑ᵢ (aᵢᵀu) xᵢ to ∑ⱼ (cⱼᵀx) uⱼ, as the cⱼᵀx
     # are the RHS of the dual. While constructing, we check for
     # integer uncertain parameters, which we cannot reformulate
-    for (uaff,var) in orig_lhs
-        for (coeff, uncparam) in uaff
+    for (uaff,var) in linearterms(orig_lhs)
+        for (coeff, uncparam) in linearterms(uaff)
             getCategory(uncparam) != :Cont &&
                 error("Integer uncertain parameters not supported in reformulation.")
             push!(dual_rhs[uncparam.id], coeff * sign_flip,
@@ -437,7 +437,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
         end
     end
     # We also need the standalone aᵀu not related to any variable
-        for (coeff, uncparam) in orig_lhs.constant
+        for (coeff, uncparam) in linearterms(orig_lhs.constant)
             getCategory(uncparam) != :Cont &&
                 error("Integer uncertain parameters not supported in reformulation.")
             dual_rhs[uncparam.id].constant += coeff * sign_flip
@@ -484,7 +484,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
                 ell_idx += 1
                 terms = norm_c.normexpr.norm.terms
                 for (term_ind, term) in enumerate(terms)
-                    for (coeff,uncparam) in term
+                    for (coeff,uncparam) in linearterms(term)
                         # Is it a match?
                         uncparam.id != unc && continue
                         # F ≠ 0 for this uncertain parameter and term
@@ -497,7 +497,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
                 l1_idx += 1
                 terms = norm_c.normexpr.norm.terms
                 for (term_ind, term) in enumerate(terms)
-                    for (coeff,uncparam) in term
+                    for (coeff,uncparam) in linearterms(term)
                         # Is it a match?
                         uncparam.id != unc && continue
                         # G ≠ 0 for this uncertain parameter and term
@@ -510,7 +510,7 @@ function apply_reform(gen::GeneralOracle, master::Model, rm::Model, con_ind::Int
                 l∞_idx += 1
                 terms = norm_c.normexpr.norm.terms
                 for (term_ind, term) in enumerate(terms)
-                    for (coeff,uncparam) in term
+                    for (coeff,uncparam) in linearterms(term)
                         # Is it a match?
                         uncparam.id != unc && continue
                         # H ≠ 0 for this uncertain parameter and term

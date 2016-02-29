@@ -270,7 +270,7 @@ end
     @test affToStr(dot(x,u)) == "u[1] x[1] + u[2] x[2] + u[3] x[3]"
 
     # Matrix{Float64} (2D) :: JuMPDict{Uncertain} (1D)
-    @test_throws MethodError vecdot(A, u)
+    @test_throws DimensionMismatch vecdot(A, u)
 end
 
 end  # "Higher level"
