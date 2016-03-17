@@ -2,17 +2,17 @@
 # JuMPeR  --  JuMP Extension for Robust Optimization
 # http://github.com/IainNZ/JuMPeR.jl
 #-----------------------------------------------------------------------
-# Copyright (c) 2015: Iain Dunning
+# Copyright (c) 2016: Iain Dunning
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #-----------------------------------------------------------------------
 # test/oracle_general.jl
-# Test GeneralOracle for polyhedral and ellipsoidal uncertainty sets
+# Test GeneralOracle for general polyhedral uncertainty sets
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using FactCheck, BaseTestNext
+using BaseTestNext
 
 const TOL = 1e-4
 
@@ -22,11 +22,12 @@ if !(:lp_solvers in names(Main))
 end
 lp_solvers  = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
 soc_solvers = filter(s->(!contains(string(typeof(s)),"SCSSolver")), soc_solvers)
+solver_name(solver) = split(string(typeof(solver)),".")[2]
 
-@testset "GeneralOracle" begin
-print_with_color(:yellow, "GeneralOracle...\n")
-
-@testset "With lp_solver $(typeof(solver)), cuts=$cuts" for
+@testset "GeneralOracle polyhedral" begin
+print_with_color(:yellow, "GeneralOracle polyhedral...\n")
+print_with_color(:yellow, "  LP tests...\n")
+@testset "LPs with $(solver_name(solver)), cuts=$cuts" for
                         solver in lp_solvers, cuts in [true,false]
 
     @testset "Test 1" begin
@@ -121,284 +122,138 @@ print_with_color(:yellow, "GeneralOracle...\n")
         @addConstraint(m, u*x + u <= 2)
         @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
         @test isapprox(getValue(x), 3.0, atol=TOL)
-    end
+    end  # "Test 7"
 
-end  # with lp_solvers
-end  # "GeneralOracle"
+    @testset "Test 8 (unbounded LP)" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x >= 0)
+        @defUnc(m, 8 <= u <= 9)
+        @setObjective(m, Max, x)
+        @addConstraint(m, u*x >= 25)
+        @test solve(m, prefer_cuts=cuts, suppress_warnings=true) == :Unbounded
+    end  # "Test 8"
 
-facts("[oracle_gen_poly] Test 2-IP") do
-for solver in lazy_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x[1:2] >= 0, Int)
-    @defUnc(m, 0.3 <= u1 <= 0.5)
-    @defUnc(m, 0.0 <= u2 <= 2.0)
-    @setObjective(m, Max, 1.1*x[1] + x[2])
-    @addConstraint(m, u1*x[1] + 1*x[2] <= 2)
-    @addConstraint(m, u2*x[1] + 1*x[2] <= 6)
-    @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
-    @fact getValue(x[1]) --> roughly(3.0,TOL)
-    @fact getValue(x[2]) --> roughly(0.0,TOL)
-end; end; end
+    if !contains("$(typeof(solver))","IpoptSolver")  # reports UserLimit
+    @testset "Test 9 (infeasible LP)" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x)
+        @defUnc(m, 8 <= u <= 9)
+        @setObjective(m, Max, x)
+        @addConstraint(m, x == 3)
+        @addConstraint(m, u*x <= 25)
+        @test solve(m, prefer_cuts=cuts, suppress_warnings=true) == :Infeasible
+    end; end  # "Test 9"
 
-
-facts("[oracle_gen_poly] Test 3-IP") do
-for solver in lazy_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x[1:2] >= 0, Int)
-    @defUnc(m, 0.3 <= u1 <= 1.5)
-    @defUnc(m, 0.5 <= u2 <= 1.5)
-    @setObjective(m, Max, x[1] + x[2])
-    @addConstraint(m, u1*x[1] <= 3)
-    @addConstraint(m, u2*x[2] <= 1)
-    @addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) <= +1)
-    @addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) >= -1)
-    @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
-    @fact getValue(x[1]) --> roughly(2.0,TOL)
-    @fact getValue(x[2]) --> roughly(0.0,TOL)
-end; end; end
-
-
-facts("[oracle_gen_poly] Test 8 (integer uncertainty set)") do
-for solver in lazy_solvers
-context("$(typeof(solver))") do
-    rm = RobustModel(solver=solver)
-    @defVar(rm, 0 <= x <= 2)
-    @defUnc(rm, 0.5 <= u <= 1.5, Int)
-    @setObjective(rm, Max, x)
-    @addConstraint(rm, x <= u)
-    @fact solve(rm, prefer_cuts=true) --> :Optimal
-    @fact getValue(x) --> roughly(1.0,TOL)
-end; end; end
-
-
-facts("[oracle_gen_poly] Test 9 (infeasible LP)") do
-for solver in lp_solvers, cuts in [true,false]
-# Exemptions:
-# - IpoptSolver reports UserLimit, which isn't too helpful.
-contains("$(typeof(solver))","IpoptSolver") && continue
-
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x)
-    @defUnc(m, 8 <= u <= 9)
-    @setObjective(m, Max, x)
-    @addConstraint(m, x == 3)
-    @addConstraint(m, u*x <= 25)
-    @fact solve(m, prefer_cuts=cuts, suppress_warnings=true) --> :Infeasible
-end; end; end
-
-
-facts("[oracle_gen_poly] Test 10 (infeasible MILP)") do
-for solver in lazy_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x, Int)
-    @defUnc(m, 8 <= u <= 9)
-    @setObjective(m, Max, x)
-    @addConstraint(m, x == 3)
-    @addConstraint(m, u*x <= 25)
-    @fact solve(m, prefer_cuts=cuts, suppress_warnings=true) --> :Infeasible
-end; end; end
-
-
-facts("[oracle_gen_poly] Test 11 (unbounded LP)") do
-for solver in lp_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x >= 0)
-    @defUnc(m, 8 <= u <= 9)
-    @setObjective(m, Max, x)
-    @addConstraint(m, u*x >= 25)
-    @fact solve(m, prefer_cuts=cuts, suppress_warnings=true) --> :Unbounded
-end; end; end
-
-
-facts("[oracle_gen_poly] Test 12 (unbounded MILP)") do
-for solver in lazy_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x >= 0, Int)
-    @defUnc(m, 8 <= u <= 9)
-    @setObjective(m, Max, x)
-    @addConstraint(m, u*x >= 25)
-    @fact solve(m, prefer_cuts=cuts, suppress_warnings=true) --> :Unbounded
-end; end; end
-
-
-facts("[oracle_gen_poly] Test 13 (empty uncertainty set)") do
-for solver in lp_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x >= 0)
-    @defUnc(m, 8 <= u <= 7)
-    @setObjective(m, Min, x)
-    @addConstraint(m, u*x >= 25)
-    if cuts
-        # Should fail!
-        failed = false
-        try
-            solve(m, prefer_cuts=cuts)
-        catch
-            failed = true
+    @testset "Test 10 (empty unc. set)" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x >= 0)
+        @defUnc(m, 8 <= u <= 7)
+        @setObjective(m, Min, x)
+        @addConstraint(m, u*x >= 25)
+        if cuts
+            # Cutting plane problem is infeasible, so an error will be
+            # thrown that we catch here.
+            @test_throws Exception solve(m, prefer_cuts=cuts)
+        else
+            # Reformulation doesn't care, although it is a bit weird
+            @test solve(m, prefer_cuts=cuts) == :Optimal
         end
-        @fact failed --> true
-    else
-        @fact solve(m, prefer_cuts=cuts) --> :Optimal
     end
-end; end; end
 
-
-facts("[oracle_gen_poly] Test 14 (unbounded uncertainty set)") do
-for solver in lp_solvers, cuts in [true,false]
-# Exemptions:
-# - IpoptSolver reports UserLimit, which isn't too helpful.
-contains("$(typeof(solver))","IpoptSolver") && continue
-context("$(typeof(solver)), cuts=$cuts") do
-    m = RobustModel(solver=solver)
-    @defVar(m, x >= 1)
-    @defUnc(m, u <= 7)
-    @setObjective(m, Min, x)
-    @addConstraint(m, u*x >= 25)
-    if cuts
-        # Should fail!
-        failed = false
-        try
-            solve(m, prefer_cuts=true)
-        catch
-            failed = true
+    if !contains("$(typeof(solver))","IpoptSolver")  # reports UserLimit
+    @testset "Test 11 (unbounded unc. set)" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x >= 1)
+        @defUnc(m, u <= 7)
+        @setObjective(m, Min, x)
+        @addConstraint(m, u*x >= 25)
+        if cuts
+            # Cutting plane problem is unbounded, so an error will be
+            # thrown that we catch here
+            @test_throws Exception solve(m, prefer_cuts=cuts)
+        else
+            @test solve(m, prefer_cuts=false, suppress_warnings=true) == :Infeasible
         end
-        @fact failed --> true
-    else
-        @fact solve(m, prefer_cuts=false, suppress_warnings=true) --> :Infeasible
+    end; end
+
+end  # "LPs with ..."
+
+
+print_with_color(:yellow, "  MILP tests...\n")
+@testset "MILPs with $(solver_name(solver)), cuts=$cuts" for
+                        solver in lazy_solvers, cuts in [true,false]
+
+    @testset "Test 1" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x[1:2] >= 0, Int)
+        @defUnc(m, 0.3 <= u1 <= 0.5)
+        @defUnc(m, 0.0 <= u2 <= 2.0)
+        @setObjective(m, Max, 1.1*x[1] + x[2])
+        @addConstraint(m, u1*x[1] + 1*x[2] <= 2)
+        @addConstraint(m, u2*x[1] + 1*x[2] <= 6)
+        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test isapprox(getValue(x[1]), 3.0, atol=TOL)
+        @test isapprox(getValue(x[2]), 0.0, atol=TOL)
     end
-end; end; end
 
-
-facts("[oracle_gen_ell] Test 1") do
-for solver in soc_solvers, cuts in [true,false], flip in [true,false]
-context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
-    m = RobustModel(solver=solver)
-    @defVar(m, 0 <= x <= 10)
-    @defUnc(m, 0 <= u <= 10)
-    @setObjective(m, Max, 10x)
-    !flip && @addConstraint(m,  u*x <=  7)
-     flip && @addConstraint(m, -u*x >= -7)
-    @addConstraint(m, norm(u-5) <= 2)
-    solve(m, suppress_warnings=true, prefer_cuts=cuts)
-    @fact getValue(x) --> roughly(1.0,TOL)
-end; end; end
-
-
-facts("[oracle_gen_ell] Test 2") do
-for solver in soc_solvers, cuts in [true,false], flip in [true,false]
-context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
-    m = RobustModel(solver=solver)
-    @defVar(m, 0 <= x[i=1:5] <= 2*i)
-    @defUnc(m, 0 <= u[i=1:5] <= i+4)
-    @setObjective(m, Max, sum{(6-i)*x[i], i=1:5})
-    !flip && @addConstraint(m,  sum{u[i]*x[i], i=1:5} <=  100)
-     flip && @addConstraint(m, -sum{u[i]*x[i], i=1:5} >= -100)
-    a = [3, 0, 0, 2, 1];
-    I = [1, 5, 4]
-    @addConstraint(m, norm2{a[i]*u[i]-5,i=I} <= 1)
-    solve(m, suppress_warnings=true, prefer_cuts=cuts)
-    @fact getValue(x[1]) --> roughly(2.0,TOL)
-    @fact getValue(x[2]) --> roughly(4.0,TOL)
-    @fact getValue(x[3]) --> roughly(6.0,TOL)
-    @fact getValue(x[4]) --> roughly(8.0,TOL)
-    @fact getValue(x[5]) --> roughly(1.283,1e-2)
-end; end; end
-
-
-facts("[oracle_gen_ell] Test 3") do
-for solver in soc_solvers, cuts in [true,false], flip in [true,false]
-context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
-    m = RobustModel(solver=solver)
-    @defVar(m, 0 <= x[1:2] <= 10)
-    @defUnc(m, u[1:2])
-    @defUnc(m, z[1:2])
-    @setObjective(m, Min, 1x[1] + 2x[2])
-    !flip && @addConstraint(m,  u[1]*x[1] + u[2]*x[2] >=  5)
-     flip && @addConstraint(m, -u[1]*x[1] - u[2]*x[2] <= -5)
-    # Uncertainty set
-    @addConstraint(m, u[1] == 5.0*z[1]            + 10.0)
-    @addConstraint(m, u[2] == 3.0*z[1] - 2.0*z[2] +  3.0)
-    @addConstraint(m, norm(z) <= 1)
-    solve(m, suppress_warnings=true, prefer_cuts=cuts)
-    @fact getValue(x[1]) --> roughly(1.000, 1e-3)
-    @fact getValue(x[2]) --> roughly(0.000, 1e-3)
-end; end; end;
-
-
-facts("[oracle_gen_ell] Test 4") do
-for solver in soc_solvers, cuts in [true,false], flip in [true,false]
-context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
-    m = RobustModel(solver=solver)
-    @defVar(m, 0 <= x <= 10)
-    @defUnc(m, 0 <= u <= 10)
-    @setObjective(m, Min, 10x)
-    !flip && @addConstraint(m,  x >=  u)
-     flip && @addConstraint(m, -x <= -u)
-    @addConstraint(m, norm(u-5) <= 2)
-    solve(m, suppress_warnings=true, prefer_cuts=cuts)
-    @fact getValue(x) --> roughly(7.0, TOL)
-end; end; end
-
-
-facts("[oracle_gen_ell] Test 5") do
-for solver in soc_solvers, cuts in [true,false], flip in [true,false]
-context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
-    m = RobustModel(solver=solver)
-    @defVar(m, 0 <= x <=  8)
-    @defUnc(m, 0 <= u <= 10)
-
-    @defVar(m, 2 <= y <= 10)
-    @defUnc(m, 0 <= w <= 10)
-
-    @setObjective(m, Max, 20x + 10y)
-    !flip && @addConstraint(m,  u*x + w*y <=  10)
-     flip && @addConstraint(m, -u*x - w*y >= -10)
-    @addConstraint(m, norm(u - 5) <= 2)  # 5 <= u <= 7
-    @addConstraint(m, norm(w - 3) <= 1)  # 2 <= w <= 4
-    solve(m, suppress_warnings=true, prefer_cuts=cuts)
-    @fact getValue(x) --> roughly((10-4*2)/7, TOL)
-    @fact getValue(y) --> roughly(2.0, TOL)
-end; end; end
-
-
-facts("[oracle_gen_ell] Test 6") do
-for solver in soc_solvers, cuts in [true,false], flip in [true,false]
-context("$(typeof(solver)), cuts=$cuts, flip=$flip") do
-    m = RobustModel(solver=solver)
-    @defVar(m, 0 <= y <= 100)
-    @defVar(m, 0 <= z <= 100)
-    @defVar(m, -100 <= obj <= 100)
-    @defUnc(m, 0 <= u[1:2] <= 100)
-    @setObjective(m, Max, obj)
-    if !flip
-        @addConstraint(m, obj <= (z+u[2]*y))
-        @addConstraint(m, z <= (1-u[1]*y))
-    else
-        @addConstraint(m, -obj >= -(z+u[2]*y))
-        @addConstraint(m, -z >= -(1-u[1]*y))
+    @testset "Test 2" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x[1:2] >= 0, Int)
+        @defUnc(m, 0.3 <= u1 <= 1.5)
+        @defUnc(m, 0.5 <= u2 <= 1.5)
+        @setObjective(m, Max, x[1] + x[2])
+        @addConstraint(m, u1*x[1] <= 3)
+        @addConstraint(m, u2*x[2] <= 1)
+        @addConstraint(m, (2*u1-2) + (4*u2-2) <= +1)
+        @addConstraint(m, (2*u1-2) + (4*u2-2) >= -1)
+        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test isapprox(getValue(x[1]), 2.0, atol=TOL)
+        @test isapprox(getValue(x[2]), 0.0, atol=TOL)
     end
-    @addConstraint(m, u[1] == 1)
-    @addConstraint(m, norm(u[2]-1.2) <= 0.01)
-    solve(m, suppress_warnings=true, prefer_cuts=cuts)
-    @fact getValue(obj) --> roughly(1.19, TOL)
-end; end; end
+
+    if cuts
+    @testset "Test 3 (integer unc. set)" begin
+        rm = RobustModel(solver=solver)
+        @defVar(rm, 0 <= x <= 2)
+        @defUnc(rm, 0.5 <= u <= 1.5, Int)
+        @setObjective(rm, Max, x)
+        @addConstraint(rm, x <= u)
+        @test solve(rm, prefer_cuts=true) == :Optimal
+        @test isapprox(getValue(x), 1.0, atol=TOL)
+    end; end
+
+    @testset "Test 4 (infeasible MILP)" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x, Int)
+        @defUnc(m, 8 <= u <= 9)
+        @setObjective(m, Max, x)
+        @addConstraint(m, x == 3)
+        @addConstraint(m, u*x <= 25)  # u = 9, 9*3 = 27 > 25
+        @test solve(m, prefer_cuts=cuts, suppress_warnings=true) == :Infeasible
+    end
+
+    if !contains("$(typeof(solver))","GLPK")  # reports Error
+    @testset "Test 5 (unbounded MILP)" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, x >= 0, Int)
+        @defUnc(m, 8 <= u <= 9)
+        @setObjective(m, Max, x)
+        @addConstraint(m, u*x >= 25)  # u = 8, x >= 0, > 25
+        @test solve(m, prefer_cuts=cuts, suppress_warnings=true) == :Unbounded
+    end; end
+
+end  # "MILPs with..."
 
 
-facts("[oracle_gen] Resolve") do
-for solver in lp_solvers, cuts in [true,false]
-context("$(typeof(solver)), cuts=$cuts") do
+@testset "Resolving with $(solver_name(solver)), cuts=$cuts" for
+                        solver in lazy_solvers, cuts in [true,false]
+    # solve() with RobustModels is intended to be an almost-pure operation
+    # The goal of these tests is to make sure nothing weird happens.
     m = RobustModel(solver=solver)
     @defVar(m, B[1:2] >= 0)
     @defVar(m, S[1:2] >= 0)
 
-    # Uncertainty set
+    # Uncertainty set (manually expanded budget-type set)
     @defUnc(m, D[1:2])
     @addConstraint(m,  (D[1] - 20)/10 + (D[2] - 10)/5 <= 1.5)
     @addConstraint(m,  (D[1] - 20)/10 - (D[2] - 10)/5 <= 1.5)
@@ -411,58 +266,63 @@ context("$(typeof(solver)), cuts=$cuts") do
         @addConstraint(m, S[i] <= B[i])
     end
 
-    # Objective
+    # Objective function
     @setObjective(m, Max, 3*sum(S) - sum(B))
 
     # First solve
-    @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
-    @fact getValue(B[1]) --> roughly(5.0,TOL)
-    @fact getValue(B[2]) --> roughly(2.5,TOL)
+    @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+    @test isapprox(getValue(B[1]), 5.0, atol=TOL)
+    @test isapprox(getValue(B[2]), 2.5, atol=TOL)
 
-    # Solve again with no changes
-    @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
-    @fact getValue(B[1]) --> roughly(5.0,TOL)
-    @fact getValue(B[2]) --> roughly(2.5,TOL)
+    # Solve again with no changes to the model
+    @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+    @test isapprox(getValue(B[1]), 5.0, atol=TOL)
+    @test isapprox(getValue(B[2]), 2.5, atol=TOL)
 
     # Tighten uncertainty set
-    @addConstraint(m,  (D[1] - 20)/10 + (D[2] - 10)/5 <= 1.0)
-    @addConstraint(m,  (D[1] - 20)/10 - (D[2] - 10)/5 <= 1.0)
-    @addConstraint(m, -(D[1] - 20)/10 + (D[2] - 10)/5 <= 1.0)
-    @addConstraint(m, -(D[1] - 20)/10 - (D[2] - 10)/5 <= 1.0)
-    @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
-    @fact getValue(B[1]) --> roughly(10.0,TOL)
-    @fact getValue(B[2]) --> roughly( 5.0,TOL)
+    @addConstraint(m,  (D[1] - 20)/10 + (D[2] - 10)/5 <= 1)
+    @addConstraint(m,  (D[1] - 20)/10 - (D[2] - 10)/5 <= 1)
+    @addConstraint(m, -(D[1] - 20)/10 + (D[2] - 10)/5 <= 1)
+    @addConstraint(m, -(D[1] - 20)/10 - (D[2] - 10)/5 <= 1)
+    @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+    @test isapprox(getValue(B[1]), 10.0, atol=TOL)
+    @test isapprox(getValue(B[2]),  5.0, atol=TOL)
 
-    # Add a certain constraint
+    # Add a deterministic constraint
     @addConstraint(m, B[1] <= 8)
-    @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
-    @fact getValue(B[1]) --> roughly(8.0,TOL)
-    @fact getValue(B[2]) --> roughly(5.0,TOL)
+    @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+    @test isapprox(getValue(B[1]), 8.0, atol=TOL)
+    @test isapprox(getValue(B[2]), 5.0, atol=TOL)
 
     # Add an uncertain constraint (and disambiguate objective)
     @addConstraint(m, B[1] + B[2] <= (D[1] + D[2])/2)
     @setObjective(m, Max, 3.1*S[2] + 3.0*S[1] - sum(B))
-    @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
-    @fact getValue(B[1]) --> roughly(5.0,TOL)
-    @fact getValue(B[2]) --> roughly(5.0,TOL)
+    @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+    @test isapprox(getValue(B[1]), 5.0, atol=TOL)
+    @test isapprox(getValue(B[2]), 5.0, atol=TOL)
 
     if solver in soc_solvers
-        # Add a do-nothing ellipse constraint
+        # Add a do-nothing ellipse constraint too
         @addConstraint(m, 1000 >= norm(D))
-        @fact solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) --> :Optimal
-        @fact getValue(B[1]) --> roughly(5.0,TOL)
-        @fact getValue(B[2]) --> roughly(5.0,TOL)
+        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test isapprox(getValue(B[1]), 5.0, atol=TOL)
+        @test isapprox(getValue(B[2]), 5.0, atol=TOL)
     end
-end; end; end
+end  # "Resolving with..."
 
 
-facts("[oracle_gen] show_cuts") do
+@testset "show_cuts" begin
     m = RobustModel()
     @defVar(m, 0 <= x <= 10)
     @defUnc(m, 0 <= u <= 10)
     @setObjective(m, Max, 10x)
     @addConstraint(m, u*x <= 7)
     @addConstraint(m, u <= 7)
+    old_stdout = STDOUT
+    rd, wr = redirect_stdout()
     solve(m, prefer_cuts=true, show_cuts=true)
-    @fact getValue(x) --> roughly(1.0)
-end
+    redirect_stdout(old_stdout)
+    @test isapprox(getValue(x), 1.0, atol=TOL)
+end  #show_cuts...""
+
+end  # "GeneralOracle"
