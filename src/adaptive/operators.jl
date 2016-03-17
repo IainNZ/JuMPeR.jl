@@ -11,16 +11,15 @@
 # Adaptive robust optimization support - operators
 # 1. Number
 # 2. Variable
-# 3. [Generic]Norm
+#   3. [Generic]Norm
 # 4. [Generic]AffExpr   [Number * Variable]
-# 5. QuadExpr <- We don't support any interactions with QuadExpr
-# 6. [Generic]NormExpr
+#   5. QuadExpr <- We don't support any interactions with QuadExpr
+#   6. [Generic]NormExpr
 # 7. Uncertain
 # 8. UncExpr            [Number * Uncertain]
 # 9. UncAffExpr         [UncExpr * (Variable,Adaptive)]
 # 10. Adaptive
 # 11. AdaptAffExpr      [Number * Adaptive]
-    # Tab hint
 #-----------------------------------------------------------------------
 
 #-----------------------------------------------------------------------
@@ -113,34 +112,83 @@
 (*)(x::Adaptive, c::Number) = *(  c, x)
 (/)(x::Adaptive, c::Number) = *(1/c, x)
 
-(+)(x::Adaptive, v::Variable) = +( v, x)
-(-)(x::Adaptive, v::Variable) = +(-v, x)
-(*)(x::Adaptive, v::Variable) = *( v, x)
-(/)(x::Adaptive, v::Variable) = /( v, x)  # not quite
+(+)(x::Adaptive, v::Variable) = AdaptAffExpr([x,v], [1,+1], 0)
+(-)(x::Adaptive, v::Variable) = AdaptAffExpr([x,v], [1,-1], 0)
+(*)(x::Adaptive, v::Variable) = error("Adaptive * Variable")
+(/)(x::Adaptive, v::Variable) = error("Adaptive / Variable")
 
-(+)(x::Adaptive, a::AffExpr) = +( a, x)
-(-)(x::Adaptive, a::AffExpr) = +(-a, x)
-(*)(x::Adaptive, a::AffExpr) = *( a, x)
-(/)(x::Adaptive, a::AffExpr) = /( a, x)  # not quite
+(+)(x::Adaptive, a::AffExpr) = AdaptAffExpr(vcat(x, a.vars), vcat(1,  a.coeffs),  a.constant)
+(-)(x::Adaptive, a::AffExpr) = AdaptAffExpr(vcat(x, a.vars), vcat(1, -a.coeffs), -a.constant)
+(*)(x::Adaptive, a::AffExpr) = error("Adaptive * AffExpr")
+(/)(x::Adaptive, a::AffExpr) = error("Adaptive / AffExpr")
 
-(+)(x::Adaptive, u::Uncertain) = +( u, x)
-(-)(x::Adaptive, u::Uncertain) = +(-u, x)
-(*)(x::Adaptive, u::Uncertain) = *( u, x)
-(/)(x::Adaptive, u::Uncertain) = /( u, x)  # not quite
+(+)(x::Adaptive, u::Uncertain) = UncAffExpr([x], [1],  u)
+(-)(x::Adaptive, u::Uncertain) = UncAffExpr([x], [1], -u)
+(*)(x::Adaptive, u::Uncertain) = UncAffExpr([x], [u],  0)
+(/)(x::Adaptive, u::Uncertain) = error("Adaptive / Uncertain")
+
+(+)(x::Adaptive, u::UncExpr) = UncAffExpr([x], [1],  u)
+(-)(x::Adaptive, u::UncExpr) = UncAffExpr([x], [1], -u)
+(*)(x::Adaptive, u::UncExpr) = UncAffExpr([x], [u],  0)
+(/)(x::Adaptive, u::UncExpr) = error("Adaptive / UncExpr")
+
+(+)(x::Adaptive, u::UncAffExpr) = UncAffExpr(vcat(x, u.vars), vcat(1,  u.coeffs),  u.constant)
+(-)(x::Adaptive, u::UncAffExpr) = UncAffExpr(vcat(x, u.vars), vcat(1, -u.coeffs), -u.constant)
+(*)(x::Adaptive, u::UncAffExpr) = error("Adaptive * UncAffExpr")
+(/)(x::Adaptive, u::UncAffExpr) = error("Adaptive / UncAffExpr")
 
 (+)(a::Adaptive, b::Adaptive) = AdaptAffExpr(Adaptive[a,b], Float64[1, 1], 0)
 (-)(a::Adaptive, b::Adaptive) = AdaptAffExpr(Adaptive[a,b], Float64[1,-1], 0)
 (*)(a::Adaptive, b::Adaptive) = error("Adaptive * Adaptive")
 (/)(a::Adaptive, b::Adaptive) = error("Adaptive / Adaptive")
 
+(+)(a::Adaptive, b::AdaptAffExpr) = AdaptAffExpr(vcat(a, b.vars), vcat(1,  b.coeffs),  b.constant)
+(-)(a::Adaptive, b::AdaptAffExpr) = AdaptAffExpr(vcat(a, b.vars), vcat(1, -b.coeffs), -b.constant)
+(*)(a::Adaptive, b::AdaptAffExpr) = error("Adaptive * AdaptAffExpr")
+(/)(a::Adaptive, b::AdaptAffExpr) = error("Adaptive / AdaptAffExpr")
+
 #-----------------------------------------------------------------------
 
-(+)(a::AdaptAffExpr, u::Uncertain) = +( u, a)
-(-)(a::AdaptAffExpr, u::Uncertain) = +(-u, a)
-(*)(a::AdaptAffExpr, u::Uncertain) = *( u, a)
-(/)(a::AdaptAffExpr, u::Uncertain) = /( u, a)  # not quite
+(+)(a::AdaptAffExpr, c::Number) = AdaptAffExpr(copy(a.vars), copy(a.coeffs), a.constant + c)
+(-)(a::AdaptAffExpr, c::Number) = AdaptAffExpr(copy(a.vars), copy(a.coeffs), a.constant - c)
+(*)(a::AdaptAffExpr, c::Number) = AdaptAffExpr(copy(a.vars), copy(a.coeffs)*c, a.constant*c)
+(/)(a::AdaptAffExpr, c::Number) = AdaptAffExpr(copy(a.vars), copy(a.coeffs)/c, a.constant/c)
+
+(+)(x::AdaptAffExpr, v::Variable) = AdaptAffExpr(vcat(x.vars, v), vcat(x.coeffs,  1), x.constant)
+(-)(x::AdaptAffExpr, v::Variable) = AdaptAffExpr(vcat(x.vars, v), vcat(x.coeffs, -1), x.constant)
+(*)(x::AdaptAffExpr, v::Variable) = error("AdaptAffExpr * Variable")
+(/)(x::AdaptAffExpr, v::Variable) = error("AdaptAffExpr / Variable")
+
+(+)(x::AdaptAffExpr, a::AffExpr) = AdaptAffExpr(vcat(x.vars, a.vars), vcat(x.coeffs,  a.coeffs), x.constant + a.constant)
+(-)(x::AdaptAffExpr, a::AffExpr) = AdaptAffExpr(vcat(x.vars, a.vars), vcat(x.coeffs, -a.coeffs), x.constant - a.constant)
+(*)(x::AdaptAffExpr, a::AffExpr) = error("AdaptAffExpr * Variable")
+(/)(x::AdaptAffExpr, a::AffExpr) = error("AdaptAffExpr / Variable")
+
+(+)(a::AdaptAffExpr, u::Uncertain) = UncAffExpr(copy(a.vars), copy(a.coeffs), a.constant + u)
+(-)(a::AdaptAffExpr, u::Uncertain) = UncAffExpr(copy(a.vars), copy(a.coeffs), a.constant - u)
+(*)(a::AdaptAffExpr, u::Uncertain) = UncAffExpr(copy(a.vars), copy(a.coeffs) * u, a.constant * u)
+(/)(a::AdaptAffExpr, u::Uncertain) = error("AdaptAffExpr / Uncertain")
 
 (+)(a::AdaptAffExpr, b::UncExpr) = +( b, a)
 (-)(a::AdaptAffExpr, b::UncExpr) = +(-b, a)
 (*)(a::AdaptAffExpr, b::UncExpr) = *( b, a)
 (/)(a::AdaptAffExpr, b::UncExpr) = /( b, a)  # not quite
+
+(+)(a::AdaptAffExpr, b::UncAffExpr) = UncAffExpr(vcat(a.vars, b.vars),
+                                                 vcat(map(UncExpr,a.coeffs), b.coeffs),
+                                                 a.constant + b.constant)
+(-)(a::AdaptAffExpr, b::UncAffExpr) = UncAffExpr(vcat(a.vars, b.vars),
+                                                 vcat(map(UncExpr,a.coeffs), -b.coeffs),
+                                                 a.constant - b.constant)
+(*)(a::AdaptAffExpr, b::UncAffExpr) = error("AdaptAffExpr * UncAffExpr")
+(/)(a::AdaptAffExpr, b::UncAffExpr) = error("AdaptAffExpr / UncAffExpr")
+
+(+)(a::AdaptAffExpr, b::Adaptive) = AdaptAffExpr(vcat(a.vars,b), vcat(a.coeffs, 1), a.constant)
+(-)(a::AdaptAffExpr, b::Adaptive) = AdaptAffExpr(vcat(a.vars,b), vcat(a.coeffs,-1), a.constant)
+(*)(a::AdaptAffExpr, b::Adaptive) = error("AdaptAffExpr * Adaptive")
+(/)(a::AdaptAffExpr, b::Adaptive) = error("AdaptAffExpr / Adaptive")
+
+(+)(a::AdaptAffExpr, b::AdaptAffExpr) = AdaptAffExpr(vcat(a, b.vars), vcat(1,  b.coeffs), a.constant+b.constant)
+(-)(a::AdaptAffExpr, b::AdaptAffExpr) = AdaptAffExpr(vcat(a, b.vars), vcat(1, -b.coeffs), a.constant-b.constant)
+(*)(a::AdaptAffExpr, b::AdaptAffExpr) = error("AdaptAffExpr * AdaptAffExpr")
+(/)(a::AdaptAffExpr, b::AdaptAffExpr) = error("AdaptAffExpr / AdaptAffExpr")
