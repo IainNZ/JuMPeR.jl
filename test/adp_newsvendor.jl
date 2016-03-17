@@ -8,7 +8,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #-----------------------------------------------------------------------
 # test/adp_newsvendor.jl
-# Tests adaptive code on the two-stage newsvendor problem
+# Tests adaptive code for a two-stage newsvendor-style problem
+# We have demand at N locations (Dᵢ), and much satisfy demand by buying
+# inventory now (x). Amount sold is then no more than demand, and total
+# amount sold must be less than amount bought initially.
+#
 # max z
 # st  z ≤ ∑S(D) - 0.5x    ∀D
 #     x ≥ ∑S(D)
@@ -20,15 +24,16 @@ using JuMP, JuMPeR
 using BaseTestNext
 
 const TOL = 1e-4
+
 if !(:lp_solvers in names(Main))
-    print_with_color(:yellow, "Loading solvers...\n")
+    print_with_color(:magenta, "Loading solvers...\n")
     include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 end
 lp_solvers  = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
 solver_name(solver) = split(string(typeof(solver)),".")[2]
 
-@testset "Newsvendor" begin
-print_with_color(:yellow, "Newsvendor...\n")
+@testset "Adaptive Newsvendor Model" begin
+print_with_color(:yellow, "Adaptive Newsvendor Model...\n")
 @testset "with $(solver_name(solver)), cuts=$cuts" for
             solver in lp_solvers, cuts in [true,false]
 

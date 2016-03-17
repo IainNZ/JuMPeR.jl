@@ -20,13 +20,13 @@ import JuMP: cont_str, conToStr
 import JuMP: _values
 
 # helper to look up corresponding JuMPContainerData
-printdata(v::JuMPContainer{Uncertain}) = getRobust(getmeta(v, :model)).uncData[v]
+printdata(v::JuMPContainer{Uncertain}) = get_robust(getmeta(v, :model)).uncData[v]
 function printdata(u::Array{Uncertain})
     if isempty(u)
         error("Cannot locate printing data for an empty array")
     end
     m = first(u).m
-    getRobust(m).uncData[u]
+    get_robust(m).uncData[u]
 end
 
 
@@ -35,15 +35,15 @@ end
 #------------------------------------------------------------------------
 # Called by the JuMP print hook
 function print_robust(io::IO, m::Model)
-    rd = getRobust(m)
+    rmext = get_robust(m)
     # First, display normal model stuff
     JuMP.print(io, m, ignore_print_hook=true)
     # Now print adaptive variable info
-    for i in 1:rd.numAdapt
+    for i in 1:rmext.num_adps
         adp_name = adp_str(REPLMode,m,i) * "(ξ)"
-        adp_lb, adp_ub = rd.adpLower[i], rd.adpUpper[i]
+        adp_lb, adp_ub = rmext.adp_lower[i], rmext.adp_upper[i]
         str_lb, str_ub = str_round(adp_lb), str_round(adp_ub)
-        adp_cat = rd.adpCat[i]
+        adp_cat = rmext.adp_cat[i]
         if adp_cat == :Bin  # x binary
             str = string(adp_name, " ", repl[:in], " ",
                         repl[:open_set], "0,1", repl[:close_set])
@@ -65,20 +65,20 @@ function print_robust(io::IO, m::Model)
 
     # Now print stuff particular to JuMPeR
     println(io, "Uncertain constraints:")
-    for uc in rd.uncertainconstr
+    for uc in rmext.unc_constraints
         println(io, uc)
     end
-    println(io, "Uncertainty set:")
-    for us in rd.uncertaintyset
-        println(io, us)
-    end
-    for nc in rd.normconstraints
-        println(io, nc)
-    end
-    # Uncertains
+    #println(io, "Uncertainty set:")
+    #for us in rmext.uncertaintyset
+    #    println(io, us)
+    #end
+    #for nc in rmext.normconstraints
+    #    println(io, nc)
+    #end
+    println(io, "Uncertain parameters:")
     # Display indexed uncertains
-    in_dictlist = falses(rd.numUncs)
-    for d in rd.dictList
+    in_dictlist = falses(rmext.num_uncs)
+    for d in rmext.dictList
         println(io, cont_str(REPLMode,d))
         for it in _values(d)  # Mark uncertains in JuMPContainer as printed
             in_dictlist[it.id] = true
@@ -86,13 +86,13 @@ function print_robust(io::IO, m::Model)
     end
 
     # Display non-indexed variables
-    for i in 1:rd.numUncs
+    for i in 1:rmext.num_uncs
         in_dictlist[i] && continue
         str = ""
         unc_name = unc_str(REPLMode,m,i)
-        unc_lb, unc_ub = rd.uncLower[i], rd.uncUpper[i]
+        unc_lb, unc_ub = rmext.unc_lower[i], rmext.unc_upper[i]
         str_lb, str_ub = str_round(unc_lb), str_round(unc_ub)
-        unc_cat = rd.uncCat[i]
+        unc_cat = rmext.unc_cat[i]
         if unc_cat == :Bin  # x binary
             str = string(unc_name, " ", repl[:in], " ",
                         repl[:open_set], "0,1", repl[:close_set])
@@ -121,10 +121,10 @@ Base.show( io::IO, u::Uncertain) = print(io, unc_str(REPLMode,u))
 #Base.writemime(io::IO, ::MIME"text/latex", u::Uncertain) =
 #    print(io, unc_str(IJuliaMode,u,mathmode=false))
 function unc_str(mode, m::Model, id::Int)
-    rd = getRobust(m)
-    uncNames = rd.uncNames
+    rmext = get_robust(m)
+    uncNames = rmext.unc_names
     if uncNames[id] == ""
-        for cont in rd.dictList
+        for cont in rmext.dictList
             fill_unc_names(mode, uncNames, cont)
         end
     end
@@ -162,11 +162,11 @@ function fill_unc_names(mode, uncNames, u::Array{Uncertain})
     isempty(u) && return
     sizes = size(u)
     m = first(u).m
-    rd = getRobust(m)
-    if !haskey(rd.uncData, u)
+    rmext = get_robust(m)
+    if !haskey(rmext.uncData, u)
         return
     end
-    name = rd.uncData[u].name
+    name = rmext.uncData[u].name
     for (ii,unc) in enumerate(u)
         @assert unc.m === m
         ind = ind2sub(sizes, ii)
@@ -212,7 +212,7 @@ function cont_str(mode, j::Union{JuMPContainer{Uncertain},Array{Uncertain}},
     end
 
     m = _getmodel(j)
-    rd = getRobust(m)
+    rmext = get_robust(m)
     data = printdata(j)
 
     # 1. construct the part with uncertain name and indexing
@@ -254,17 +254,17 @@ function cont_str(mode, j::Union{JuMPContainer{Uncertain},Array{Uncertain}},
 
     # 4. Bounds and category, if possible, and return final string
     a_var = first(_values(j))
-    unc_cat = rd.uncCat[a_var.id]
-    unc_lb  = rd.uncLower[a_var.id]
-    unc_ub  = rd.uncUpper[a_var.id]
+    unc_cat = rmext.unc_cat[a_var.id]
+    unc_lb  = rmext.unc_lower[a_var.id]
+    unc_ub  = rmext.unc_upper[a_var.id]
     # Variables may have different bounds, so we can't really print nicely
     # at this time (possibly ever, as they could have been changed post
     # creation, which we'd never be able to handle.
     all_same_lb = true
     all_same_ub = true
     for unc in _values(j)
-        all_same_lb &= rd.uncLower[unc.id] == unc_lb
-        all_same_ub &= rd.uncUpper[unc.id] == unc_ub
+        all_same_lb &= rmext.unc_lower[unc.id] == unc_lb
+        all_same_ub &= rmext.unc_upper[unc.id] == unc_ub
     end
     str_lb = unc_lb == -Inf ? "-"*sym[:infty] : str_round(unc_lb)
     str_ub = unc_ub == +Inf ?     sym[:infty] : str_round(unc_ub)
@@ -318,10 +318,10 @@ function aff_str(mode, a::UncExpr, show_constant=true)
 
     # Get reference to robust part of model
     m  = a.vars[1].m
-    rd = getRobust(m)
+    rmext = get_robust(m)
 
     # Collect like terms
-    indvec = IndexedVector(Float64, rd.numUncs)
+    indvec = IndexedVector(Float64, rmext.num_uncs)
     for ind in 1:length(a.vars)
         addelt!(indvec, a.vars[ind].id, a.coeffs[ind])
     end
@@ -362,18 +362,18 @@ affToStr(a::UncExpr) = aff_str(REPLMode,a)
 
 
 #------------------------------------------------------------------------
-## UncAffExpr
+## UncVarExpr
 #------------------------------------------------------------------------
-Base.print(io::IO, a::UncAffExpr) = print(io, aff_str(REPLMode,a))
-Base.show( io::IO, a::UncAffExpr) = print(io, aff_str(REPLMode,a))
-#Base.writemime(io::IO, ::MIME"text/latex", a::UncAffExpr) =
+Base.print(io::IO, a::UncVarExpr) = print(io, aff_str(REPLMode,a))
+Base.show( io::IO, a::UncVarExpr) = print(io, aff_str(REPLMode,a))
+#Base.writemime(io::IO, ::MIME"text/latex", a::UncVarExpr) =
 #    print(io, math(aff_str(IJuliaMode,a),false))
 # Generic string converter, called by mode-specific handlers
 # conToStr says showConstant = false, because if the constant term is
 # just a number for AffExpr. However in our case it might also contain
 # uncertains - which we ALWAYS want to show.
 # So we "partially" respect it.
-function aff_str(mode, a::UncAffExpr, show_constant=true)
+function aff_str(mode, a::UncVarExpr, show_constant=true)
     # If no variables, hand off to the constant part
     if length(a.vars) == 0
         return aff_str(mode, a.constant)
@@ -381,7 +381,7 @@ function aff_str(mode, a::UncAffExpr, show_constant=true)
 
     # Get reference to robust part of model
     m  = a.vars[1].m
-    rd = getRobust(m)
+    rmext = get_robust(m)
 
     # Don't collect like terms
     term_str = Array(UTF8String, length(a.vars))
@@ -450,18 +450,18 @@ function aff_str(mode, a::UncAffExpr, show_constant=true)
 end
 
 # Backwards compatability shim
-affToStr(a::UncAffExpr) = aff_str(REPLMode,a)
+affToStr(a::UncVarExpr) = aff_str(REPLMode,a)
 
 
 #------------------------------------------------------------------------
-## UncNormConstraint
+## UncSetNormConstraint
 #------------------------------------------------------------------------
-Base.print(io::IO, unc::UncNormConstraint) = print(io, con_str(REPLMode,unc))
-Base.show( io::IO, unc::UncNormConstraint) = print(io, con_str(REPLMode,unc))
-#Base.writemime(io::IO, ::MIME"text/latex", e::UncNormConstraint) =
+Base.print(io::IO, unc::UncSetNormConstraint) = print(io, con_str(REPLMode,unc))
+Base.show( io::IO, unc::UncSetNormConstraint) = print(io, con_str(REPLMode,unc))
+#Base.writemime(io::IO, ::MIME"text/latex", e::UncSetNormConstraint) =
 #    print(io, math(con_str(IJuliaMode,e),false))
 # Generic string converter, called by mode-specific handlers
-function con_str{P}(mode, unc::UncNormConstraint{P})
+function con_str{P}(mode, unc::UncSetNormConstraint{P})
     normexpr = unc.normexpr
     nrm = normexpr.norm
     cof = normexpr.coeff
@@ -480,4 +480,4 @@ function con_str{P}(mode, unc::UncNormConstraint{P})
     return ret
 end
 
-conToStr(unc::UncNormConstraint) = con_str(REPLMode, unc)
+conToStr(unc::UncSetNormConstraint) = con_str(REPLMode, unc)

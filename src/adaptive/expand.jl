@@ -11,14 +11,14 @@
 # Adaptive robust optimization support - pre-solve expansion
 #-----------------------------------------------------------------------
 
-any_adaptive(u::UncAffExpr) = any(v->isa(v,Adaptive), u.vars)
+any_adaptive(u::UncVarExpr) = any(v->isa(v,Adaptive), u.vars)
 
 
 function expand_adaptive(rm::Model)
     # Extract robust-specifc part of model information
-    rd = getRobust(rm)::RobustData
+    rmext = get_robust(rm)::RobustModelExt
     # If no adaptive variables, bail right away
-    isempty(rd.adpPolicy) && return
+    isempty(rmext.adp_policy) && return
     # Collect the new variables or expressions that will replace
     # the adaptive variables in the current constraints
     new_vars = Any[]
@@ -26,24 +26,24 @@ function expand_adaptive(rm::Model)
     # policies make sense
     new_cons = UncConstraint[]
     # For every adaptive variable...
-    for i in 1:rd.numAdapt
-        pol = rd.adpPolicy[i]  # Extract the policy
+    for i in 1:rmext.num_adps
+        pol = rmext.adp_policy[i]  # Extract the policy
         #---------------------------------------------------------------
         if pol == :Static
             # Static policy - no dependence on the uncertain parameters
             # Create a normal variable to replace this adaptive variable
             push!(new_vars, Variable(rm,
-                rd.adpLower[i], rd.adpUpper[i],
-                rd.adpCat[i], rd.adpNames[i]) )
+                rmext.adp_lower[i], rmext.adp_upper[i],
+                rmext.adp_cat[i], rmext.adp_names[i]) )
         #---------------------------------------------------------------
         elseif pol == :Affine
             # Extract the container of uncertain parameters that this
             # adaptive variable depends on
-            deps = rd.adpDependsOn[i]
+            deps = rmext.adp_arguments[i]
             # Ensure stage-wise dependence not being used
-            if rd.adpStage[i] != 0
-                error("Not implemented!")
-            end
+            #if rmext.adpStage[i] != 0
+            #    error("Not implemented!")
+            #end
             # Create auxiliary variables - one for each uncertain parameter,
             # and one for the independent term
             aux_aff = Dict{Any,Variable}()
@@ -63,11 +63,11 @@ function expand_adaptive(rm::Model)
             #println(aff_policy)
             push!(new_vars, aff_policy)
             # Add bound constraints on the policy
-            if rd.adpLower[i] != -Inf  # Lower bound?
-                push!(new_cons, UncConstraint(aff_policy, rd.adpLower[i], +Inf))
+            if rmext.adp_lower[i] != -Inf  # Lower bound?
+                push!(new_cons, UncConstraint(aff_policy, rmext.adp_lower[i], +Inf))
             end
-            if rd.adpUpper[i] != +Inf  # Lower bound?
-                push!(new_cons, UncConstraint(aff_policy, -Inf, rd.adpUpper[i]))
+            if rmext.adp_upper[i] != +Inf  # Lower bound?
+                push!(new_cons, UncConstraint(aff_policy, -Inf, rmext.adp_upper[i]))
             end
         #---------------------------------------------------------------
         else
@@ -77,10 +77,10 @@ function expand_adaptive(rm::Model)
 
     # Create new constraints from uncertain-and-variable constraints
     # that contained an adaptive variable
-    for uncaffcon in rd.uncertainconstr
+    for uncaffcon in rmext.unc_constraints
         lhs = uncaffcon.terms
         !any_adaptive(lhs) && continue
-        new_lhs = UncAffExpr(lhs.constant)
+        new_lhs = UncVarExpr(lhs.constant)
         for (coeff, var) in linearterms(lhs)
             new_lhs += coeff * (isa(var, Adaptive) ? new_vars[var.id] : var)
         end
@@ -98,9 +98,9 @@ function expand_adaptive(rm::Model)
     end
 
     # Create new constraints from number-and-adaptive constraints
-    for varaffcon in rd.varaffcons
+    for varaffcon in rmext.adapt_constraints
         lhs = varaffcon.terms
-        new_lhs = UncAffExpr(lhs.constant)
+        new_lhs = UncVarExpr(lhs.constant)
         for (coeff, var) in linearterms(lhs)
             new_lhs += coeff * (isa(var, Adaptive) ? new_vars[var.id] : var)
         end

@@ -8,7 +8,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #-----------------------------------------------------------------------
 # test/adp_inventory.jl
-# Tests adaptive code on a multi-stage inventory problem from
+# Tests adaptive code on the multi-stage inventory problem from
 #   A. Ben-Tal, A. Goryashko, E. Guslitzer, A. Nemirovski
 #   "Adjustable Robust Solutions of Uncertain Linear Programs"
 #-----------------------------------------------------------------------
@@ -17,15 +17,16 @@ using JuMP, JuMPeR
 using BaseTestNext
 
 const TOL = 1e-4
+
 if !(:lp_solvers in names(Main))
-    print_with_color(:yellow, "Loading solvers...\n")
+    print_with_color(:magenta, "Loading solvers...\n")
     include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 end
 lp_solvers  = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
 solver_name(solver) = split(string(typeof(solver)),".")[2]
 
-@testset "Inventory" begin
-print_with_color(:yellow, "Inventory...\n")
+@testset "Adaptive Inventory" begin
+print_with_color(:yellow, "Adaptive Inventory Model...\n")
 @testset "with $(solver_name(solver)), cuts=$cuts" for
             solver in lp_solvers, cuts in [true,false]
 

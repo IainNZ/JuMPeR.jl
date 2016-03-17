@@ -1,4 +1,4 @@
-Copyright (c) 2015: Iain Dunning.
+Copyright (c) 2016: Iain Dunning.
 
 The JuMPeR Julia package is licensed under the **[MPL]** version 2.0:
 
@@ -41,7 +41,7 @@ The JuMPeR Julia package is licensed under the **[MPL]** version 2.0:
         means any form of the work other than Source Code Form.
 
     1.7. "Larger Work"
-        means a work that combines Covered Software with other material, in 
+        means a work that combines Covered Software with other material, in
         a separate file or files, that is not Covered Software.
 
     1.8. "License"
@@ -377,5 +377,3 @@ The JuMPeR Julia package is licensed under the **[MPL]** version 2.0:
 
       This Source Code Form is "Incompatible With Secondary Licenses", as
       defined by the Mozilla Public License, v. 2.0.
-
-This distribution of JuMP also contains data files that are *not* MPL licensed. See examples/data/README.md for more information. These are solely used as examples and may be removed from the distribution without affecting any functionality.

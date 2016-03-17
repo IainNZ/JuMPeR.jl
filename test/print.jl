@@ -59,9 +59,11 @@ print_with_color(:yellow, "Printing...\n")
     # Mixed
     @addConstraint(mod_1, a*vars[5] <= 5)
     # Uncertain
-    @addConstraint(mod_1, a + b <= 2)
+    # @addConstraint(mod_1, a + b <= 2)
+    # a + b $le 2
     # Ellipse
-    @addConstraint(mod_1, norm([a,b]) <= 1)
+    # @addConstraint(mod_1, norm([a,b]) <= 1)
+    # ‖a,b‖₂ $le 1
 
     io_test(REPLMode, mod_1, """
 Max 2 vars[1]
@@ -70,9 +72,7 @@ Subject to
  vars[i] free $fa i $inset {1,2,$dots,9,10}
 Uncertain constraints:
 a vars[5] $le 5
-Uncertainty set:
-a + b $le 2
-‖a,b‖₂ $le 1
+Uncertain parameters:
 bnd_free[i] free $fa i $inset {2,3,4,5}
 bnd_lowb[i] $ge 2 $fa i $inset {2,3,4,5}
 bnd_high[i] $le 5 $fa i $inset {2,3,4,5}

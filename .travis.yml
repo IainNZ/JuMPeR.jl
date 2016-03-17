@@ -14,7 +14,9 @@ addons:
         - libglpk-dev
 script:
     - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-    - julie -e 'Pkg.clone("https://github.com/IainNZ/BaseTestNext.jl.git")'
-    - julia -e 'Pkg.clone(pwd()); Pkg.test("JuMPeR", coverage=true)'
+    - julia -e 'Pkg.clone(pwd())'
+    - julia -e 'Pkg.checkout("JuMP")'
+    - julia -e 'Pkg.update()'
+    - julia -e 'Pkg.test("JuMPeR", coverage=true)'
 after_success:
     - julia -e 'cd(Pkg.dir("JuMPeR")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'

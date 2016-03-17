@@ -14,8 +14,8 @@
 using JuMP, JuMPeR
 using BaseTestNext
 
-lastuc(rm) = conToStr(JuMPeR.getRobust(rm).uncertainconstr[end])
-lastus(rm) = conToStr(JuMPeR.getRobust(rm).uncertaintyset[end])
+lastuc(rm) = conToStr(JuMPeR.get_robust(rm).unc_constraints[end])
+lastus(rm) = conToStr(JuMPeR.get_robust(rm).default_uncset.linear_constraints[end])
 le, eq, ge = JuMP.repl[:leq], JuMP.repl[:eq], JuMP.repl[:geq]
 
 @testset "Macros" begin
@@ -24,14 +24,14 @@ print_with_color(:yellow, "Macros...\n")
 @testset "Uncertain parameters" begin
     rm = RobustModel()
     @defUnc(rm, 5 >= u >= 1)
-    @test getLower(u) == 1
-    @test getUpper(u) == 5
+    @test JuMPeR.get_robust(rm).unc_lower[1] == 1
+    @test JuMPeR.get_robust(rm).unc_upper[1] == 5
     @test affToStr(zero(u)) == "0"
     @test affToStr(one(u)) == "1"
     @test sprint(print,rm) == """Min 0
 Subject to
 Uncertain constraints:
-Uncertainty set:
+Uncertain parameters:
 1 ≤ u ≤ 5
 """
 end
