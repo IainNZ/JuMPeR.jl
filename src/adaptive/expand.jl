@@ -81,7 +81,7 @@ function expand_adaptive(rm::Model)
         lhs = uncaffcon.terms
         !any_adaptive(lhs) && continue
         new_lhs = UncAffExpr(lhs.constant)
-        for (coeff, var) in lhs
+        for (coeff, var) in linearterms(lhs)
             new_lhs += coeff * (isa(var, Adaptive) ? new_vars[var.id] : var)
         end
         push!(new_cons, UncConstraint(new_lhs, uncaffcon.lb, uncaffcon.ub))
@@ -101,7 +101,7 @@ function expand_adaptive(rm::Model)
     for varaffcon in rd.varaffcons
         lhs = varaffcon.terms
         new_lhs = UncAffExpr(lhs.constant)
-        for (coeff, var) in lhs
+        for (coeff, var) in linearterms(lhs)
             new_lhs += coeff * (isa(var, Adaptive) ? new_vars[var.id] : var)
         end
         push!(new_cons, UncConstraint(new_lhs, varaffcon.lb, varaffcon.ub))

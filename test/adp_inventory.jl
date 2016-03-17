@@ -14,13 +14,20 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using Distributions
 using BaseTestNext
 
 const TOL = 1e-4
+if !(:lp_solvers in names(Main))
+    print_with_color(:yellow, "Loading solvers...\n")
+    include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
+end
+lp_solvers  = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
+solver_name(solver) = split(string(typeof(solver)),".")[2]
 
 @testset "Inventory" begin
 print_with_color(:yellow, "Inventory...\n")
+@testset "with $(solver_name(solver)), cuts=$cuts" for
+            solver in lp_solvers, cuts in [true,false]
 
     #-----------------------------------------------------------------------
     # Data
@@ -88,4 +95,5 @@ print_with_color(:yellow, "Inventory...\n")
         @test isapprox(getValue(F), 44272.82749, atol=TOL)
     end
 
+end  # "with ..."
 end  # "Inventory"
