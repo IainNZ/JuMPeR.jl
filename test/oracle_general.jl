@@ -17,7 +17,7 @@ using FactCheck, BaseTestNext
 const TOL = 1e-4
 
 if !(:lp_solvers in names(Main))
-    print_with_color(:yellow, "Loading solvers...\n")
+    print_with_color(:magenta, "Loading solvers...\n")
     include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 end
 lp_solvers  = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)

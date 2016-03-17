@@ -2,7 +2,7 @@
 # JuMPeR  --  JuMP Extension for Robust Optimization
 # http://github.com/IainNZ/JuMPeR.jl
 #-----------------------------------------------------------------------
-# Copyright (c) 2015: Iain Dunning
+# Copyright (c) 2016: Iain Dunning
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -17,17 +17,17 @@ using BaseTestNext
 
 # Use JuMP's testing code to load available solvers
 # and provide vectors of solvers by capability
-print_with_color(:yellow, "Loading solvers...\n")
+print_with_color(:magenta, "Loading solvers...\n")
 include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
 
 @testset "JuMPeR" begin
     include("operators.jl")
     include("print.jl")
     include("macro.jl")
+    include("oracle.jl")
 end
 
-tests=[ "oracle.jl",
-        "oracle_general.jl",
+tests=[ "oracle_general.jl",
         "oracle_general_L1.jl",
         "oracle_general_Linf.jl",
         "oracle_bertsim.jl",
