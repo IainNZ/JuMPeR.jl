@@ -8,7 +8,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #-----------------------------------------------------------------------
 # test/adp_inventory.jl
-# Tests adaptive code on a multi-stage inventory problem from
+# Tests adaptive code on the multi-stage inventory problem from
 #   A. Ben-Tal, A. Goryashko, E. Guslitzer, A. Nemirovski
 #   "Adjustable Robust Solutions of Uncertain Linear Programs"
 #-----------------------------------------------------------------------

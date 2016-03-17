@@ -8,7 +8,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #-----------------------------------------------------------------------
 # test/adp_newsvendor.jl
-# Tests adaptive code on the two-stage newsvendor problem
+# Tests adaptive code for a two-stage newsvendor-style problem
+# We have demand at N locations (Dᵢ), and much satisfy demand by buying
+# inventory now (x). Amount sold is then no more than demand, and total
+# amount sold must be less than amount bought initially.
+#
 # max z
 # st  z ≤ ∑S(D) - 0.5x    ∀D
 #     x ≥ ∑S(D)
