@@ -144,7 +144,7 @@ macro defAdaptVar(args...)
 end
 
 
-function JuMP.constructconstraint!(vaff::AdaptAffExpr, sense::Symbol)
+function JuMP.constructconstraint!(vaff::AdaptExpr, sense::Symbol)
     offset = vaff.constant
     vaff.constant = 0.0
     if sense == :(<=) || sense == :≤

@@ -2,14 +2,15 @@
 # JuMPeR  --  JuMP Extension for Robust Optimization
 # http://github.com/IainNZ/JuMPeR.jl
 #-----------------------------------------------------------------------
-# Copyright (c) 2015: Iain Dunning
+# Copyright (c) 2016: Iain Dunning
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #-----------------------------------------------------------------------
 # src/solve.jl
-# All the logic for solving robust optimization problems. Communicates
-# with oracles to build and solve deterministic equivalents.
+# Core of the logic for solving robust optimization problems. Uses
+# uncertainty sets to build up the deterministic equivalent problem.
+# Included by src/JuMPeR.jl
 #-----------------------------------------------------------------------
 
 # Utility functions for moving an expression to a new model
@@ -39,19 +40,17 @@ end
 function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
                         active_cuts::Bool, add_box::Union{Float64,Bool},
                         show_cuts::Bool, kwargs::Vector{Any})
-
-    expand_adaptive(rm)
-
-    robdata = getRobust(rm)::RobustData
-
     # Pull out extra keyword arguments that we will pas through to oracles
     prefs = Dict{Symbol,Any}([name => value for (name,value) in kwargs])
-    prefs[:active_cuts] = active_cuts
+    # TEMP: Expand out adaptive terms
+    expand_adaptive(rm)
 
+    rmext = get_robust(rm)::RobustModelExt
     start_time = time()
 
-    #########################################################################
+    #-------------------------------------------------------------------
     # PART 1: MASTER SETUP
+    #-------------------------------------------------------------------
     # Create master problem, a normal JuMP model
     master = Model(solver=rm.solver)
     # Variables
@@ -61,7 +60,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
     master.colUpper  = copy(rm.colUpper)
     master.colCat    = copy(rm.colCat)
     master.colVal    = copy(rm.colVal)
-    mastervars       = Variable[Variable(master, i) for i = 1:rm.numCols]
+    mastervars       = Variable[Variable(master, i) for i in 1:rm.numCols]
     # Objective (copy, it must be certain)
     master.objSense  = rm.objSense
     master.obj       = copy_quad(rm.obj, mastervars)
@@ -85,33 +84,22 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
         rm.colVal = copy(master.colVal)
         # Collect constraints to add, which will be for the RobustModel
         outer_cons = Any[]
-        for f in robdata.lazy_callbacks
+        for f in rmext.lazy_callbacks
             ret = f(cb)
             ret != nothing && append!(outer_cons, ret)
         end
         # Convert constraints and add to master
         map(con ->JuMP.addLazyConstraint(cb, copy_linconstr(con, mastervars)), outer_cons)
     end
-    if !isempty(robdata.lazy_callbacks)
-        addLazyCallback(master, callback_passthru)
-    end
+    #if !isempty(rmext.lazy_callbacks)
+    #    addLazyCallback(master, callback_passthru)
+    #end
 
-    num_unccons      = length(robdata.uncertainconstr)
+    num_unccons = length(rmext.unc_constraints)
 
     # If the problem is a MIP, we are going to have to do more work
     is_mip = any(map(cat -> (cat in [:Int,:Bin]), master.colCat))
 
-    # Add constraints based on the provided scenarios
-    for scen in robdata.scenarios
-        for ind in 1:num_unccons
-            con = robdata.uncertainconstr[ind]
-            !scen_satisfies_con(scen, con) && continue
-            addConstraint(master,
-                copy_linconstr(
-                    build_certain_constraint(master, con, scen_to_vec(scen)),
-                mastervars))
-        end
-    end
 
     # Put box around original solution.
     # Really should be doing something smarter, only need this
@@ -131,22 +119,22 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
     for ind in 1:num_unccons
         # Associate constraints with the default oracle if they haven't been
         # assigned one otherwise
-        if robdata.oracles[ind] == nothing
-            robdata.oracles[ind] = robdata.defaultOracle
+        if rmext.constraint_uncsets[ind] == nothing
+            rmext.constraint_uncsets[ind] = rmext.default_uncset
         end
         # Register the constraints with their oracles by providing the index
-        registerConstraint(robdata.oracles[ind], rm, ind, prefs)
+        register_constraint(rmext.constraint_uncsets[ind], rm, ind, prefs)
     end
 
     # Give oracles time to do any setup. For example, generating the cutting
     # plane model, or determing what a reformulation should look like, or
     # processing a data set for the particular model at hand.
     oracle_setup_time = time()
-    oracle_to_cons = Dict{AbstractOracle,Vector{Int}}()
+    oracle_to_cons = Dict{AbstractUncertaintySet,Vector{Int}}()
     for ind in 1:num_unccons
-        oracle = robdata.oracles[ind]
+        oracle = rmext.constraint_uncsets[ind]
         if !(oracle in keys(oracle_to_cons))
-            setup(oracle, rm, prefs)
+            setup_set(oracle, rm, active_cuts, prefs)
             oracle_to_cons[oracle] = [ind]
         else
             push!(oracle_to_cons[oracle], ind)
@@ -159,7 +147,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
     reform_time = time()
     reformed_cons = 0
     for oracle in keys(oracle_to_cons)
-        reformed_cons += generateReform(oracle, master, rm, oracle_to_cons[oracle])
+        reformed_cons += generate_reform(oracle, master, rm, oracle_to_cons[oracle])
     end
     reform_time = time() - reform_time
 
@@ -180,7 +168,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
             # Generate cuts
             tic()
             for oracle in keys(oracle_to_cons)
-                cons_to_add = generateCut(oracle, master, rm, oracle_to_cons[oracle])
+                cons_to_add = generate_cut(oracle, master, rm, oracle_to_cons[oracle])
                 for new_con in cons_to_add
                     addLazyConstraint(cb, new_con)
                 end
@@ -291,7 +279,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
             tic()
             show_cuts && print_with_color(:white, "Cutting round $(cutting_rounds)\n")
             for oracle in keys(oracle_to_cons)
-                cons_to_add = generateCut(oracle, master, rm, oracle_to_cons[oracle])
+                cons_to_add = generate_cut(oracle, master, rm, oracle_to_cons[oracle])
                 show_cuts && _show_cuts(rm, oracle, oracle_to_cons[oracle], cons_to_add)
                 for new_con in cons_to_add
                     addConstraint(master, new_con)
@@ -338,8 +326,12 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
     # VERY EXPERIMENTAL
     tic()
     if active_cuts
+        rmext.scenarios = Vector{Nullable{Scenario}}(length(rmext.unc_constraints))
         for oracle in keys(oracle_to_cons)
-            generateCut(oracle, master, rm, oracle_to_cons[oracle], true)
+            scens_to_add = generate_scenario(oracle, master, rm, oracle_to_cons[oracle])
+            for i in 1:length(oracle_to_cons[oracle])
+                rmext.scenarios[oracle_to_cons[oracle][i]] = scens_to_add[i]
+            end
         end
     end
     activecut_time = toq()
@@ -359,7 +351,6 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
         @printf("  Cut solve&add  %12.5f (%6.2f%%)\n", cut_time, cut_time/total_time*100)
         active_cuts && @printf("Active cut time: %12.5f\n", activecut_time)
     end
-    robdata.solve_time = master_time + cut_time
 
     # Store the internal model
     rm.internalModel = master.internalModel
@@ -368,16 +359,14 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
     # Return solve status
     return master_status
 end
-Base.precompile(_solve_robust, (Model,Bool,Bool,Bool,Bool,Vector{Any}))
-Base.precompile(_solve_robust, (Model,Bool,Bool,Bool,Float64,Vector{Any}))
 
 
 function _show_cuts(rm, oracle, con_indices, cons_added)
-    rd = getRobust(rm)
+    rmext = get_robust(rm)
     println("Oracle: ", typeof(oracle))
     println("Constraint", length(con_indices) <= 1 ? ":" : "s:")
     for idx in con_indices
-        con = rd.uncertainconstr[idx]
+        con = rmext.unc_constraints[idx]
         println("  ", con)
     end
     if length(cons_added) == 0

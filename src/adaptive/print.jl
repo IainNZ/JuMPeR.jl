@@ -12,21 +12,21 @@
 #-----------------------------------------------------------------------
 
 function adp_str(mode, m::Model, id::Int)
-    rd = getRobust(m)
-    return rd.adpNames[id] == "" ? "adp_$id" : rd.adpNames[id]
+    rd = get_robust(m)
+    return rd.adp_names[id] == "" ? "adp_$id" : rd.adp_names[id]
 end
 adp_str(m::Model, id::Int) = adp_str(REPLMode, m::Model, id::Int)
 
 
 #------------------------------------------------------------------------
-## AdaptAffExpr
+## AdaptExpr
 #------------------------------------------------------------------------
-Base.print(io::IO, a::AdaptAffExpr) = print(io, aff_str(REPLMode,a))
-Base.show( io::IO, a::AdaptAffExpr) = print(io, aff_str(REPLMode,a))
-#Base.writemime(io::IO, ::MIME"text/latex", a::AdaptAffExpr) =
+Base.print(io::IO, a::AdaptExpr) = print(io, aff_str(REPLMode,a))
+Base.show( io::IO, a::AdaptExpr) = print(io, aff_str(REPLMode,a))
+#Base.writemime(io::IO, ::MIME"text/latex", a::AdaptExpr) =
 #    print(io, math(aff_str(IJuliaMode,a),false))
 # Generic string converter, called by mode-specific handlers
-function aff_str(mode, a::AdaptAffExpr, show_constant=true)
+function aff_str(mode, a::AdaptExpr, show_constant=true)
     # If the expression is empty, return the constant (or 0)
     if length(a.vars) == 0
         return show_constant ? str_round(a.constant) : "0"
@@ -34,11 +34,11 @@ function aff_str(mode, a::AdaptAffExpr, show_constant=true)
 
     # Get reference to model and robust part of model
     m  = a.vars[1].m
-    rd = getRobust(m)
+    rd = get_robust(m)
 
     # Collect like terms
     indvec_var = IndexedVector(Float64,  m.numCols)
-    indvec_adp = IndexedVector(Float64, rd.numAdapt)
+    indvec_adp = IndexedVector(Float64, rd.num_adps)
     for ind in 1:length(a.vars)
         if isa(a.vars[ind], Adaptive)
             addelt!(indvec_adp, a.vars[ind].id, a.coeffs[ind])
@@ -91,4 +91,4 @@ function aff_str(mode, a::AdaptAffExpr, show_constant=true)
 end
 
 # Backwards compatability shim
-affToStr(a::AdaptAffExpr) = aff_str(REPLMode,a)
+affToStr(a::AdaptExpr) = aff_str(REPLMode,a)

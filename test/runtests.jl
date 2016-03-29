@@ -12,7 +12,6 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using FactCheck
 using BaseTestNext
 
 # Use JuMP's testing code to load available solvers
@@ -24,23 +23,15 @@ include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
     include("operators.jl")
     include("print.jl")
     include("macro.jl")
-    include("oracle.jl")
-    include("oracle_general.jl")
-    include("adp_ops.jl")
+    include("uncsets.jl")
+    include("uncsets_basic.jl")
+    include("uncsets_basic_L1.jl")
+    include("uncsets_basic_L2.jl")
+    include("uncsets_basic_Linf.jl")
+    include("uncsets_budget.jl")
     include("adp_newsvendor.jl")
     include("adp_inventory.jl")
 end
 
-tests=[ "oracle_general_L1.jl",
-        "oracle_general_L2.jl",
-        "oracle_general_Linf.jl",
-        "oracle_bertsim.jl",
-        "oracle_general_graph.jl",
-        "scenario.jl"]
-
-println("Running tests...")
-for curtest in tests
-    include(curtest)
-end
-
-FactCheck.exitstatus()
+#tests=[
+#        "scenario.jl"]

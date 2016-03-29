@@ -40,24 +40,24 @@ function CovarOracle(raw_data::Matrix{Float64}, Γ::Number)
 end
 
 # We take no action for individual constraints
-function JuMPeR.registerConstraint(cv::CovarOracle, rm::Model, ind::Int, prefs)
+function JuMPeR.register_constraint(cv::CovarOracle, rm::Model, ind::Int, prefs)
     nothing
 end
 
 # Setup has already been done
-function JuMPeR.setup(cv::CovarOracle, rm::Model, prefs)
+function JuMPeR.setup_set(cv::CovarOracle, rm::Model, prefs)
     cv.cut_tol = get(prefs, :cut_tol, 1e-6)
 end
 
 # We could add reformulation if wanted to, but we will stick to cutting
 # planes here. Reformulations are much more involved as we often need to
 # add multiple constraints and variables to the master problem.
-function JuMPeR.generateReform(cv::CovarOracle, master::Model, rm::Model, inds::Vector{Int})
+function JuMPeR.generate_reform(cv::CovarOracle, master::Model, rm::Model, inds::Vector{Int})
     return 0
 end
 
 # Add cutting planes for all constraints where it will change the solution
-function JuMPeR.generateCut(cv::CovarOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)
+function JuMPeR.generate_cut(cv::CovarOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)
     # Extract the current master solution
     master_sol = master.colVal
 

@@ -7,8 +7,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #-----------------------------------------------------------------------
-# test/oracle_general.jl
-# Test GeneralOracle for general polyhedral uncertainty sets
+# test/uncsets_basic.jl
+# Test BasicUncertaintySet for general polyhedral uncertainty sets.
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
@@ -24,8 +24,8 @@ lp_solvers  = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
 soc_solvers = filter(s->(!contains(string(typeof(s)),"SCSSolver")), soc_solvers)
 solver_name(solver) = split(string(typeof(solver)),".")[2]
 
-@testset "GeneralOracle polyhedral" begin
-print_with_color(:yellow, "GeneralOracle polyhedral...\n")
+@testset "BasicUncertaintySet polyhedral" begin
+print_with_color(:yellow, "BasicUncertaintySet polyhedral...\n")
 print_with_color(:yellow, "  LP tests...\n")
 @testset "LPs with $(solver_name(solver)), cuts=$cuts" for
                         solver in lp_solvers, cuts in [true,false]
@@ -245,6 +245,27 @@ print_with_color(:yellow, "  MILP tests...\n")
 end  # "MILPs with..."
 
 
+@testset "Scenarios with $(solver_name(solver)), cuts=$cuts" for
+                        solver in lp_solvers, cuts in [true,false]
+    @testset "Test 1" begin
+        m = RobustModel(solver=solver)
+        @defVar(m, 0 <= x[1:2] <= 9)
+        @defUnc(m, 0.3 <= u1 <= 0.5)
+        @defUnc(m, 0.0 <= u2 <= 2.0)
+        @setObjective(m, Max, x[1] + x[2])
+        con1 = @addConstraint(m, u1*x[1] + 1*x[2] <= 2)
+        con2 = @addConstraint(m, u2*x[1] + 1*x[2] <= 6)
+        @test solve(m, prefer_cuts=cuts, active_cuts=true) == :Optimal
+        @test isapprox(getValue(x[1]), 2.0+2.0/3.0, atol=TOL)
+        @test isapprox(getValue(x[2]),     2.0/3.0, atol=TOL)
+        scen1 = get(getScenario(con1))
+        @test isapprox(unc_value(scen1, u1), 0.5, atol=TOL)
+        scen2 = get(getScenario(con2))
+        @test isapprox(unc_value(scen2, u2), 2.0, atol=TOL)
+    end
+end
+
+
 @testset "Resolving with $(solver_name(solver)), cuts=$cuts" for
                         solver in lazy_solvers, cuts in [true,false]
     # solve() with RobustModels is intended to be an almost-pure operation
@@ -323,6 +344,6 @@ end  # "Resolving with..."
     solve(m, prefer_cuts=true, show_cuts=true)
     redirect_stdout(old_stdout)
     @test isapprox(getValue(x), 1.0, atol=TOL)
-end  #show_cuts...""
+end  # "show_cuts"
 
-end  # "GeneralOracle"
+end  # "BasicUncertaintySet"

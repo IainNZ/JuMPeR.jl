@@ -2,7 +2,7 @@
 # JuMPeR  --  JuMP Extension for Robust Optimization
 # http://github.com/IainNZ/JuMPeR.jl
 #-----------------------------------------------------------------------
-# Copyright (c) 2015: Iain Dunning
+# Copyright (c) 2016: Iain Dunning
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -159,7 +159,7 @@ macro defUnc(args...)
     varname = esc(getname(var))
     return assert_validmodel(m, quote
         $looped
-        push!(getRobust($(m)).dictList, $varname)
+        push!(get_robust($(m)).dictList, $varname)
         #registervar($m, $(quot(getname(var))), $varname)
         storecontainerdata_unc($m, $varname, $(quot(getname(var))),
                                $(Expr(:tuple,map(clear_dependencies,1:length(idxsets))...)),
@@ -171,9 +171,9 @@ macro defUnc(args...)
 end
 
 storecontainerdata_unc(m::Model, variable, varname, idxsets, idxpairs, condition) =
-    getRobust(m).uncData[variable] = JuMPContainerData(varname, idxsets, idxpairs, condition)
+    get_robust(m).uncData[variable] = JuMPContainerData(varname, idxsets, idxpairs, condition)
 
-function JuMP.constructconstraint!(faff::UncAffExpr, sense::Symbol)
+function JuMP.constructconstraint!(faff::UncVarExpr, sense::Symbol)
     offset = faff.constant.constant
     faff.constant.constant = 0.0
     if sense == :(<=) || sense == :≤
@@ -190,9 +190,9 @@ end
 function JuMP.constructconstraint!{P}(
     normexpr::GenericNormExpr{P,Float64,Uncertain}, sense::Symbol)
     if sense == :(<=)
-        UncNormConstraint( normexpr)
+        UncSetNormConstraint( normexpr)
     elseif sense == :(>=)
-        UncNormConstraint(-normexpr)
+        UncSetNormConstraint(-normexpr)
     else
         error("Invalid sense $sense in norm constraint")
     end

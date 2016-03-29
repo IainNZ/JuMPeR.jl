@@ -7,8 +7,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #-----------------------------------------------------------------------
-# test/oracle.jl
-# Test oracle interface & tools
+# test/uncsets.jl
+# Test UncertainySet interface & tools.
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
@@ -20,15 +20,16 @@ if !(:lp_solvers in names(Main))
 end
 lp_solvers = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
 
-@testset "Oracles (misc)" begin
-print_with_color(:yellow, "Oracle...\n")
+@testset "UncertainySet" begin
+print_with_color(:yellow, "UncertainySet...\n")
 
 @testset "Check interface throws" begin
-    eval(:(type IncompleteOracle <: AbstractOracle end))  # In global scope
-    @test_throws ErrorException registerConstraint(IncompleteOracle(), RobustModel(), 1, nothing)
-    @test_throws ErrorException setup(IncompleteOracle(), RobustModel(), nothing)
-    @test_throws ErrorException generateReform(IncompleteOracle(), Model(), RobustModel(), Int[])
-    @test_throws ErrorException generateCut(IncompleteOracle(), Model(), RobustModel(), Int[])
+    eval(:(type IncompleteSet <: JuMPeR.AbstractUncertaintySet end))  # In global scope
+    @test_throws ErrorException JuMPeR.register_constraint(IncompleteSet(), RobustModel(), 1, Dict{Symbol,Any}())
+    @test_throws ErrorException JuMPeR.setup_set(IncompleteSet(), RobustModel(), false, nothing)
+    @test_throws ErrorException JuMPeR.generate_reform(IncompleteSet(), Model(), RobustModel(), Int[])
+    @test_throws ErrorException JuMPeR.generate_cut(IncompleteSet(), Model(), RobustModel(), Int[])
+    @test_throws ErrorException JuMPeR.generate_scenario(IncompleteSet(), Model(), RobustModel(), Int[])
 end
 
 # build_cut_objective
@@ -45,7 +46,7 @@ end
                         (u[3] +2*u[4]) * x[4] <=  # u3: 1*x4 = 1*5 = 5, u4: 2*x4 = 10
                         5.0 + u[5])  # u5
     col_val = [2.0, 3.0, 4.0, 5.0]
-    unc_con = JuMPeR.getRobust(rm).uncertainconstr[end]
+    unc_con = JuMPeR.get_robust(rm).unc_constraints[end]
 
     # Accumulate the coefficients for each uncertain parameter using
     # the values of the decision variables and the coefficients, to build
@@ -87,12 +88,12 @@ end
     @test conToStr(new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
 
     # -------------------
-    lhs_val = dot([5,1,4,11],[2,3,4,5])
+    lhs_val = 1.0*dot([5,1,4,11],[2,3,4,5])
     @test JuMPeR.check_cut_status(new_con, lhs_val, 1e-6) == :Violate
-    lhs_val = dot([5,1,4,11],[2,0,0,0])
+    lhs_val = 1.0*dot([5,1,4,11],[2,0,0,0])
     @test JuMPeR.check_cut_status(new_con, lhs_val, 1e+6) == :Active
-    lhs_val = dot([5,1,4,11],[0,0,0,0])
+    lhs_val = 1.0*dot([5,1,4,11],[0,0,0,0])
     @test JuMPeR.check_cut_status(new_con, lhs_val, 1e-6) == :Slack
-end  # "Oracle utilities"
+end  # "Utilities"
 
-end  # "Oracle"
+end  # "UncertainySet"
