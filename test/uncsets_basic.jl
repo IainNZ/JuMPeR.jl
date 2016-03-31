@@ -255,7 +255,7 @@ end  # "MILPs with..."
         @setObjective(m, Max, x[1] + x[2])
         con1 = @addConstraint(m, u1*x[1] + 1*x[2] <= 2)
         con2 = @addConstraint(m, u2*x[1] + 1*x[2] <= 6)
-        @test solve(m, prefer_cuts=cuts, active_cuts=true) == :Optimal
+        @test solve(m, prefer_cuts=cuts, active_scenarios=true) == :Optimal
         @test isapprox(getValue(x[1]), 2.0+2.0/3.0, atol=TOL)
         @test isapprox(getValue(x[2]),     2.0/3.0, atol=TOL)
         scen1 = get(getScenario(con1))

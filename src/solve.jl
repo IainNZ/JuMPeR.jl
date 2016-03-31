@@ -31,14 +31,16 @@ copy_quadconstr(old_con::QuadConstraint, new_vars) =
 #-----------------------------------------------------------------------
 
 function solve_robust(rm::Model; suppress_warnings=false, report=false,
-                        active_cuts=false, add_box=false, show_cuts=false,
+                        disable_cuts=false,
+                        active_scenarios=false, add_box=false, show_cuts=false,
                         kwargs...)
-    _solve_robust(rm,suppress_warnings,report,active_cuts,add_box,
-                    show_cuts,kwargs)
+    _solve_robust(rm,suppress_warnings,report,disable_cuts,active_scenarios,
+                    add_box,show_cuts,kwargs)
 end
 
 function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
-                        active_cuts::Bool, add_box::Union{Float64,Bool},
+                        disable_cuts::Bool,
+                        active_scenarios::Bool, add_box::Union{Float64,Bool},
                         show_cuts::Bool, kwargs::Vector{Any})
     # Pull out extra keyword arguments that we will pas through to oracles
     prefs = Dict{Symbol,Any}([name => value for (name,value) in kwargs])
@@ -134,7 +136,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
     for ind in 1:num_unccons
         oracle = rmext.constraint_uncsets[ind]
         if !(oracle in keys(oracle_to_cons))
-            setup_set(oracle, rm, active_cuts, prefs)
+            setup_set(oracle, rm, active_scenarios, prefs)
             oracle_to_cons[oracle] = [ind]
         else
             push!(oracle_to_cons[oracle], ind)
@@ -176,12 +178,24 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
             end
             cut_time += toq()
         end
-        addLazyCallback(master, lazyCallback)
+        if !disable_cuts
+            addLazyCallback(master, lazyCallback)
+        end
 
         # Solve master. Terminate when we have an optimal integer solution
         # and no lazy constraints are added
         tic()
-        master_status = solve(master, suppress_warnings=true)
+        master_status = :Error
+        try
+            master_status = solve(master, suppress_warnings=true)
+        catch err
+            !suppress_warnings && Base.warn("""JuMPeR: master problem (integer) couldn't be solved.
+                                               This may be due to the solver not supporting lazy
+                                               constraint callbacks, which are added by default.
+                                               You can disable all cutting planes by passing the
+                                               option disable_cuts=true to solve. Error message:""")
+            println(err)
+        end
         master_time = toq() - cut_time
         if master_status == :Infeasible
             !suppress_warnings && Base.warn("JuMPeR: master problem (integer) is infeasible.")
@@ -274,6 +288,11 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
                 end
             end
 
+            if disable_cuts
+                # No cuts wanted!
+                break
+            end
+
             # Generate cuts
             cut_added = false
             tic()
@@ -322,10 +341,9 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
         println("END DEBUG   :debug_printfinal")
     end
 
-    # OPTION: Get active cuts (1 per constraint) ("active_cuts=true")
-    # VERY EXPERIMENTAL
+    # OPTION: Get active scenarios (1 per constraint) ("active_scenarios=true")
     tic()
-    if active_cuts
+    if active_scenarios
         rmext.scenarios = Vector{Nullable{Scenario}}(length(rmext.unc_constraints))
         for oracle in keys(oracle_to_cons)
             scens_to_add = generate_scenario(oracle, master, rm, oracle_to_cons[oracle])
@@ -349,7 +367,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool, report::Bool,
         @printf("  Reformulation  %12.5f (%6.2f%%)\n", reform_time, reform_time/total_time*100)
         @printf("  Master solve   %12.5f (%6.2f%%)\n", master_time, master_time/total_time*100)
         @printf("  Cut solve&add  %12.5f (%6.2f%%)\n", cut_time, cut_time/total_time*100)
-        active_cuts && @printf("Active cut time: %12.5f\n", activecut_time)
+        active_scenarios && @printf("Active scenario time: %12.5f\n", activecut_time)
     end
 
     # Store the internal model

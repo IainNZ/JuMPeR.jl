@@ -159,7 +159,7 @@ print_with_color(:yellow, "BudgetUncertaintySet...\n")
         cn2 = @addConstraint(m, u*y <= 500, uncset=us2)
         us3 = JuMPeR.BasicUncertaintySet();  @addConstraint(us3, u <= 1000)
         cn3 = @addConstraint(m, u*z <= 5000, uncset=us3)
-        @test solve(m, prefer_cuts=cuts, active_cuts=true) == :Optimal
+        @test solve(m, prefer_cuts=cuts, active_scenarios=true) == :Optimal
         @test isapprox(getValue(x), 5.0, atol=TOL)
         @test isapprox(getValue(y), 5.0, atol=TOL)
         @test isapprox(getValue(z), 5.0, atol=TOL)
