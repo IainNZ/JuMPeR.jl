@@ -32,6 +32,3 @@ include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
     include("adp_newsvendor.jl")
     include("adp_inventory.jl")
 end
-
-#tests=[
-#        "scenario.jl"]
