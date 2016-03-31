@@ -76,5 +76,5 @@ typealias AdaptConstraint GenericRangeConstraint{AdaptExpr}
 function JuMP.addConstraint(m::Model, c::AdaptConstraint)
     rm = get_robust(m)::RobustModelExt
     push!(rm.adapt_constraints, c)
-    return ConstraintRef{AdaptConstraint}(m, length(rm.adapt_constraints))
+    return ConstraintRef{Model,AdaptConstraint}(m, length(rm.adapt_constraints))
 end

@@ -224,7 +224,7 @@ function JuMP.addConstraint(m::Model, c::UncConstraint; uncset=nothing)
     rmext = get_robust(m)::RobustModelExt
     push!(rmext.unc_constraints, c)
     push!(rmext.constraint_uncsets, uncset)
-    return ConstraintRef{UncConstraint}(m, length(rmext.unc_constraints))
+    return ConstraintRef{Model,UncConstraint}(m, length(rmext.unc_constraints))
 end
 JuMP.addConstraint(m::Model, c::Array{UncConstraint}) =
     error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
@@ -252,11 +252,11 @@ unc_value(scen::Scenario, u::Uncertain) = scen.values[u.id]
 
 
 """
-    getScenario(ConstraintRef{UncConstraint})
+    getScenario(ConstraintRef{RobustModel,UncConstraint})
 
 Get the Scenario for a constraint (as a `Nullable{Scenario}`)
 """
-getScenario(uc::ConstraintRef{UncConstraint}) = get_robust(uc.m).scenarios[uc.idx]
+getScenario(uc::ConstraintRef{Model,UncConstraint}) = get_robust(uc.m).scenarios[uc.idx]
 
 
 # Operator overloads for JuMPeR types
