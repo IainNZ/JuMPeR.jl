@@ -44,20 +44,20 @@ setup_set(us::AbstractUncertaintySet, rm::Model, scens_requested::Bool, prefs) =
 
 
 """
-    generate_reform(UncSet, Model, RobustModel, idxs)
+    generate_reform(UncSet, RobustModel, idxs)
 
 Called immediately before the main solve loop (where cutting planes are
-generated, if required). Can add anything it wants to the deterministic Model,
-but is generally intended for replacing the uncertain constraints in `idxs`
-with deterministic equivalents. Should return the number of constraints
-reformulated.
+generated, if required). Can add anything it wants to the deterministic part
+of the RobustModel, but is generally intended for replacing the uncertain
+constraints in `idxs` with deterministic equivalents (and possibly adding new
+auxiliary variables).
 """
 generate_reform(us::AbstractUncertaintySet, m::Model, rm::Model, idxs::Vector{Int}) =
     error("$(typeof(us)) hasn't implemented generate_reform")
 
 
 """
-    generate_cut(UncSet, Model, RobustModel, idxs)
+    generate_cut(UncSet, RobustModel, idxs)
 
 Called in the main loop every iteration (continuous variables) or every time
 an integer solution is found (discrete variables). Returns a vector of
@@ -65,12 +65,12 @@ deterministic constraints which are added to the problem by main solve loop.
 Generally intended for generating deterministic versions of the uncertain
 constraints in `idxs` as needed.
 """
-generate_cut(us::AbstractUncertaintySet, m::Model, rm::Model, idxs::Vector{Int}) =
+generate_cut(us::AbstractUncertaintySet, rm::Model, idxs::Vector{Int}) =
     error("$(typeof(us)) hasn't implemented generate_cut")
 
 
 """
-    generate_scenario(UncSet, Model, v::Vector{Float64}, idxs)
+    generate_scenario(UncSet, RobustModel, idxs)
 
 If requested by the user, this method will be called at optimality. Returns
 a `Nullable{Scenario}` for each constraint, where that `Scenario` corresponds
@@ -79,7 +79,7 @@ the most. If there are multiple such sets of values, the uncertainty set can
 select  arbitrarily, and if the set cannot provide a scenario it should return
 an empty `Nullable{Scenario}`.
 """
-generate_scenario(us::AbstractUncertaintySet, m::Model, rm::Model, idxs::Vector{Int}) =
+generate_scenario(us::AbstractUncertaintySet, rm::Model, idxs::Vector{Int}) =
     error("$(typeof(us)) hasn't implemented generate_scenario")
 
 

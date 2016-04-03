@@ -44,20 +44,20 @@ print_with_color(:yellow, "  LP tests...\n")
 
     @testset "Test 2" begin
         m = RobustModel(solver=solver)
-        @defVar(m, x[1:2] >= 0)
+        @defVar(m, 0 <= x[1:2] <= 9)
         @defUnc(m, 0.3 <= u1 <= 0.5)
         @defUnc(m, 0.0 <= u2 <= 2.0)
         @setObjective(m, Max, x[1] + x[2])
         @addConstraint(m, u1*x[1] + 1*x[2] <= 2)
         @addConstraint(m, u2*x[1] + 1*x[2] <= 6)
-        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test solve(m, prefer_cuts=cuts) == :Optimal
         @test isapprox(getValue(x[1]), 2.0+2.0/3.0, atol=TOL)
         @test isapprox(getValue(x[2]),     2.0/3.0, atol=TOL)
     end  # "Test 2"
 
     @testset "Test 3" begin
         m = RobustModel(solver=solver)
-        @defVar(m, x[1:2] >= 0)
+        @defVar(m, 0 <= x[1:2] <= 9)
         @defUnc(m, 0.3 <= u1 <= 1.5)
         @defUnc(m, 0.5 <= u2 <= 1.5)
         @setObjective(m, Max, x[1] + x[2])
@@ -65,19 +65,19 @@ print_with_color(:yellow, "  LP tests...\n")
         @addConstraint(m, u2*x[2] <= 1)
         @addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) <= +1)
         @addConstraint(m, (2.0*u1-2.0) + (4.0*u2-2.0) >= -1)
-        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test solve(m, prefer_cuts=cuts) == :Optimal
         @test isapprox(getValue(x[1]), 2.0,       atol=TOL)
         @test isapprox(getValue(x[2]), 10.0/11.0, atol=TOL)
     end  # "Test 3"
 
     @testset "Test 4" begin
         m = RobustModel(solver=solver)
-        @defVar(m, x >= 0)
+        @defVar(m, 0 <= x <= 9)
         @defUnc(m, u <= 4.0)
         @addConstraint(m, u >= 3.0)
         @setObjective(m, Max, 1.0x)
         @addConstraint(m, x <= u)
-        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test solve(m, prefer_cuts=cuts) == :Optimal
         @test isapprox(getValue(x), 3.0, atol=TOL)
     end  # "Test 4"
 
@@ -97,10 +97,10 @@ print_with_color(:yellow, "  LP tests...\n")
 
     @testset "Test 6 variant $variant" for variant in 0:7
         rm = RobustModel(solver=solver)
-        @defUnc(rm, u >=0)
-        @addConstraint(rm, u <=0)
-        @defVar(rm, x >=0)
-        @defVar(rm, shed >=0)
+        @defUnc(rm, u >= 0)
+        @addConstraint(rm, u <= 0)
+        @defVar(rm, x >= 0)
+        @defVar(rm, shed >= 0)
         @setObjective(rm, Min, x + shed)
         variant == 0 && @addConstraint(rm, x - u + 3.46 - shed <= 0)
         variant == 1 && @addConstraint(rm, x - u + 3.46 <= shed)
@@ -116,11 +116,11 @@ print_with_color(:yellow, "  LP tests...\n")
 
     @testset "Test 7" begin
         m = RobustModel(solver=solver)
-        @defVar(m, x >= 0)
+        @defVar(m, 0 <= x <= 9)
         @defUnc(m, 0.5 <= u <= 0.5)
         @setObjective(m, Max, x)
         @addConstraint(m, u*x + u <= 2)
-        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test solve(m, prefer_cuts=cuts) == :Optimal
         @test isapprox(getValue(x), 3.0, atol=TOL)
     end  # "Test 7"
 
@@ -185,20 +185,20 @@ print_with_color(:yellow, "  MILP tests...\n")
 
     @testset "Test 1" begin
         m = RobustModel(solver=solver)
-        @defVar(m, x[1:2] >= 0, Int)
+        @defVar(m, 0 <= x[1:2] <= 9, Int)
         @defUnc(m, 0.3 <= u1 <= 0.5)
         @defUnc(m, 0.0 <= u2 <= 2.0)
         @setObjective(m, Max, 1.1*x[1] + x[2])
         @addConstraint(m, u1*x[1] + 1*x[2] <= 2)
         @addConstraint(m, u2*x[1] + 1*x[2] <= 6)
-        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test solve(m, prefer_cuts=cuts) == :Optimal
         @test isapprox(getValue(x[1]), 3.0, atol=TOL)
         @test isapprox(getValue(x[2]), 0.0, atol=TOL)
     end
 
     @testset "Test 2" begin
         m = RobustModel(solver=solver)
-        @defVar(m, x[1:2] >= 0, Int)
+        @defVar(m, 0 <= x[1:2] <= 9, Int)
         @defUnc(m, 0.3 <= u1 <= 1.5)
         @defUnc(m, 0.5 <= u2 <= 1.5)
         @setObjective(m, Max, x[1] + x[2])
@@ -206,7 +206,7 @@ print_with_color(:yellow, "  MILP tests...\n")
         @addConstraint(m, u2*x[2] <= 1)
         @addConstraint(m, (2*u1-2) + (4*u2-2) <= +1)
         @addConstraint(m, (2*u1-2) + (4*u2-2) >= -1)
-        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
+        @test solve(m, prefer_cuts=cuts) == :Optimal
         @test isapprox(getValue(x[1]), 2.0, atol=TOL)
         @test isapprox(getValue(x[2]), 0.0, atol=TOL)
     end
@@ -265,85 +265,5 @@ end  # "MILPs with..."
     end
 end
 
-
-@testset "Resolving with $(solver_name(solver)), cuts=$cuts" for
-                        solver in lazy_solvers, cuts in [true,false]
-    # solve() with RobustModels is intended to be an almost-pure operation
-    # The goal of these tests is to make sure nothing weird happens.
-    m = RobustModel(solver=solver)
-    @defVar(m, B[1:2] >= 0)
-    @defVar(m, S[1:2] >= 0)
-
-    # Uncertainty set (manually expanded budget-type set)
-    @defUnc(m, D[1:2])
-    @addConstraint(m,  (D[1] - 20)/10 + (D[2] - 10)/5 <= 1.5)
-    @addConstraint(m,  (D[1] - 20)/10 - (D[2] - 10)/5 <= 1.5)
-    @addConstraint(m, -(D[1] - 20)/10 + (D[2] - 10)/5 <= 1.5)
-    @addConstraint(m, -(D[1] - 20)/10 - (D[2] - 10)/5 <= 1.5)
-
-    # Constraints
-    for i in 1:2
-        @addConstraint(m, S[i] <= D[i])
-        @addConstraint(m, S[i] <= B[i])
-    end
-
-    # Objective function
-    @setObjective(m, Max, 3*sum(S) - sum(B))
-
-    # First solve
-    @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
-    @test isapprox(getValue(B[1]), 5.0, atol=TOL)
-    @test isapprox(getValue(B[2]), 2.5, atol=TOL)
-
-    # Solve again with no changes to the model
-    @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
-    @test isapprox(getValue(B[1]), 5.0, atol=TOL)
-    @test isapprox(getValue(B[2]), 2.5, atol=TOL)
-
-    # Tighten uncertainty set
-    @addConstraint(m,  (D[1] - 20)/10 + (D[2] - 10)/5 <= 1)
-    @addConstraint(m,  (D[1] - 20)/10 - (D[2] - 10)/5 <= 1)
-    @addConstraint(m, -(D[1] - 20)/10 + (D[2] - 10)/5 <= 1)
-    @addConstraint(m, -(D[1] - 20)/10 - (D[2] - 10)/5 <= 1)
-    @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
-    @test isapprox(getValue(B[1]), 10.0, atol=TOL)
-    @test isapprox(getValue(B[2]),  5.0, atol=TOL)
-
-    # Add a deterministic constraint
-    @addConstraint(m, B[1] <= 8)
-    @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
-    @test isapprox(getValue(B[1]), 8.0, atol=TOL)
-    @test isapprox(getValue(B[2]), 5.0, atol=TOL)
-
-    # Add an uncertain constraint (and disambiguate objective)
-    @addConstraint(m, B[1] + B[2] <= (D[1] + D[2])/2)
-    @setObjective(m, Max, 3.1*S[2] + 3.0*S[1] - sum(B))
-    @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
-    @test isapprox(getValue(B[1]), 5.0, atol=TOL)
-    @test isapprox(getValue(B[2]), 5.0, atol=TOL)
-
-    if solver in soc_solvers
-        # Add a do-nothing ellipse constraint too
-        @addConstraint(m, 1000 >= norm(D))
-        @test solve(m, prefer_cuts=cuts, add_box=cuts?1e2:false) == :Optimal
-        @test isapprox(getValue(B[1]), 5.0, atol=TOL)
-        @test isapprox(getValue(B[2]), 5.0, atol=TOL)
-    end
-end  # "Resolving with..."
-
-
-@testset "show_cuts" begin
-    m = RobustModel()
-    @defVar(m, 0 <= x <= 10)
-    @defUnc(m, 0 <= u <= 10)
-    @setObjective(m, Max, 10x)
-    @addConstraint(m, u*x <= 7)
-    @addConstraint(m, u <= 7)
-    old_stdout = STDOUT
-    rd, wr = redirect_stdout()
-    solve(m, prefer_cuts=true, show_cuts=true)
-    redirect_stdout(old_stdout)
-    @test isapprox(getValue(x), 1.0, atol=TOL)
-end  # "show_cuts"
 
 end  # "BasicUncertaintySet"

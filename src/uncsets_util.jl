@@ -40,28 +40,26 @@ end
 
 
 """
-    build_certain_constraint(Model, UncConstraint, unc_val::Vector{Float64})
+    build_certain_constraint(UncConstraint, unc_val::Vector{Float64})
 
-Given an uncertain constraint and a deterministic model, build a new
-deterministc constraint for that model by replacing all the uncertain
-parameters with the provided values.
+Build a deterministic constraint from an uncertain constraint given values
+for the uncertain parameters.
 """
-function build_certain_constraint(master::Model, unc_con::UncConstraint,
-                                    unc_val::Vector{Float64})
+function build_certain_constraint(unc_con::UncConstraint, unc_val::Vector{Float64})
     new_lhs = AffExpr()
-    # Uncertain expression--variable terms
-    for (unc_expr, var) in linearterms(unc_con.terms)
+    function unc_expr_to_coeff(unc_expr)
         new_coeff = unc_expr.constant
         for (unc_coeff, unc) in linearterms(unc_expr)
             new_coeff += unc_coeff * unc_val[unc.id]
         end
-        push!(new_lhs, new_coeff, Variable(master,var.col))
+        return new_coeff
+    end
+    # Uncertain expression--variable terms
+    for (unc_expr, var) in linearterms(unc_con.terms)
+        push!(new_lhs, unc_expr_to_coeff(unc_expr), var)
     end
     # Standalone uncertain expression/constant term
-    new_lhs.constant = unc_con.terms.constant.constant
-    for (unc_coeff, unc) in linearterms(unc_con.terms.constant)
-        new_lhs.constant += unc_coeff * unc_val[unc.id]
-    end
+    new_lhs.constant = unc_expr_to_coeff(unc_con.terms.constant)
     # Build the constraint
     if sense(unc_con) == :(<=)
         return @LinearConstraint(new_lhs <= rhs(unc_con))
@@ -171,12 +169,12 @@ end
 """
     aff_to_uaff(UncExpr, Vector{Variable})
 
-Utility function for oracles. Given a `UncExpr` and a list of variables, create
-an `AffExpr` such that `Uncertain(i)` maps to `Variable(i)`, where i is the
-index, in the new expression.
+Utility function for uncertainty sets. Given a `UncExpr` and a list of
+variables, create an `AffExpr` such that `Uncertain(i)` maps to `Variable(i)`
+in the new expression, where `i` is the index.
 
 For example:
-    aff_to_uaff(5u[1] + 2u[3], [x[1],x[2],x[3]]) = 5x[1] + 2x[3]
+    aff_to_uaff(5u[1] + 2u[3], [x[1],x[2],x[3]])  ⟶  5x[1] + 2x[3]
 """
 uaff_to_aff(uaff::UncExpr, x::Vector{Variable}) =
     AffExpr(Variable[x[up.id] for up in uaff.vars],

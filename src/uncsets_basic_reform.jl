@@ -191,7 +191,7 @@ function setup_set_reform(us::BasicUncertaintySet, rm::Model)
         end
     end
 
-    # Store the reformulation in the oracle
+    # Store the reformulation
     us.num_dualvar  = num_dualvar
     us.dual_A       = dual_A
     us.dual_objs    = dual_objs
@@ -203,19 +203,17 @@ end
 """
     generate_reform(BasicUncertaintySet, ...)
 
-Modifies the master problem in place, returning the number of constraints
-that were reformulated.
+Modifies the problem in place.
 """
-function generate_reform(us::BasicUncertaintySet, m::Model, rm::Model, idxs::Vector{Int})
+function generate_reform(us::BasicUncertaintySet, rm::Model, idxs::Vector{Int})
     # If not doing reform...
     if us.use_cuts
         return 0
     end
     # Apply the reformulation to all relevant constraints
     for idx in idxs
-        apply_reform(us, m, rm, idx)
+        apply_reform(us, rm, idx)
     end
-    return length(idxs)
 end
 
 
@@ -224,11 +222,11 @@ end
 
 Reformulates a single constraint.
 """
-function apply_reform(us::BasicUncertaintySet, master::Model, rm::Model, idx::Int)
-    rmext = get_robust(rm)
+function apply_reform(us::BasicUncertaintySet, rm::Model, idx::Int)
+    rmext = get_robust(rm)::RobustModelExt
     con = rmext.unc_constraints[idx]
 
-    # Pull the 'template' out of the oracle for easier access
+    # Pull the 'template' out for easier access
     num_dualvar  = us.num_dualvar
     num_dualcon  = rmext.num_uncs
     dual_A       = us.dual_A
@@ -255,8 +253,7 @@ function apply_reform(us::BasicUncertaintySet, master::Model, rm::Model, idx::In
     # and append them to the new LHS directly
     for (uaff,var) in linearterms(orig_lhs)
         if uaff.constant != 0.0
-            push!(new_lhs, uaff.constant * sign_flip,
-                    Variable(master, var.col))
+            push!(new_lhs, uaff.constant * sign_flip, var)
         end
     end
 
@@ -267,8 +264,7 @@ function apply_reform(us::BasicUncertaintySet, master::Model, rm::Model, idx::In
         for (coeff, uncparam) in linearterms(uaff)
             rmext.unc_cat[uncparam.id] != :Cont &&
                 error("Integer uncertain parameters not supported in reformulation.")
-            push!(dual_rhs[uncparam.id], coeff * sign_flip,
-                    Variable(master, var.col))
+            push!(dual_rhs[uncparam.id], coeff * sign_flip, var)
         end
     end
     # We also need the standalone aᵀu not related to any variable
@@ -295,13 +291,13 @@ function apply_reform(us::BasicUncertaintySet, master::Model, rm::Model, idx::In
         vt == :L1rhs && (vname="α" )
         vt == :ω     && (vname="ω")
         vt == :ω′    && (vname="ω′" )
-        new_v = Variable(master,lbound,ubound,:Cont,"_$(vname)_$(idx)_$(ind)")
+        new_v = Variable(rm,lbound,ubound,:Cont,"_$(vname)_$(idx)_$(ind)")
         push!(dual_vars, new_v)
         push!(new_lhs, dual_objs[ind], new_v)
     end
 
-    # Add the new deterministic constraint to the master problem
-    @addConstraint(master, new_lhs <= new_rhs)
+    # Add the new deterministic constraint to the problem
+    @addConstraint(rm, new_lhs <= new_rhs)
 
     # Add the additional new constraints
     for unc in 1:rmext.num_uncs
@@ -357,9 +353,9 @@ function apply_reform(us::BasicUncertaintySet, master::Model, rm::Model, idx::In
         end
 
         ct = dual_contype[unc]
-        ct == :(==) && @addConstraint(master, new_lhs == dual_rhs[unc])
-        ct == :(<=) && @addConstraint(master, new_lhs <= dual_rhs[unc])
-        ct == :(>=) && @addConstraint(master, new_lhs >= dual_rhs[unc])
+        ct == :(==) && @addConstraint(rm, new_lhs == dual_rhs[unc])
+        ct == :(<=) && @addConstraint(rm, new_lhs <= dual_rhs[unc])
+        ct == :(>=) && @addConstraint(rm, new_lhs >= dual_rhs[unc])
     end
 
 
@@ -370,14 +366,14 @@ function apply_reform(us::BasicUncertaintySet, master::Model, rm::Model, idx::In
             ell_idx += 1
             β′ = dual_vars[us.dual_ell_lhs_idxs[ell_idx]]
             β  = dual_vars[us.dual_ell_rhs_idxs[ell_idx]]
-            @addConstraint(master, dot(β,β) <= β′*β′)
+            @addConstraint(rm, dot(β,β) <= β′*β′)
         # Impose α′ ≥ -½α
         elseif isa(norm_c, UncSetNormConstraint{1})
             l1_idx += 1
             α′ = dual_vars[us.dual_l1_lhs_idxs[l1_idx]]
             α  = dual_vars[us.dual_l1_rhs_idxs[l1_idx]]
             for αᵢ in α
-                @addConstraint(master, α′ >= -0.5αᵢ)
+                @addConstraint(rm, α′ >= -0.5αᵢ)
             end
         end
     end

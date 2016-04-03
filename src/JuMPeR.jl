@@ -68,13 +68,15 @@ Fields:
     unc_constraints         Normal/adapt. variables w/ uncertain parameters
     adapt_constraints       Adaptive variables w/ certain parameters
   Solvers:
-    cutsolver               Solver suggested to oracles for use when solving
+    cutsolver               Solver suggested to sets for use when solving
                             cutting plane problems
   Uncertainty sets:
     default_uncset          Default AbstractUncertaintySet used for constraints
     constraint_uncsets      Per-constraint uncertainty sets (or nothing)
   Scenarios:
     scenarios               Stores a Scenario per constraint, if requested.
+  Misc:
+    solved                  Flags if solved already (to prevent resolves)
 """
 type RobustModelExt{S,T,U}
     # Uncertain parameters
@@ -105,6 +107,8 @@ type RobustModelExt{S,T,U}
     uncData::ObjectIdDict
     # Scenarios
     scenarios::Vector{Nullable{U}}
+    # Misc
+    solved::Bool
 end
 RobustModelExt(cutsolver) =
     RobustModelExt{UncConstraint, AdaptConstraint, Scenario}(
@@ -129,7 +133,9 @@ RobustModelExt(cutsolver) =
     Dict{Symbol,Any}(),         # uncDict
     ObjectIdDict(),             # uncData
     # Scenarios
-    Nullable{Scenario}[])
+    Nullable{Scenario}[],       # scenarios
+    # Misc
+    false)                      # solved
 
 
 """

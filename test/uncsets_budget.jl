@@ -146,7 +146,7 @@ print_with_color(:yellow, "BudgetUncertaintySet...\n")
         @test isapprox(getValue(y), 5.0, atol=TOL)
     end
 
-    @testset "Test 8 (set mixing, scens), cuts=$cuts" for cuts in [true,false]
+    @testset "Test 9 (set mixing, scens), cuts=$cuts" for cuts in [true,false]
         m = RobustModel(solver=solver)
         @defVar(m, x <= 10)
         @defVar(m, y <= 10)

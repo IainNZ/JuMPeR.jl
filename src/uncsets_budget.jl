@@ -75,13 +75,11 @@ Internal function. For a given constraint and solution, find the worst-case
 values of the uncertain parameters. This function is called by both
 `generate_scenario` and `generate_cut`
 """
-function get_worst_case_value(us::BudgetUncertaintySet, master::Model, rm::Model, idx::Int)
+function get_worst_case_value(us::BudgetUncertaintySet, rm::Model, idx::Int)
     # Extract the RobustModelExt from the JuMP model - this contains all
     # the robust optimization-specific information
     rmext = get_robust(rm)::RobustModelExt
-    # The value of the decision variables in the master problem
-    master_sol = master.colVal
-    # Get the UncConstraint object out of the robust model
+    # Get the UncConstraint object out of the model
     con = rmext.unc_constraints[idx]
     # Collect the xᵢ values for each uncertain parameter
     unc_x_vals = zeros(rmext.num_uncs)
@@ -89,11 +87,8 @@ function get_worst_case_value(us::BudgetUncertaintySet, master::Model, rm::Model
     nominal_value = 0.0
     # For every variable term in the constraint...
     for (unc_expr, var) in linearterms(con.terms)
-        # Get the value of xᵢ in the master solution
-        # Note we can't use getValue because `var` here belongs to the
-        # RobustModel, not the master problem. However, both problems have
-        # the exact same number of decision variables, in the same order.
-        x_val = master_sol[var.col]
+        # Get the value of xᵢ in the current solution
+        x_val = getValue(var)
         # unc_expr is the coefficient on xᵢ. It might not be a single
         # uncertain parameter, e.g., (5a + 3b + 2)x, so we need to iterate
         # over this experession as well.
@@ -103,7 +98,7 @@ function get_worst_case_value(us::BudgetUncertaintySet, master::Model, rm::Model
             # Store the x value for this uncertain parameter
             unc_x_vals[unc.id] += coeff * x_val
         end
-        # We may also have deterministic part that factors only into the
+        # We may also have a deterministic part that factors only into the
         # nominal value calculation
         nominal_value += unc_expr.constant * x_val
     end
@@ -162,11 +157,11 @@ end
 
 Wraps the results from `get_worst_case_value` in `Scenario` objects.
 """
-function generate_scenario(us::BudgetUncertaintySet, master::Model, rm::Model, idxs::Vector{Int})
+function generate_scenario(us::BudgetUncertaintySet, rm::Model, idxs::Vector{Int})
     # We need to return one Scenario per constraint
     scens = Nullable{Scenario}[]
     for idx in idxs
-        _, unc_values = get_worst_case_value(us, master, rm, idx)
+        _, unc_values = get_worst_case_value(us, rm, idx)
         scen = Scenario(unc_values)
         push!(scens, Nullable{Scenario}(scen))
     end
@@ -180,7 +175,7 @@ end
 Use the results from `get_worst_case_value` to determine if new new constraints
 are needed, and return them if so.
 """
-function generate_cut(us::BudgetUncertaintySet, master::Model, rm::Model, idxs::Vector{Int})
+function generate_cut(us::BudgetUncertaintySet, rm::Model, idxs::Vector{Int})
     # Extract the RobustModelExt from the JuMP model - this contains all
     # the robust optimization-specific information
     rmext = get_robust(rm)::RobustModelExt
@@ -189,7 +184,7 @@ function generate_cut(us::BudgetUncertaintySet, master::Model, rm::Model, idxs::
     # For each constraint we need to generate a cut for
     for idx in idxs
         # Determine worst-case uncertain parameters
-        cut_value, unc_values = get_worst_case_value(us, master, rm, idx)
+        cut_value, unc_values = get_worst_case_value(us, rm, idx)
         # Get the UncConstraint object out of the robust model
         con = rmext.unc_constraints[idx]
         # Use a utility function from uncsets_util.jl to check the violation
@@ -199,7 +194,7 @@ function generate_cut(us::BudgetUncertaintySet, master::Model, rm::Model, idxs::
             continue  # try next constraint
         end
         # Build a deterministic constraint from the uncertain constraint
-        new_con = build_certain_constraint(master, con, unc_values)
+        new_con = build_certain_constraint(con, unc_values)
         push!(new_cons, new_con)
     end
     return new_cons
@@ -211,5 +206,4 @@ end
 
 Not implemented for this uncertainty set.
 """
-generate_reform(us::BudgetUncertaintySet, m::Model, rm::Model,
-    idxs::Vector{Int}) = 0
+generate_reform(us::BudgetUncertaintySet, rm::Model, idxs::Vector{Int}) = nothing

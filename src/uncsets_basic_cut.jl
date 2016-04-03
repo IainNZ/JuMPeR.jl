@@ -98,12 +98,11 @@ Internal function. For a given constraint and solution, find the worst-case
 values of the uncertain parameters. This function is called by both
 `generate_scenario` and `generate_cut`
 """
-function get_worst_case_value(us::BasicUncertaintySet, master::Model, rm::Model, idx::Int)
-    rmext = get_robust(rm)
-    master_sol = master.colVal
+function get_worst_case_value(us::BasicUncertaintySet, rm::Model, idx::Int)
+    rmext = get_robust(rm)::RobustModelExt
     con = rmext.unc_constraints[idx]
     # Update the cutting plane problem's objective, and solve
-    cut_sense, unc_obj_coeffs, lhs_const = JuMPeR.build_cut_objective_sparse(con, master_sol)
+    cut_sense, unc_obj_coeffs, lhs_const = JuMPeR.build_cut_objective_sparse(con, rm.colVal)
     @setObjective(us.cut_model, cut_sense, sum{u[2]*us.cut_vars[u[1]], u=unc_obj_coeffs})
     cut_solve_status = solve(us.cut_model, suppress_warnings=true)
     cut_solve_status != :Optimal &&
@@ -115,15 +114,15 @@ end
 
 
 """
-    generate_scenario(UncSet, Model, v::Vector{Float64}, idxs)
+    generate_scenario(BasicUncertaintySet, ...)
 
 Wraps the results from `get_worst_case_value` in `Scenario` objects.
 """
-function generate_scenario(us::BasicUncertaintySet, master::Model, rm::Model, idxs::Vector{Int})
+function generate_scenario(us::BasicUncertaintySet, rm::Model, idxs::Vector{Int})
     # We need to return one Scenario per constraint
     scens = Nullable{Scenario}[]
     for idx in idxs
-        _, unc_values = get_worst_case_value(us, master, rm, idx)
+        _, unc_values = get_worst_case_value(us, rm, idx)
         scen = Scenario(unc_values)
         push!(scens, Nullable{Scenario}(scen))
     end
@@ -136,7 +135,7 @@ end
 Given constraints with uncertain parameters, create new constraints if they
 would cause the current solution to be infeasible.
 """
-function generate_cut(us::BasicUncertaintySet, master::Model, rm::Model, idxs::Vector{Int})
+function generate_cut(us::BasicUncertaintySet, rm::Model, idxs::Vector{Int})
     # If not doing cuts, then fail fast
     if !us.use_cuts
         return Any[]
@@ -145,13 +144,13 @@ function generate_cut(us::BasicUncertaintySet, master::Model, rm::Model, idxs::V
     new_cons = Any[]
     for idx in idxs
         con = rmext.unc_constraints[idx]
-        lhs_of_cut, unc_values = get_worst_case_value(us, master, rm, idx)
+        lhs_of_cut, unc_values = get_worst_case_value(us, rm, idx)
         # Check violation
         if check_cut_status(con, lhs_of_cut, us.cut_tol) != :Violate
             continue  # No violation, no new cut
         end
         # Create and add the new constraint
-        new_con = JuMPeR.build_certain_constraint(master, con, unc_values)
+        new_con = JuMPeR.build_certain_constraint(con, unc_values)
         push!(new_cons, new_con)
     end
     return new_cons
