@@ -18,12 +18,12 @@ module JuMPeR
 
 importall Base.Operators
 import MathProgBase
-importall JuMP  # Import, so we can build on it
+importall JuMP  # So we can build on it, but prefer explict qualification
 import JuMP: JuMPContainer, GenericNorm, GenericNormExpr
 
 # JuMPeRs exported interface
 export RobustModel, @uncertain, @adaptive,
-        uncertainty_set!, getscenario, uncvalue
+        setuncertaintyset, getscenario, uncvalue
 
 
 # Forward definition of the abstract parent type for uncertainty sets
@@ -168,12 +168,12 @@ end
 
 
 """
-    uncertainty_set!(RobustModel, UncertaintySet)
+    setuncertaintyset(RobustModel, UncertaintySet)
 
 Sets the default uncertainty set for the model. This set will be used by all
 constraints that don't have have a seperately defined uncertainty set.
 """
-function uncertainty_set!(m::Model, us::AbstractUncertaintySet)
+function setuncertaintyset(m::Model, us::AbstractUncertaintySet)
     get_robust(m).default_uncset = us
     return us
 end
