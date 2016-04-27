@@ -49,73 +49,73 @@ print_with_color(:yellow, "Adaptive Newsvendor Model...\n")
     aff_z = 0.5*aff_x
 
     function add_set(m)
-        @defUnc(m, D[1:N])
-        @addConstraint(m, norm((D - Dμ)./Dσ,   1) <= isqrt(N))
-        @addConstraint(m, norm((D - Dμ)./Dσ, Inf) <= 1)
+        @uncertain(m, D[1:N])
+        @constraint(m, norm((D - Dμ)./Dσ,   1) <= isqrt(N))
+        @constraint(m, norm((D - Dμ)./Dσ, Inf) <= 1)
         return D
     end
 
     @testset "Static, manual" begin
         m = RobustModel()
         D = add_set(m)
-        @defVar(m, x >= 0)
-        @defVar(m, S[1:N] >= 0)
-        @defVar(m, z <= 1000);  @setObjective(m, Max, z)
-        @addConstraint(m, z <= sum(S) - 0.5*x)
-        for i in 1:N; @addConstraint(m, S[i] <= D[i]); end
-        @addConstraint(m, sum(S) <= x)
+        @variable(m, x >= 0)
+        @variable(m, S[1:N] >= 0)
+        @variable(m, z <= 1000);  @objective(m, Max, z)
+        @constraint(m, z <= sum(S) - 0.5*x)
+        for i in 1:N; @constraint(m, S[i] <= D[i]); end
+        @constraint(m, sum(S) <= x)
         solve(m, prefer_cuts=cuts)
-        @test isapprox(getValue(x), static_x, atol=TOL)
-        @test isapprox(getValue(z), static_z, atol=TOL)
+        @test isapprox(getvalue(x), static_x, atol=TOL)
+        @test isapprox(getvalue(z), static_z, atol=TOL)
     end  # "Static, manual"
 
     @testset "Static, auto" begin
         m = RobustModel()
         D = add_set(m)
-        @defVar(m, x >= 0)
-        @defAdaptVar(m, S[1:N] >= 0, policy=Static, depends_on=D)
-        @defVar(m, z <= 1000);  @setObjective(m, Max, z)
-        @addConstraint(m, z <= sum(S) - 0.5*x)
-        for i in 1:N; @addConstraint(m, S[i] <= D[i]); end
-        @addConstraint(m, sum(S) <= x)
+        @variable(m, x >= 0)
+        @adaptive(m, S[1:N] >= 0, policy=Static, depends_on=D)
+        @variable(m, z <= 1000);  @objective(m, Max, z)
+        @constraint(m, z <= sum(S) - 0.5*x)
+        for i in 1:N; @constraint(m, S[i] <= D[i]); end
+        @constraint(m, sum(S) <= x)
         solve(m, prefer_cuts=cuts)
-        @test isapprox(getValue(x), static_x, atol=TOL)
-        @test isapprox(getValue(z), static_z, atol=TOL)
+        @test isapprox(getvalue(x), static_x, atol=TOL)
+        @test isapprox(getvalue(z), static_z, atol=TOL)
     end  # "Static, auto"
 
     @testset "Affine, manual" begin
         m = RobustModel()
         D = add_set(m)
-        @defVar(m, x >= 0)
-        @defVar(m, S_aff[1:N,0:N])
+        @variable(m, x >= 0)
+        @variable(m, S_aff[1:N,0:N])
         S = Any[S_aff[i,0] for i in 1:N]
         for i in 1:N
             for j in 1:N
                 S[i] += S_aff[i,j] * D[j]
             end
-            @addConstraint(m, S[i] >= 0)
+            @constraint(m, S[i] >= 0)
         end
-        @defVar(m, z <= 1000);  @setObjective(m, Max, z)
-        @addConstraint(m, z <= sum(S) - 0.5*x)
-        for i in 1:N; @addConstraint(m, S[i] <= D[i]); end
-        @addConstraint(m, sum(S) <= x)
+        @variable(m, z <= 1000);  @objective(m, Max, z)
+        @constraint(m, z <= sum(S) - 0.5*x)
+        for i in 1:N; @constraint(m, S[i] <= D[i]); end
+        @constraint(m, sum(S) <= x)
         solve(m, prefer_cuts=cuts)
-        @test isapprox(getValue(x), aff_x, atol=TOL)
-        @test isapprox(getValue(z), aff_z, atol=TOL)
+        @test isapprox(getvalue(x), aff_x, atol=TOL)
+        @test isapprox(getvalue(z), aff_z, atol=TOL)
     end
 
     @testset "Affine, auto" begin
         m = RobustModel()
         D = add_set(m)
-        @defVar(m, x >= 0)
-        @defAdaptVar(m, S[1:N] >= 0, policy=Affine, depends_on=D)
-        @defVar(m, z <= 1000);  @setObjective(m, Max, z)
-        @addConstraint(m, z <= sum(S) - 0.5*x)
-        for i in 1:N; @addConstraint(m, S[i] <= D[i]); end
-        @addConstraint(m, sum(S) <= x)
+        @variable(m, x >= 0)
+        @adaptive(m, S[1:N] >= 0, policy=Affine, depends_on=D)
+        @variable(m, z <= 1000);  @objective(m, Max, z)
+        @constraint(m, z <= sum(S) - 0.5*x)
+        for i in 1:N; @constraint(m, S[i] <= D[i]); end
+        @constraint(m, sum(S) <= x)
         solve(m, prefer_cuts=cuts)
-        @test isapprox(getValue(x), aff_x, atol=TOL)
-        @test isapprox(getValue(z), aff_z, atol=TOL)
+        @test isapprox(getvalue(x), aff_x, atol=TOL)
+        @test isapprox(getvalue(z), aff_z, atol=TOL)
     end
 
 end  # "with ..."

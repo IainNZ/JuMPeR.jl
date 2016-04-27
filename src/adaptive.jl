@@ -42,7 +42,7 @@ Base.zero(     ::Adaptive)  = zero(Adaptive)
 Base.one(::Type{Adaptive})  = AdaptExpr(1)
 Base.one(     ::Adaptive)   = one(Adaptive)
 Base.isequal(a::Adaptive, b::Adaptive) = (a.m === b.m) && (a.id == b.id)
-getName(x::Adaptive) = get_robust(x.m).adp_names[x.id]
+getname(x::Adaptive) = get_robust(x.m).adp_names[x.id]
 
 """
     JuMPeRVar
@@ -73,7 +73,7 @@ Base.convert(::Type{AdaptExpr}, aff::AffExpr) =
 A constraint with just JuMPeRVars and numbers (i.e., `AdaptExpr`).
 """
 typealias AdaptConstraint GenericRangeConstraint{AdaptExpr}
-function JuMP.addConstraint(m::Model, c::AdaptConstraint)
+function JuMP.addconstraint(m::Model, c::AdaptConstraint)
     rm = get_robust(m)::RobustModelExt
     push!(rm.adapt_constraints, c)
     return ConstraintRef{Model,AdaptConstraint}(m, length(rm.adapt_constraints))

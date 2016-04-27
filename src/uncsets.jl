@@ -52,7 +52,7 @@ of the RobustModel, but is generally intended for replacing the uncertain
 constraints in `idxs` with deterministic equivalents (and possibly adding new
 auxiliary variables).
 """
-generate_reform(us::AbstractUncertaintySet, m::Model, rm::Model, idxs::Vector{Int}) =
+generate_reform(us::AbstractUncertaintySet, rm::Model, idxs::Vector{Int}) =
     error("$(typeof(us)) hasn't implemented generate_reform")
 
 
@@ -83,35 +83,35 @@ generate_scenario(us::AbstractUncertaintySet, rm::Model, idxs::Vector{Int}) =
     error("$(typeof(us)) hasn't implemented generate_scenario")
 
 
-# @addConstraint methods for AbstractUncertaintySets
+# @constraint methods for AbstractUncertaintySets
 # These do not need to be implemented for all uncertainty sets - only if
 # they make sense for the set.
-function JuMP.addConstraint(us::AbstractUncertaintySet, c::UncSetConstraint)
+function JuMP.addconstraint(us::AbstractUncertaintySet, c::UncSetConstraint)
     error("$(typeof(us)) hasn't implemented adding constraints on uncertain parameters.")
 end
-function JuMP.addConstraint(m::JuMP.AbstractModel, c::Array{UncSetConstraint})
+function JuMP.addconstraint(m::JuMP.AbstractModel, c::Array{UncSetConstraint})
     error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
 end
 function JuMP.addVectorizedConstraint(m::JuMP.AbstractModel, v::Array{UncSetConstraint})
-    map(c->addConstraint(m,c), v)
+    map(c->addconstraint(m,c), v)
 end
-function JuMP.addConstraint(us::AbstractUncertaintySet, c::UncSetNormConstraint)
+function JuMP.addconstraint(us::AbstractUncertaintySet, c::UncSetNormConstraint)
     error("$(typeof(us)) hasn't implemented adding constraints on uncertain parameters.")
 end
 # Sometimes JuMP[eR] can produce UncConstraints that have no variables - these
 # are actually UncSetConstraints, but just haven't been recognized as such.
 # To avoid the need for all uncertainty sets to be aware of this, we also
 # provide fall backs to detect these.
-function JuMP.addConstraint(us::AbstractUncertaintySet, c::UncConstraint)
+function JuMP.addconstraint(us::AbstractUncertaintySet, c::UncConstraint)
     if length(c.terms.vars) == 0
         # Pure uncertain constraint
-        return addConstraint(us, UncSetConstraint(c.terms.constant, c.lb, c.ub))
+        return addconstraint(us, UncSetConstraint(c.terms.constant, c.lb, c.ub))
     end
     # Error, has variables!
     error("Can't add a constraint with decision variables to an uncertainty set!")
 end
 function JuMP.addVectorizedConstraint(us::AbstractUncertaintySet, v::Array{UncConstraint})
-    map(c->addConstraint(us,c), v)
+    map(c->addconstraint(us,c), v)
 end
 
 

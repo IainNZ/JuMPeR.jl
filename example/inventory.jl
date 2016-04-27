@@ -33,37 +33,37 @@ v1 = Vmin       # Initial inventory (not provided in paper)
 invmgmt = RobustModel()
 
 # Uncertain parameter: demand at each time stage lies in a interval
-@defUnc(invmgmt, d_nom[t]*(1-θ) <= d[t=1:T] <= d_nom[t]*(1+θ))
+@uncertain(invmgmt, d_nom[t]*(1-θ) <= d[t=1:T] <= d_nom[t]*(1+θ))
 
 # Decision: how much to produce at each factory at each time
 # As this decision can be updated as demand is realized, we will use adaptive
 # policy - in particular, an affine policy where production at time t is an
 # affine function of the demand realized previously.
-@defAdaptVar(invmgmt, p[i=1:I,t=1:T], policy=Affine, depends_on=d[1:t-1])
+@adaptive(invmgmt, p[i=1:I,t=1:T], policy=Affine, depends_on=d[1:t-1])
 
 # Objective: minimize total cost of production
-@defVar(invmgmt, F)  # Overall cost
-@setObjective(invmgmt, Min, F)
-@addConstraint(invmgmt, F >= sum{c[i,t] * p[i,t], i=1:I, t=1:T})
+@variable(invmgmt, F)  # Overall cost
+@objective(invmgmt, Min, F)
+@constraint(invmgmt, F >= sum{c[i,t] * p[i,t], i=1:I, t=1:T})
 
 # Constraint: cannot exceed production limits
 for i in 1:I, t in 1:T
-    @addConstraint(invmgmt, p[i,t] >= 0)
-    @addConstraint(invmgmt, p[i,t] <= P)
+    @constraint(invmgmt, p[i,t] >= 0)
+    @constraint(invmgmt, p[i,t] <= P)
 end
 for i in 1:I
-    @addConstraint(invmgmt, sum{p[i,t], t=1:T} <= Q)
+    @constraint(invmgmt, sum{p[i,t], t=1:T} <= Q)
 end
 
 # Constraint: cannot exceed inventory limits
 for t in 1:T
-    @addConstraint(invmgmt,
+    @constraint(invmgmt,
         v1 + sum{p[i,s], i=1:I, s=1:t} - sum{d[s],s=1:t} >= Vmin)
-    @addConstraint(invmgmt,
+    @constraint(invmgmt,
         v1 + sum{p[i,s], i=1:I, s=1:t} - sum{d[s],s=1:t} <= Vmax)
 end
 
 # Solve
 status = solve(invmgmt)
 
-println(getObjectiveValue(invmgmt))
+println(getobjectivevalue(invmgmt))

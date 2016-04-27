@@ -47,17 +47,17 @@ print_with_color(:yellow, "Adaptive Inventory Model...\n")
     function add_constraints(rm, p, d)
         # Constraint: cannot exceed production limits
         for i in 1:I, t in 1:T
-            @addConstraint(rm, p[i,t] >= 0)
-            @addConstraint(rm, p[i,t] <= P)
+            @constraint(rm, p[i,t] >= 0)
+            @constraint(rm, p[i,t] <= P)
         end
         for i in 1:I
-            @addConstraint(rm, sum{p[i,t], t=1:T} <= Q)
+            @constraint(rm, sum{p[i,t], t=1:T} <= Q)
         end
         # Constraint: cannot exceed inventory limits
         for t in 1:T
-            @addConstraint(rm,
+            @constraint(rm,
                 v1 + sum{p[i,s], i=1:I, s=1:t} - sum{d[s],s=1:t} >= Vmin)
-            @addConstraint(rm,
+            @constraint(rm,
                 v1 + sum{p[i,s], i=1:I, s=1:t} - sum{d[s],s=1:t} <= Vmax)
         end
     end
@@ -65,9 +65,9 @@ print_with_color(:yellow, "Adaptive Inventory Model...\n")
     @testset "Affine, manual" begin
         rm = RobustModel()
         # Uncertain parameter: demand at each time stage
-        @defUnc(rm, d_nom[t]*(1-θ) <= d[t=1:T] <= d_nom[t]*(1+θ))
+        @uncertain(rm, d_nom[t]*(1-θ) <= d[t=1:T] <= d_nom[t]*(1+θ))
         # Decision: how much to produce at each factory at each time
-        @defVar(rm, p_aff[i=1:I,t=1:T,k=0:t-1])
+        @variable(rm, p_aff[i=1:I,t=1:T,k=0:t-1])
         p = Any[p_aff[i,t,0] for i in 1:I, t in 1:T]
         for i in 1:I, t in 1:T
             for k in 1:t-1
@@ -75,25 +75,25 @@ print_with_color(:yellow, "Adaptive Inventory Model...\n")
             end
         end
         # Objective: total cost of production
-        @defVar(rm, F); @setObjective(rm, Min, F)
-        @addConstraint(rm, sum{c[i,t] * p[i,t], i=1:I, t=1:T} <= F)
+        @variable(rm, F); @objective(rm, Min, F)
+        @constraint(rm, sum{c[i,t] * p[i,t], i=1:I, t=1:T} <= F)
         add_constraints(rm, p, d)
         solve(rm)
-        @test isapprox(getValue(F), 44272.82749, atol=TOL)
+        @test isapprox(getvalue(F), 44272.82749, atol=TOL)
     end
 
     @testset "Affine, auto" begin
         rm = RobustModel()
         # Uncertain parameter: demand at each time stage
-        @defUnc(rm, d_nom[t]*(1-θ) <= d[t=1:T] <= d_nom[t]*(1+θ))
+        @uncertain(rm, d_nom[t]*(1-θ) <= d[t=1:T] <= d_nom[t]*(1+θ))
         # Decision: how much to produce at each factory at each time
-        @defAdaptVar(rm, p[i=1:I,t=1:T], policy=Affine, depends_on=d[1:t-1])
+        @adaptive(rm, p[i=1:I,t=1:T], policy=Affine, depends_on=d[1:t-1])
         # Objective: total cost of production
-        @defVar(rm, F); @setObjective(rm, Min, F)
-        @addConstraint(rm, sum{c[i,t] * p[i,t], i=1:I, t=1:T} <= F)
+        @variable(rm, F); @objective(rm, Min, F)
+        @constraint(rm, sum{c[i,t] * p[i,t], i=1:I, t=1:T} <= F)
         add_constraints(rm, p, d)
         solve(rm)
-        @test isapprox(getValue(F), 44272.82749, atol=TOL)
+        @test isapprox(getvalue(F), 44272.82749, atol=TOL)
     end
 
 end  # "with ..."

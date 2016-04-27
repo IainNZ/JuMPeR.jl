@@ -77,36 +77,36 @@ function solve_portfolio(past_returns, Γ)
     # Setup the robust optimization model
     m = RobustModel()
     # Each asset is a share of the money to invest...
-    @defVar(m, 0 <= x[1:NUM_ASSET] <= 1)
+    @variable(m, 0 <= x[1:NUM_ASSET] <= 1)
     # ... and we must allocate all the money.
-    @addConstraint(m, sum(x) == 1)
+    @constraint(m, sum(x) == 1)
     # JuMPeR doesn't support uncertain objective functions directly. Instead,
     # an auxiliary variable should be added and the objective function should
     # be placed as a constraint on the auxiliary (epigraph form).
-    @defVar(m, obj)
-    @setObjective(m, Max, obj)
+    @variable(m, obj)
+    @objective(m, Max, obj)
     # The uncertain parameters are the returns for each asset
-    @defUnc(m, r[1:NUM_ASSET])
+    @uncertain(m, r[1:NUM_ASSET])
     # The uncertainty set requires the "square root" of the covariance
     μ = vec(mean(past_returns, 1))  # Want a column vector
     Σ = cov(past_returns)
     L = full(chol(Σ, Val{:L}))  # Σ^½
     # Define auxiliary uncertain parameters to model the underlying factors
-    @defUnc(m, z[1:NUM_ASSET])
+    @uncertain(m, z[1:NUM_ASSET])
     # Link r with z
-    @addConstraint(m, r .== L*z + μ)
+    @constraint(m, r .== L*z + μ)
     if UNCERTAINY_SET == :Polyhedral
-        @addConstraint(m, norm(z,   1) <= Γ)  # ‖z‖₁ ≤ Γ
-        @addConstraint(m, norm(z, Inf) <= 1)  # ‖z‖∞ ≤ 1
+        @constraint(m, norm(z,   1) <= Γ)  # ‖z‖₁ ≤ Γ
+        @constraint(m, norm(z, Inf) <= 1)  # ‖z‖∞ ≤ 1
     else
-        @addConstraint(m, norm(z,   2) <= Γ)  # ‖z‖₂ ≤ Γ
+        @constraint(m, norm(z,   2) <= Γ)  # ‖z‖₂ ≤ Γ
     end
     # The objective function: the worst-case return
-    @addConstraint(m, obj <= dot(r, x))
+    @constraint(m, obj <= dot(r, x))
     # Solve it!
     solve(m)
     # Return the allocation and the worst-case return
-    return getValue(x), getValue(obj)
+    return getvalue(x), getvalue(obj)
 end
 
 """

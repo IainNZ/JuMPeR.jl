@@ -61,11 +61,11 @@ BasicUncertaintySet() = BasicUncertaintySet(
 
 
 # Accept explicitly provided constraints
-function JuMP.addConstraint(us::BasicUncertaintySet, c::UncSetConstraint)
+function JuMP.addconstraint(us::BasicUncertaintySet, c::UncSetConstraint)
     push!(us.linear_constraints, c)
     return ConstraintRef{BasicUncertaintySet,UncSetConstraint}(us, length(us.linear_constraints))
 end
-function JuMP.addConstraint(us::BasicUncertaintySet, c::UncSetNormConstraint)
+function JuMP.addconstraint(us::BasicUncertaintySet, c::UncSetNormConstraint)
     push!(us.norm_constraints, c)
     return ConstraintRef{BasicUncertaintySet,UncSetConstraint}(us, length(us.norm_constraints))
 end

@@ -91,4 +91,4 @@ function aff_str(mode, a::AdaptExpr, show_constant=true)
 end
 
 # Backwards compatability shim
-affToStr(a::AdaptExpr) = aff_str(REPLMode,a)
+aff_str(a::AdaptExpr) = aff_str(REPLMode,a)

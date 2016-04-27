@@ -60,16 +60,16 @@ UncExpr(c::Number,u::Uncertain) = UncExpr(Uncertain[u],Float64[c],0.0)
 A constraint with just uncertain parameters and numbers (i.e., `UncExpr`).
 """
 typealias UncSetConstraint GenericRangeConstraint{UncExpr}
-function JuMP.addConstraint(m::Model, c::UncSetConstraint)
+function JuMP.addconstraint(m::Model, c::UncSetConstraint)
     # If m is a RobustModel, we add it to the default uncertainty set
     rmext = get_robust(m)::RobustModelExt
-    return addConstraint(rmext.default_uncset, c)
+    return addconstraint(rmext.default_uncset, c)
 end
-function JuMP.addConstraint(m::Model, c::Array{UncSetConstraint})
+function JuMP.addconstraint(m::Model, c::Array{UncSetConstraint})
     error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
 end
 function JuMP.addVectorizedConstraint(m::Model, v::Array{UncSetConstraint})
-    map(c->addConstraint(m,c), v)
+    map(c->addconstraint(m,c), v)
 end
 
 
@@ -90,8 +90,8 @@ A constraint involving a norm of uncertain parameters.
 type UncSetNormConstraint{P} <: JuMPConstraint
     normexpr::GenericNormExpr{P,Float64,Uncertain}
 end
-function JuMP.addConstraint(m::Model, c::UncSetNormConstraint)
+function JuMP.addconstraint(m::Model, c::UncSetNormConstraint)
     # If m is a RobustModel, we add it to the default uncertainty set
     rmext = get_robust(m)::RobustModelExt
-    return addConstraint(rmext.default_uncset, c)
+    return addconstraint(rmext.default_uncset, c)
 end

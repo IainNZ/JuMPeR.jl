@@ -31,11 +31,11 @@ Only the cutting plane method is implemented - there is nothing to gain
 from a specific reformulation, as it is quite easy to achieve a similar effect
 with the default `BasicUncertaintySet`:
 
-    @defUnc(m,       ξ[1:n])
-    @defUnc(m, -1 <= z[1:n] <= 1)  # ‖z‖∞ ≤ 1
-    @addConstraint(m, norm(z, 1) <= Γ)  # ‖z‖₁ ≤ Γ
+    @uncertain(m,       ξ[1:n])
+    @uncertain(m, -1 <= z[1:n] <= 1)  # ‖z‖∞ ≤ 1
+    @constraint(m, norm(z, 1) <= Γ)  # ‖z‖₁ ≤ Γ
     for i in 1:n
-        @addConstraint(m, ξ[i] == μ[i] + σ[i] * z[i])
+        @constraint(m, ξ[i] == μ[i] + σ[i] * z[i])
     end
 
 """
@@ -88,7 +88,7 @@ function get_worst_case_value(us::BudgetUncertaintySet, rm::Model, idx::Int)
     # For every variable term in the constraint...
     for (unc_expr, var) in linearterms(con.terms)
         # Get the value of xᵢ in the current solution
-        x_val = getValue(var)
+        x_val = getvalue(var)
         # unc_expr is the coefficient on xᵢ. It might not be a single
         # uncertain parameter, e.g., (5a + 3b + 2)x, so we need to iterate
         # over this experession as well.

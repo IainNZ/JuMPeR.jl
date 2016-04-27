@@ -35,34 +35,34 @@ print_with_color(:yellow, "Printing...\n")
     infty, union = repl[:infty], repl[:union]
 
     mod_1 = RobustModel()
-    @defVar(mod_1, vars[1:10])
+    @variable(mod_1, vars[1:10])
 
-    @defUnc(mod_1, a>=1)
-    @defUnc(mod_1, b<=1)
-    @defUnc(mod_1, -1<=c<=1)
-    @defUnc(mod_1, a1>=1,Int)
-    @defUnc(mod_1, b1<=1,Int)
-    @defUnc(mod_1, -1<=c1<=1,Int)
-    @defUnc(mod_1, x, Bin)
-    @defUnc(mod_1, y)
-    @defUnc(mod_1, z, Int)
-    @defUnc(mod_1,      bnd_free[2:5])
-    @defUnc(mod_1,      bnd_lowb[2:5] >= 2)
-    @defUnc(mod_1,      bnd_high[2:5] <= 5)
-    @defUnc(mod_1, 2 <= bnd_both[2:5] <= 5)
-    @defUnc(mod_1, mat2d[1:3,1:3])
-    @defUnc(mod_1, mat3d[1:3,1:3,1:3])
+    @uncertain(mod_1, a>=1)
+    @uncertain(mod_1, b<=1)
+    @uncertain(mod_1, -1<=c<=1)
+    @uncertain(mod_1, a1>=1,Int)
+    @uncertain(mod_1, b1<=1,Int)
+    @uncertain(mod_1, -1<=c1<=1,Int)
+    @uncertain(mod_1, x, Bin)
+    @uncertain(mod_1, y)
+    @uncertain(mod_1, z, Int)
+    @uncertain(mod_1,      bnd_free[2:5])
+    @uncertain(mod_1,      bnd_lowb[2:5] >= 2)
+    @uncertain(mod_1,      bnd_high[2:5] <= 5)
+    @uncertain(mod_1, 2 <= bnd_both[2:5] <= 5)
+    @uncertain(mod_1, mat2d[1:3,1:3])
+    @uncertain(mod_1, mat3d[1:3,1:3,1:3])
 
-    @setObjective(mod_1, Max, 2*vars[1])
+    @objective(mod_1, Max, 2*vars[1])
     # Deterministic
-    @addConstraint(mod_1, vars[10] <= 10)
+    @constraint(mod_1, vars[10] <= 10)
     # Mixed
-    @addConstraint(mod_1, a*vars[5] <= 5)
+    @constraint(mod_1, a*vars[5] <= 5)
     # Uncertain
-    # @addConstraint(mod_1, a + b <= 2)
+    # @constraint(mod_1, a + b <= 2)
     # a + b $le 2
     # Ellipse
-    # @addConstraint(mod_1, norm([a,b]) <= 1)
+    # @constraint(mod_1, norm([a,b]) <= 1)
     # ‖a,b‖₂ $le 1
 
     io_test(REPLMode, mod_1, """
@@ -97,15 +97,15 @@ end  # "RobustModel"
     infty, union = repl[:infty], repl[:union]
 
     m = RobustModel()
-    @defUnc(m,      bnd_free[2:5])
-    @defUnc(m,      bnd_lowb[2:5] >= 2)
-    @defUnc(m,      bnd_high[2:5] <= 5)
-    @defUnc(m, 2 <= bnd_both[2:5] <= 5)
-    @defUnc(m,      bnd_difflo[i=2:5] >= i)
-    @defUnc(m,      bnd_diffup[i=2:5] <= i)
-    @defUnc(m, i <= bnd_diffbo[i=2:5] <= 2i)
-    @defUnc(m, i <= bnd_difflo_with_up[i=2:5] <= 5)
-    @defUnc(m, 2 <= bnd_diffup_with_lo[i=2:5] <= i)
+    @uncertain(m,      bnd_free[2:5])
+    @uncertain(m,      bnd_lowb[2:5] >= 2)
+    @uncertain(m,      bnd_high[2:5] <= 5)
+    @uncertain(m, 2 <= bnd_both[2:5] <= 5)
+    @uncertain(m,      bnd_difflo[i=2:5] >= i)
+    @uncertain(m,      bnd_diffup[i=2:5] <= i)
+    @uncertain(m, i <= bnd_diffbo[i=2:5] <= 2i)
+    @uncertain(m, i <= bnd_difflo_with_up[i=2:5] <= 5)
+    @uncertain(m, 2 <= bnd_diffup_with_lo[i=2:5] <= i)
 
     io_test(REPLMode, bnd_free, "bnd_free[i] free $fa i $inset {2,3,4,5}")
     io_test(REPLMode, bnd_lowb, "bnd_lowb[i] $ge 2 $fa i $inset {2,3,4,5}")

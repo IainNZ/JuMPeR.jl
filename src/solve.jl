@@ -107,11 +107,11 @@ function _solve_robust(rm::Model, suppress_warnings::Bool,
                 for (uncset, idxs) in uncsets_to_cons
                     cons_to_add = generate_cut(uncset, rm, idxs)
                     for new_con in cons_to_add
-                        addLazyConstraint(cb, new_con)
+                        JuMP.addlazyconstraint(cb, new_con)
                     end
                 end
             end
-            addLazyCallback(rm, lazyCallback)
+            addlazycallback(rm, lazyCallback)
         end
         # Solve the problem, terminating when we have an optimal integer
         # solution and no lazy constraints are added. Be prepared for the case
@@ -202,7 +202,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool,
             for (uncset, idxs) in uncsets_to_cons
                 cons_to_add = generate_cut(uncset, rm, idxs)
                 for new_con in cons_to_add
-                    addConstraint(rm, new_con)
+                    JuMP.addconstraint(rm, new_con)
                     cut_added = true
                 end
             end

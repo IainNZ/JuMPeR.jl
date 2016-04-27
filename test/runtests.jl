@@ -8,7 +8,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #-----------------------------------------------------------------------
 # test/runtests.jl
-# Launch all JuMPeR tests. Run by Pkg.test("JuMPeR")
+# Launch all JuMPeR tests - run with Pkg.test("JuMPeR")
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR

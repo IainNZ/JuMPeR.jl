@@ -11,11 +11,11 @@
 # Adaptive robust optimization support - macros
 #-----------------------------------------------------------------------
 
-export @defAdaptVar
+export @adaptive
 
-macro defAdaptVar(args...)
+macro adaptive(args...)
     length(args) <= 1 &&
-        error("in @defAdaptVar: expected model as first argument, then variable information.")
+        error("in @adaptive: expected model as first argument, then variable information.")
     m = esc(args[1])
     x = args[2]
     extra = vcat(args[3:end]...)
@@ -43,7 +43,7 @@ macro defAdaptVar(args...)
                 # lb <= x <= u
                 var = x.args[3]
                 (x.args[4] != :<= && x.args[4] != :≤) &&
-                    error("in @defAdaptVar ($var): expected <= operator after variable name.")
+                    error("in @adaptive ($var): expected <= operator after variable name.")
                 lb = esc_nonconstant(x.args[1])
                 ub = esc_nonconstant(x.args[5])
             else
@@ -57,7 +57,7 @@ macro defAdaptVar(args...)
             end
         else
             # Its a comparsion, but not using <= ... <=
-            error("in @defAdaptVar ($(string(x))): use the form lb <= ... <= ub.")
+            error("in @adaptive ($(string(x))): use the form lb <= ... <= ub.")
         end
     else
         # No bounds provided - free variable
@@ -74,7 +74,7 @@ macro defAdaptVar(args...)
     # process keyword arguments
     varcat = :Cont
     policy = :Static
-    stage  = 0 
+    stage  = 0
     depends_on = Uncertain[]
     for ex in kwargs
         if ex.args[1] == :policy
@@ -84,7 +84,7 @@ macro defAdaptVar(args...)
         elseif ex.args[1] == :depends_on
             depends_on = esc(ex.args[2])
         else
-            error("in @defAdaptVar ($var): Unrecognized keyword argument $(ex.args[1])")
+            error("in @adaptive ($var): Unrecognized keyword argument $(ex.args[1])")
         end
     end
 
@@ -98,29 +98,29 @@ macro defAdaptVar(args...)
 
         if t == :Bin
             if (lb != -Inf || ub != Inf) && !(lb == 0.0 && ub == 1.0)
-            error("in @defAdaptVar ($var): bounds other than [0, 1] may not be specified for binary variables.\nThese are always taken to have a lower bound of 0 and upper bound of 1.")
+            error("in @adaptive ($var): bounds other than [0, 1] may not be specified for binary variables.\nThese are always taken to have a lower bound of 0 and upper bound of 1.")
             else
                 lb = 0.0
                 ub = 1.0
             end
         end
 
-        !gottype && error("in @defAdaptVar ($var): syntax error")
+        !gottype && error("in @adaptive ($var): syntax error")
     end
 
     if isa(var,Symbol)
         # Easy case - a single variable
         return assert_validmodel(m, quote
-            $(esc(var)) = 
+            $(esc(var)) =
                 Adaptive($m, $(utf8(string(var))),
                                     $lb, $ub, $(quot(varcat)),
                                     $(quot(policy)), $stage, $(depends_on))
             #registervar($m, $(quot(var)), $(esc(var)))
         end)
     end
-    isa(var,Expr) || error("in @defAdaptVar: expected $var to be a variable name")
+    isa(var,Expr) || error("in @adaptive: expected $var to be a variable name")
 
-    
+
     # We now build the code to generate the variables (and possibly the JuMPDict
     # to contain them)
     refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(var)

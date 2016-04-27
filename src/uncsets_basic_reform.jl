@@ -297,7 +297,7 @@ function apply_reform(us::BasicUncertaintySet, rm::Model, idx::Int)
     end
 
     # Add the new deterministic constraint to the problem
-    @addConstraint(rm, new_lhs <= new_rhs)
+    @constraint(rm, new_lhs <= new_rhs)
 
     # Add the additional new constraints
     for unc in 1:rmext.num_uncs
@@ -353,9 +353,9 @@ function apply_reform(us::BasicUncertaintySet, rm::Model, idx::Int)
         end
 
         ct = dual_contype[unc]
-        ct == :(==) && @addConstraint(rm, new_lhs == dual_rhs[unc])
-        ct == :(<=) && @addConstraint(rm, new_lhs <= dual_rhs[unc])
-        ct == :(>=) && @addConstraint(rm, new_lhs >= dual_rhs[unc])
+        ct == :(==) && @constraint(rm, new_lhs == dual_rhs[unc])
+        ct == :(<=) && @constraint(rm, new_lhs <= dual_rhs[unc])
+        ct == :(>=) && @constraint(rm, new_lhs >= dual_rhs[unc])
     end
 
 
@@ -366,14 +366,14 @@ function apply_reform(us::BasicUncertaintySet, rm::Model, idx::Int)
             ell_idx += 1
             β′ = dual_vars[us.dual_ell_lhs_idxs[ell_idx]]
             β  = dual_vars[us.dual_ell_rhs_idxs[ell_idx]]
-            @addConstraint(rm, dot(β,β) <= β′*β′)
+            @constraint(rm, dot(β,β) <= β′*β′)
         # Impose α′ ≥ -½α
         elseif isa(norm_c, UncSetNormConstraint{1})
             l1_idx += 1
             α′ = dual_vars[us.dual_l1_lhs_idxs[l1_idx]]
             α  = dual_vars[us.dual_l1_rhs_idxs[l1_idx]]
             for αᵢ in α
-                @addConstraint(rm, α′ >= -0.5αᵢ)
+                @constraint(rm, α′ >= -0.5αᵢ)
             end
         end
     end

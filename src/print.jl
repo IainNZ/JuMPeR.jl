@@ -15,8 +15,8 @@ import JuMP: REPLMode, IJuliaMode, PrintSymbols
 import JuMP: repl, ijulia
 import JuMP: PRINT_ZERO_TOL, DIMS
 import JuMP: str_round, getmeta
-import JuMP: aff_str, affToStr
-import JuMP: cont_str, conToStr
+import JuMP: aff_str, aff_str
+import JuMP: cont_str, con_str
 import JuMP: _values
 
 # helper to look up corresponding JuMPContainerData
@@ -357,9 +357,6 @@ function aff_str(mode, a::UncExpr, show_constant=true)
     end
 end
 
-# Backwards compatability shim
-affToStr(a::UncExpr) = aff_str(REPLMode,a)
-
 
 #------------------------------------------------------------------------
 ## UncVarExpr
@@ -369,7 +366,7 @@ Base.show( io::IO, a::UncVarExpr) = print(io, aff_str(REPLMode,a))
 #Base.writemime(io::IO, ::MIME"text/latex", a::UncVarExpr) =
 #    print(io, math(aff_str(IJuliaMode,a),false))
 # Generic string converter, called by mode-specific handlers
-# conToStr says showConstant = false, because if the constant term is
+# con_str says showConstant = false, because if the constant term is
 # just a number for AffExpr. However in our case it might also contain
 # uncertains - which we ALWAYS want to show.
 # So we "partially" respect it.
@@ -390,7 +387,7 @@ function aff_str(mode, a::UncVarExpr, show_constant=true)
     for i in 1:length(a.vars)
         numTerms += 1
         uaff = a.coeffs[i]
-        varn = getName(a.vars[i])
+        varn = getname(a.vars[i])
         prefix = first ? "" : " + "
         # Coefficient expression is a constant
         if length(uaff.vars) == 0
@@ -449,9 +446,6 @@ function aff_str(mode, a::UncVarExpr, show_constant=true)
     return ret
 end
 
-# Backwards compatability shim
-affToStr(a::UncVarExpr) = aff_str(REPLMode,a)
-
 
 #------------------------------------------------------------------------
 ## UncSetNormConstraint
@@ -479,5 +473,3 @@ function con_str{P}(mode, unc::UncSetNormConstraint{P})
     ret *= str_round(-aff.constant)
     return ret
 end
-
-conToStr(unc::UncSetNormConstraint) = con_str(REPLMode, unc)

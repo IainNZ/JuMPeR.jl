@@ -9,21 +9,21 @@
 #-----------------------------------------------------------------------
 # src/robustmacro.jl
 # This file attempts to use as much of the machinery provided by JuMP
-# to provide the @defUnc functionality for Uncertains, just like @defVar
-# does for variables. @defUnc is essentially a direct copy of @defVar,
+# to provide the @uncertain functionality for Uncertains, just like @variable
+# does for variables. @uncertain is essentially a direct copy of @variable,
 # with the differences clearly marked. If something is not marked,
 # assume it is a direct copy.
 #-----------------------------------------------------------------------
 
 import JuMP: assert_validmodel, validmodel, esc_nonconstant
-import JuMP: getloopedcode, buildrefsets, getname
+import JuMP: getloopedcode, buildrefsets
 import JuMP: storecontainerdata, isdependent, JuMPContainerData, pushmeta!
 
 using Base.Meta
 
-macro defUnc(args...)
+macro uncertain(args...)
     length(args) <= 1 &&
-        error("in @defUnc: expected model as first argument, then uncertain parameter information.")
+        error("in @uncertain: expected model as first argument, then uncertain parameter information.")
     m = args[1]
     x = args[2]
     extra = vcat(args[3:end]...)
@@ -54,7 +54,7 @@ macro defUnc(args...)
                 # lb <= x <= u
                 var = x.args[3]
                 (x.args[4] != :<= && x.args[4] != :≤) &&
-                    error("in @defUnc ($var): expected <= operator after uncertain parameter name.")
+                    error("in @uncertain ($var): expected <= operator after uncertain parameter name.")
                 lb = esc_nonconstant(x.args[1])
                 ub = esc_nonconstant(x.args[5])
             else
@@ -71,7 +71,7 @@ macro defUnc(args...)
         #------------------------------------------------------------------
         else
             # Its a comparsion, but not using <= ... <=
-            error("in @defUnc ($(string(x))): use the form lb <= ... <= ub.")
+            error("in @uncertain ($(string(x))): use the form lb <= ... <= ub.")
         end
     else
         # No bounds provided - free variable
@@ -89,7 +89,7 @@ macro defUnc(args...)
     #------------------------------------------------------------------
     # MODIFIED TO DISABLE COLUMN GENERATION
     for ex in kwargs
-        error("in @defUnc ($unc): Unrecognized keyword argument $(ex.args[1])")
+        error("in @uncertain ($unc): Unrecognized keyword argument $(ex.args[1])")
     end
     #------------------------------------------------------------------
 
@@ -99,7 +99,7 @@ macro defUnc(args...)
     #------------------------------------------------------------------
     # DON'T ALLOW SDP/SYMMETRIC
     if sdp || symmetric
-        error("in @defUnc ($var): SDP and Symmetric not supported.")
+        error("in @uncertain ($var): SDP and Symmetric not supported.")
     end
     #------------------------------------------------------------------
 
@@ -107,7 +107,7 @@ macro defUnc(args...)
     # Types: default is continuous (reals)
     if length(extra) > 0
         if t == :Fixed
-            error("in @defUnc ($var): unexpected extra arguments when declaring a fixed uncertain parameter.")
+            error("in @uncertain ($var): unexpected extra arguments when declaring a fixed uncertain parameter.")
         end
         if extra[1] in [:Bin, :Int, :SemiCont, :SemiInt]
             gottype = 1
@@ -116,7 +116,7 @@ macro defUnc(args...)
 
         if t == :Bin
             if (lb != -Inf || ub != Inf) && !(lb == 0.0 && ub == 1.0)
-            error("in @defUnc ($var): bounds other than [0, 1] may not be specified for binary uncertain parameters.\nThese are always taken to have a lower bound of 0 and upper bound of 1.")
+            error("in @uncertain ($var): bounds other than [0, 1] may not be specified for binary uncertain parameters.\nThese are always taken to have a lower bound of 0 and upper bound of 1.")
             else
                 lb = 0.0
                 ub = 1.0
@@ -124,7 +124,7 @@ macro defUnc(args...)
         end
 
         gottype == 0 &&
-            error("in @defUnc ($var): syntax error")
+            error("in @uncertain ($var): syntax error")
     end
 
     # Handle the column generation functionality
@@ -145,7 +145,7 @@ macro defUnc(args...)
             # registervar($m, $(quot(var)), $(esc(var)))
         end)
     end
-    isa(var,Expr) || error("in @defUnc: expected $var to be an uncertain parameter name")
+    isa(var,Expr) || error("in @uncertain: expected $var to be an uncertain parameter name")
 
 
     # We now build the code to generate the variables (and possibly the JuMPDict

@@ -76,20 +76,20 @@ function solve_partitioned_problem(N::Int, θ::Float64, B::Float64,
     rm = RobustModel()
     # Decision variables: whether to pursue a project or not
     # First stage, here-and-now decision
-    @defVar(rm, x[1:N], Bin)
+    @variable(rm, x[1:N], Bin)
     # Second stage, wait-and-see decision
     # One set of variables per partition
-    @defVar(rm, y[1:P,1:N], Bin)
+    @variable(rm, y[1:P,1:N], Bin)
     # Define the uncertain parameters, which belong to a hypercube
-    @defUnc(rm, -1 <= ξ[1:4] <= 1)
+    @uncertain(rm, -1 <= ξ[1:4] <= 1)
     # From the uncertain parameters we obtain the cost and profit vectors
     cost   = (1 + 0.5*Φ*ξ) .* c0
     profit = (1 + 0.5*Ψ*ξ) .* r0
     # The objective function will be the minimum of the objective function
     # across all the partitions. Put a default upper bound, just so we don't
     # start off unbounded if we are using a cutting plane method.
-    @defVar(rm, obj <= 10)
-    @setObjective(rm, Max, obj)
+    @variable(rm, obj <= 10)
+    @objective(rm, Max, obj)
     # For each partition...
     profit_con_refs = []
     budget_con_refs = []
@@ -108,7 +108,7 @@ function solve_partitioned_problem(N::Int, θ::Float64, B::Float64,
                 end
                 ξ_sub = sibling_scenario.ξ - current_scenario.ξ
                 ξ_add = sibling_scenario.ξ + current_scenario.ξ
-                @addConstraint(us, dot(ξ_sub, ξ) <= dot(ξ_sub,ξ_add)/2)
+                @constraint(us, dot(ξ_sub, ξ) <= dot(ξ_sub,ξ_add)/2)
             end
             # Move up the scenario tree
             current_scenario  = parent_scenario
@@ -116,17 +116,17 @@ function solve_partitioned_problem(N::Int, θ::Float64, B::Float64,
         end
         # Constrain objective function for this partition
         profit_con_ref =
-            @addConstraint(rm, obj <= sum{profit[i] * (x[i] + θ*y[p,i]), i in 1:N},
+            @constraint(rm, obj <= sum{profit[i] * (x[i] + θ*y[p,i]), i in 1:N},
                                 uncset=us)
         push!(profit_con_refs, profit_con_ref)
         # Constrain spending for this partition
         budget_con_ref =
-            @addConstraint(rm, sum{cost[i] * (x[i] + y[p,i]), i in 1:N} <= B,
+            @constraint(rm, sum{cost[i] * (x[i] + y[p,i]), i in 1:N} <= B,
                                 uncset=us)
         push!(budget_con_refs, budget_con_ref)
         # Can only choose each project once
         for i in 1:N
-            @addConstraint(rm, x[i] + y[p,i] <= 1)
+            @constraint(rm, x[i] + y[p,i] <= 1)
         end
     end
     # Solve, will use reformulation. We pass disable_cuts=true because
@@ -151,7 +151,7 @@ function solve_partitioned_problem(N::Int, θ::Float64, B::Float64,
         push!(scenario_tree, budget_child)
     end
     # Return the objective function value and the first-stage solution
-    getObjectiveValue(rm), getValue(x)
+    getobjectivevalue(rm), getvalue(x)
 end
 
 """

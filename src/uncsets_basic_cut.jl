@@ -43,7 +43,7 @@ function setup_set_cut(us::BasicUncertaintySet, rm::Model)
     for c in us.linear_constraints
         lhs = uaff_to_aff(c.terms, cut_vars)
         new_c = LinearConstraint(lhs, c.lb, c.ub)
-        addConstraint(cut_model, new_c)
+        JuMP.addconstraint(cut_model, new_c)
     end
 
     # Convert norm constraints
@@ -57,29 +57,29 @@ function setup_set_cut(us::BasicUncertaintySet, rm::Model)
         if isa(norm_c, UncSetNormConstraint{2})
             # L2 norm constraint
             # Output: yᵢ = aᵢᵀu, t = Γ, Σyᵢ^2 ≤ t^2
-            @defVar(cut_model, y[i=1:n_terms], basename="_c$(idx)_L2_y")
+            @variable(cut_model, y[i=1:n_terms], basename="_c$(idx)_L2_y")
             for i in 1:n_terms
-                @addConstraint(cut_model, y[i] == uaff_to_aff(terms[i], cut_vars))
+                @constraint(cut_model, y[i] == uaff_to_aff(terms[i], cut_vars))
             end
-            @defVar(cut_model, t == Γ, basename="_c$(idx)_L2_t")
-            @addConstraint(cut_model, dot(y,y) <= t^2)
+            @variable(cut_model, t == Γ, basename="_c$(idx)_L2_t")
+            @constraint(cut_model, dot(y,y) <= t^2)
         elseif isa(norm_c, UncSetNormConstraint{1})
             # L1 norm constraint
             # Output: yᵢ ≥ aᵢᵀu, yᵢ ≥ -aᵢᵀu, ∑yᵢ ≤ Γ
-            @defVar(cut_model, y[i=1:n_terms], basename="_c$(idx)_L1_y")
+            @variable(cut_model, y[i=1:n_terms], basename="_c$(idx)_L1_y")
             for i in 1:n_terms
                 rhs = uaff_to_aff(terms[i], cut_vars)
-                @addConstraint(cut_model, y[i] ≥ +rhs)
-                @addConstraint(cut_model, y[i] ≥ -rhs)
+                @constraint(cut_model, y[i] ≥ +rhs)
+                @constraint(cut_model, y[i] ≥ -rhs)
             end
-            @addConstraint(cut_model, sum(y) <= Γ)
+            @constraint(cut_model, sum(y) <= Γ)
         elseif isa(norm_c, UncSetNormConstraint{Inf})
             # L∞ norm constraint
             # Output: aᵢᵀu ≤ Γ, aᵢᵀu ≥ -Γ
             for i in 1:n_terms
                 lhs = uaff_to_aff(terms[i], cut_vars)
-                @addConstraint(cut_model, lhs ≤ +Γ)
-                @addConstraint(cut_model, lhs ≥ -Γ)
+                @constraint(cut_model, lhs ≤ +Γ)
+                @constraint(cut_model, lhs ≥ -Γ)
             end
         else
             error("Unrecognized norm in uncertainty set!")
@@ -103,11 +103,11 @@ function get_worst_case_value(us::BasicUncertaintySet, rm::Model, idx::Int)
     con = rmext.unc_constraints[idx]
     # Update the cutting plane problem's objective, and solve
     cut_sense, unc_obj_coeffs, lhs_const = JuMPeR.build_cut_objective_sparse(con, rm.colVal)
-    @setObjective(us.cut_model, cut_sense, sum{u[2]*us.cut_vars[u[1]], u=unc_obj_coeffs})
+    @objective(us.cut_model, cut_sense, sum{u[2]*us.cut_vars[u[1]], u=unc_obj_coeffs})
     cut_solve_status = solve(us.cut_model, suppress_warnings=true)
     cut_solve_status != :Optimal &&
         error("BasicUncertaintySet: cutting plane problem is infeasible or unbounded!")
-    lhs_of_cut = getObjectiveValue(us.cut_model) + lhs_const
+    lhs_of_cut = getobjectivevalue(us.cut_model) + lhs_const
 
     return lhs_of_cut, us.cut_model.colVal
 end

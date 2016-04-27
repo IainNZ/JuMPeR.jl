@@ -28,15 +28,15 @@ print_with_color(:yellow, "Operators...\n")
 
 # Setup
 m = RobustModel()
-@defVar(m, w)
-@defVar(m, x)
-@defVar(m, y)
-@defVar(m, z)
-@defAdaptVar(m, ax)
-@defAdaptVar(m, ay)
-@defUnc(m, a)
-@defUnc(m, b)
-@defUnc(m, c)
+@variable(m, w)
+@variable(m, x)
+@variable(m, y)
+@variable(m, z)
+@adaptive(m, ax)
+@adaptive(m, ay)
+@uncertain(m, a)
+@uncertain(m, b)
+@uncertain(m, c)
 
 aff   = 7.1 * x + 2.5
 aff2  = 1.2 * y + 1.2
@@ -49,28 +49,29 @@ uaex = (5b+1)x + (2c + 3)
 
 @test sprint(print, a)  == "a"
 @test sprint( show, a)  == "a"
-@test affToStr(aff)     == "7.1 x + 2.5"
-@test affToStr(aff2)    == "1.2 y + 1.2"
-@test affToStr(uaff)    == "2.3 a + 5.5"
-@test affToStr(uaff2)   == "3.4 b + 1.1"
-@test affToStr(faff)    == "(5 a + 1) x + 2 b + 3"
-@test affToStr(x+JuMPeR.UncExpr(0.0)) == sprint(print, x)
+@test string(aff)     == "7.1 x + 2.5"
+@test string(aff2)    == "1.2 y + 1.2"
+@test string(uaff)    == "2.3 a + 5.5"
+@test string(uaff2)   == "3.4 b + 1.1"
+@test string(faff)    == "(5 a + 1) x + 2 b + 3"
+@test string(x+JuMPeR.UncExpr(0.0)) == sprint(print, x)
+
 
 @testset "Number--... tests" begin
     # Number--Uncertain
-    @test affToStr(4.13 + a) == "a + 4.13"
-    @test affToStr(3.16 - a) == "-a + 3.16"
-    @test affToStr(5.23 * a) == "5.23 a"
+    @test string(4.13 + a) == "a + 4.13"
+    @test string(3.16 - a) == "-a + 3.16"
+    @test string(5.23 * a) == "5.23 a"
     @test_throws ErrorException 2.94 / a
     # Number--UncExpr
-    @test affToStr(2.3 + uaff) == "2.3 a + 7.8"
-    @test affToStr(1.5 - uaff) == "-2.3 a - 4"
-    @test affToStr(2.0 * uaff) == "4.6 a + 11"
+    @test string(2.3 + uaff) == "2.3 a + 7.8"
+    @test string(1.5 - uaff) == "-2.3 a - 4"
+    @test string(2.0 * uaff) == "4.6 a + 11"
     @test_throws MethodError 2.94 / uaff
     # Number--UncVarExpr
-    @test affToStr(2.3 + faff) == "(5 a + 1) x + 2 b + 5.3"
-    @test affToStr(1.0 - faff) == "(-5 a - 1) x + -2 b - 2"
-    @test affToStr(2.0 * faff) == "(10 a + 2) x + 4 b + 6"
+    @test string(2.3 + faff) == "(5 a + 1) x + 2 b + 5.3"
+    @test string(1.0 - faff) == "(-5 a - 1) x + -2 b - 2"
+    @test string(2.0 * faff) == "(10 a + 2) x + 4 b + 6"
     @test_throws MethodError 2.94 / faff
     @testset "Adaptive" begin
         @test string(2 + ax) == "ax + 2"
@@ -89,18 +90,18 @@ end
 
 @testset "Variable--... tests" begin
     # Variable--Uncertain
-    @test affToStr(x + a) == "x + a"
-    @test affToStr(x - a) == "x + -a"
-    @test affToStr(x * a) == "a x"
-    @test_throws ErrorException affToStr(x / a)
+    @test string(x + a) == "x + a"
+    @test string(x - a) == "x + -a"
+    @test string(x * a) == "a x"
+    @test_throws ErrorException string(x / a)
     # Variable--UncExpr
-    @test affToStr(x + uaff) == "x + 2.3 a + 5.5"
-    @test affToStr(x - uaff) == "x + -2.3 a - 5.5"
-    @test affToStr(x * uaff) == "(2.3 a + 5.5) x"
-    @test_throws ErrorException affToStr(x / uaff)
+    @test string(x + uaff) == "x + 2.3 a + 5.5"
+    @test string(x - uaff) == "x + -2.3 a - 5.5"
+    @test string(x * uaff) == "(2.3 a + 5.5) x"
+    @test_throws ErrorException string(x / uaff)
     # Variable--UncVarExpr
-    @test affToStr(x + faff) == "(5 a + 1) x + x + 2 b + 3"
-    @test affToStr(x - faff) == "(-5 a - 1) x + x + -2 b - 3"
+    @test string(x + faff) == "(5 a + 1) x + x + 2 b + 3"
+    @test string(x - faff) == "(-5 a - 1) x + x + -2 b - 3"
     @test_throws ErrorException x * faff
     @test_throws ErrorException x / faff
     @testset "Adaptive" begin
@@ -120,18 +121,18 @@ end
 
 @testset "AffExpr--... tests" begin  # aff  = 7.1 * x + 2.5
     # AffExpr--Uncertain
-    @test affToStr(aff + a) == "7.1 x + a + 2.5"
-    @test affToStr(aff - a) == "7.1 x + -a + 2.5"
-    @test affToStr(aff * a) == "(7.1 a) x + 2.5 a"
+    @test string(aff + a) == "7.1 x + a + 2.5"
+    @test string(aff - a) == "7.1 x + -a + 2.5"
+    @test string(aff * a) == "(7.1 a) x + 2.5 a"
     @test_throws ErrorException aff / a
     # AffExpr--UncExpr
-    @test affToStr(aff + uaff) == "7.1 x + 2.3 a + 8"
-    @test affToStr(aff - uaff) == "7.1 x + -2.3 a - 3"
-    @test affToStr(aff * uaff) == "(16.33 a + 39.05) x + 5.75 a + 13.75"
+    @test string(aff + uaff) == "7.1 x + 2.3 a + 8"
+    @test string(aff - uaff) == "7.1 x + -2.3 a - 3"
+    @test string(aff * uaff) == "(16.33 a + 39.05) x + 5.75 a + 13.75"
     @test_throws ErrorException aff / uaff
     # AffExpr--UncVarExpr
-    @test affToStr(aff + faff) == "7.1 x + (5 a + 1) x + 2 b + 5.5"
-    @test affToStr(aff - faff) == "7.1 x + (-5 a - 1) x + -2 b - 0.5"
+    @test string(aff + faff) == "7.1 x + (5 a + 1) x + 2 b + 5.5"
+    @test string(aff - faff) == "7.1 x + (-5 a - 1) x + -2 b - 0.5"
     @test_throws ErrorException aff * faff
     @test_throws ErrorException aff / faff
     @testset "Adaptive" begin
@@ -152,33 +153,33 @@ end
 @testset "Uncertain--... tests" begin
     @test !isequal(a,b)
     # Uncertain--Number
-    @test affToStr(a + 4.13) == "a + 4.13"
-    @test affToStr(a - 3.16) == "a - 3.16"
-    @test affToStr(a * 5.23) == "5.23 a"
-    @test affToStr(a / 2.0) == "0.5 a"
+    @test string(a + 4.13) == "a + 4.13"
+    @test string(a - 3.16) == "a - 3.16"
+    @test string(a * 5.23) == "5.23 a"
+    @test string(a / 2.0) == "0.5 a"
     # Uncertain--Variable
-    @test affToStr(a + x) == "x + a"
-    @test affToStr(a - x) == "-x + a"
-    @test affToStr(a * x) == "a x"
-    @test_throws ErrorException affToStr(a / x)
+    @test string(a + x) == "x + a"
+    @test string(a - x) == "-x + a"
+    @test string(a * x) == "a x"
+    @test_throws ErrorException string(a / x)
     # Uncertain--AffExpr
-    @test affToStr(a + aff) == "7.1 x + a + 2.5"
-    @test affToStr(a - aff) == "-7.1 x + a - 2.5"
-    @test affToStr(a * aff) == "(7.1 a) x + 2.5 a"
+    @test string(a + aff) == "7.1 x + a + 2.5"
+    @test string(a - aff) == "-7.1 x + a - 2.5"
+    @test string(a * aff) == "(7.1 a) x + 2.5 a"
     @test_throws ErrorException a / aff
     # Uncertain--Uncertain
-    @test affToStr(a + b) == "a + b"
-    @test affToStr(a - b) == "a - b"
+    @test string(a + b) == "a + b"
+    @test string(a - b) == "a - b"
     @test_throws ErrorException a * b
     @test_throws ErrorException a / b
     # Uncertain--UncExpr (uaff = 2.3 * a + 5.5)
-    @test affToStr(b + uaff) == "b + 2.3 a + 5.5"
-    @test affToStr(b - uaff) == "b - 2.3 a - 5.5"
+    @test string(b + uaff) == "b + 2.3 a + 5.5"
+    @test string(b - uaff) == "b - 2.3 a - 5.5"
     @test_throws ErrorException b * uaff
     @test_throws ErrorException b / uaff
     # Uncertain--UncVarExpr (faff = (5a + 1)x + 2b + 3)
-    @test affToStr(a + faff) == "(5 a + 1) x + a + 2 b + 3"
-    @test affToStr(a - faff) == "(-5 a - 1) x + a - 2 b - 3"
+    @test string(a + faff) == "(5 a + 1) x + a + 2 b + 3"
+    @test string(a - faff) == "(-5 a - 1) x + a - 2 b - 3"
     @test_throws ErrorException a * faff
     @test_throws ErrorException a / faff
     @testset "Adaptive" begin
@@ -198,39 +199,39 @@ end  # "Uncertain--... tests"
 
 @testset "UncExpr--... tests" begin
     # Constructors
-    @test affToStr(JuMPeR.UncExpr()) == "0"
-    @test affToStr(JuMPeR.UncExpr(1)) == "1"
-    @test affToStr(JuMPeR.UncExpr(a)) == "a"
+    @test string(JuMPeR.UncExpr()) == "0"
+    @test string(JuMPeR.UncExpr(1)) == "1"
+    @test string(JuMPeR.UncExpr(a)) == "a"
     @test typeof(zero(uaff)) == JuMPeR.UncExpr
-    @test affToStr(zero(JuMPeR.UncExpr)) == "0"
+    @test string(zero(JuMPeR.UncExpr)) == "0"
     # UncExpr--Number
-    @test affToStr(uaff + 4.0) == "2.3 a + 9.5"
-    @test affToStr(uaff - 3.0) == "2.3 a + 2.5"
-    @test affToStr(uaff * 2.0) == "4.6 a + 11"
-    @test affToStr(uaff / 2.0) == "1.15 a + 2.75"
+    @test string(uaff + 4.0) == "2.3 a + 9.5"
+    @test string(uaff - 3.0) == "2.3 a + 2.5"
+    @test string(uaff * 2.0) == "4.6 a + 11"
+    @test string(uaff / 2.0) == "1.15 a + 2.75"
     # UncExpr--Variable
-    @test affToStr(uaff + x) == "x + 2.3 a + 5.5"
-    @test affToStr(uaff - x) == "-x + 2.3 a + 5.5"
-    @test affToStr(uaff * x) == "(2.3 a + 5.5) x"
+    @test string(uaff + x) == "x + 2.3 a + 5.5"
+    @test string(uaff - x) == "-x + 2.3 a + 5.5"
+    @test string(uaff * x) == "(2.3 a + 5.5) x"
     @test_throws ErrorException uaff / x
     # UncExpr--AffExpr (aff = 7.1 x + 2.5)
-    @test affToStr(uaff + aff) == "7.1 x + 2.3 a + 8"
-    @test affToStr(uaff - aff) == "-7.1 x + 2.3 a + 3"
-    @test affToStr(uaff * aff) == "(16.33 a + 39.05) x + 5.75 a + 13.75"
+    @test string(uaff + aff) == "7.1 x + 2.3 a + 8"
+    @test string(uaff - aff) == "-7.1 x + 2.3 a + 3"
+    @test string(uaff * aff) == "(16.33 a + 39.05) x + 5.75 a + 13.75"
     @test_throws ErrorException uaff / aff
     # UncExpr--Uncertain
-    @test affToStr(uaff + b) == "b + 2.3 a + 5.5"
-    @test affToStr(uaff - b) == "-b + 2.3 a + 5.5"
+    @test string(uaff + b) == "b + 2.3 a + 5.5"
+    @test string(uaff - b) == "-b + 2.3 a + 5.5"
     @test_throws ErrorException uaff * b
     @test_throws ErrorException uaff / b
     # UncExpr--UncExpr (uaff2 = 3.4 b + 1.1)
-    @test affToStr(uaff + uaff2) == "2.3 a + 3.4 b + 6.6"
-    @test affToStr(uaff - uaff2) == "2.3 a - 3.4 b + 4.4"
+    @test string(uaff + uaff2) == "2.3 a + 3.4 b + 6.6"
+    @test string(uaff - uaff2) == "2.3 a - 3.4 b + 4.4"
     @test_throws ErrorException uaff * uaff2
     @test_throws ErrorException uaff / uaff2
     # UncExpr--UncVarExpr (faff = (5a + 1)x + 2b + 3)
-    @test affToStr(uaff + faff) == "(5 a + 1) x + 2.3 a + 2 b + 8.5"
-    @test affToStr(uaff - faff) == "(-5 a - 1) x + 2.3 a - 2 b + 2.5"
+    @test string(uaff + faff) == "(5 a + 1) x + 2.3 a + 2 b + 8.5"
+    @test string(uaff - faff) == "(-5 a - 1) x + 2.3 a - 2 b + 2.5"
     @test_throws ErrorException uaff * faff
     @test_throws ErrorException uaff / faff
     @testset "Adaptive" begin  # uex  = 2.3 * b + 5.5
@@ -250,45 +251,45 @@ end  # "UncExpr--... tests"
 
 @testset "UncVarExpr--... tests" begin
     # Constructors
-    @test affToStr(JuMPeR.UncVarExpr()) == "0"
+    @test string(JuMPeR.UncVarExpr()) == "0"
     @test typeof(zero(faff)) == JuMPeR.UncVarExpr
-    @test affToStr(zero(JuMPeR.UncVarExpr)) == "0"
+    @test string(zero(JuMPeR.UncVarExpr)) == "0"
     # Push/append
     pusher = a * x
-    @test affToStr(pusher) == "a x"
+    @test string(pusher) == "a x"
     push!(pusher, 2.0, y)
-    @test affToStr(pusher) == "a x + 2 y"
+    @test string(pusher) == "a x + 2 y"
     push!(pusher, uaff, z)
-    @test affToStr(pusher) == "a x + 2 y + (2.3 a + 5.5) z"
+    @test string(pusher) == "a x + 2 y + (2.3 a + 5.5) z"
     # faff = (5a + 1)x + 2b + 3)
     # UncVarExpr--Number
-    @test affToStr(faff + 4.0) == "(5 a + 1) x + 2 b + 7"
-    @test affToStr(faff - 2.0) == "(5 a + 1) x + 2 b + 1"
-    @test affToStr(faff * 2.0) == "(10 a + 2) x + 4 b + 6"
-    @test affToStr(faff / 2.0) == "(2.5 a + 0.5) x + b + 1.5"
+    @test string(faff + 4.0) == "(5 a + 1) x + 2 b + 7"
+    @test string(faff - 2.0) == "(5 a + 1) x + 2 b + 1"
+    @test string(faff * 2.0) == "(10 a + 2) x + 4 b + 6"
+    @test string(faff / 2.0) == "(2.5 a + 0.5) x + b + 1.5"
     # UncVarExpr--Variable
-    @test affToStr(faff + y) == "(5 a + 1) x + y + 2 b + 3"
-    @test affToStr(faff - y) == "(5 a + 1) x - y + 2 b + 3"
+    @test string(faff + y) == "(5 a + 1) x + y + 2 b + 3"
+    @test string(faff - y) == "(5 a + 1) x - y + 2 b + 3"
     @test_throws ErrorException faff * y
     @test_throws ErrorException faff / y
     # UncVarExpr--AffExpr (aff2 = 1.2y + 1.2)
-    @test affToStr(faff + aff2) == "1.2 y + (5 a + 1) x + 2 b + 4.2"
-    @test affToStr(faff - aff2) == "(5 a + 1) x - 1.2 y + 2 b + 1.8"
+    @test string(faff + aff2) == "1.2 y + (5 a + 1) x + 2 b + 4.2"
+    @test string(faff - aff2) == "(5 a + 1) x - 1.2 y + 2 b + 1.8"
     @test_throws ErrorException faff * aff2
     @test_throws ErrorException faff / aff2
     # UncVarExpr--Uncertain
-    @test affToStr(faff + a) == "(5 a + 1) x + a + 2 b + 3"
-    @test affToStr(faff - a) == "(5 a + 1) x + -a + 2 b + 3"
+    @test string(faff + a) == "(5 a + 1) x + a + 2 b + 3"
+    @test string(faff - a) == "(5 a + 1) x + -a + 2 b + 3"
     @test_throws ErrorException faff * a
     @test_throws ErrorException faff / a
     # UncVarExpr--UncExpr (uaff = 2.3 * a + 5.5)
-    @test affToStr(faff + uaff) == "(5 a + 1) x + 2 b + 2.3 a + 8.5"
-    @test affToStr(faff - uaff) == "(5 a + 1) x + 2 b - 2.3 a - 2.5"
+    @test string(faff + uaff) == "(5 a + 1) x + 2 b + 2.3 a + 8.5"
+    @test string(faff - uaff) == "(5 a + 1) x + 2 b - 2.3 a - 2.5"
     @test_throws ErrorException faff * uaff
     @test_throws ErrorException faff / uaff
     # UncVarExpr--UncVarExpr
-    @test affToStr(faff + faff) == "(5 a + 1) x + (5 a + 1) x + 4 b + 6"
-    @test affToStr(faff - faff) == "(5 a + 1) x + (-5 a - 1) x"
+    @test string(faff + faff) == "(5 a + 1) x + (5 a + 1) x + 4 b + 6"
+    @test string(faff - faff) == "(5 a + 1) x + (-5 a - 1) x"
     @test_throws ErrorException faff * faff
     @test_throws ErrorException faff / faff
     @testset "Adaptive" begin  # uaex = (5b+1)x + (2c + 3)
@@ -429,20 +430,20 @@ end  # "Basics"
 @testset "Higher level" begin
 
 m = RobustModel()
-@defVar(m, 0 <= x[1:3] <= 1)
-@defUnc(m, 2 <= a <= 3)
-@defUnc(m, 5 <= b <= 6)
-@defUnc(m, u[1:3])
-@defUnc(m, v[4:6])
-@defUnc(m, U[1:3,1:3])
-@defUnc(m, w[[:foo,:bar]])
+@variable(m, 0 <= x[1:3] <= 1)
+@uncertain(m, 2 <= a <= 3)
+@uncertain(m, 5 <= b <= 6)
+@uncertain(m, u[1:3])
+@uncertain(m, v[4:6])
+@uncertain(m, U[1:3,1:3])
+@uncertain(m, w[[:foo,:bar]])
 
 @testset "sum" begin
-    @test affToStr(sum(u)) == "u[3] + u[1] + u[2]"
-    @test affToStr(sum(U)) == "U[3,3] + U[2,3] + U[1,3] + U[3,2] + U[2,2] + U[1,2] + U[3,1] + U[1,1] + U[2,1]"
-    @test affToStr(sum(w)) in ["w[foo] + w[bar]", "w[bar] + w[foo]"]
-    @test affToStr(sum([2.0*a, 4.0*b])) == "2 a + 4 b"
-    @test affToStr(sum([x[1] + 2.0*a, x[2] + 4.0*b])) == "x[1] + x[2] + 2 a + 4 b"
+    @test string(sum(u)) == "u[3] + u[1] + u[2]"
+    @test string(sum(U)) == "U[3,3] + U[2,3] + U[1,3] + U[3,2] + U[2,2] + U[1,2] + U[3,1] + U[1,1] + U[2,1]"
+    @test string(sum(w)) in ["w[foo] + w[bar]", "w[bar] + w[foo]"]
+    @test string(sum([2.0*a, 4.0*b])) == "2 a + 4 b"
+    @test string(sum([x[1] + 2.0*a, x[2] + 4.0*b])) == "x[1] + x[2] + 2 a + 4 b"
 end
 
 @testset "dot" begin
@@ -452,13 +453,13 @@ end
          5.5 6.2 1.2]
     # DOT
     # Vector{Float64} :: JuMPArray{Uncertain}
-    @test affToStr(dot(c,u)) == "3.5 u[1] + 4 u[2] + 2 u[3]"
-    @test affToStr(dot(u,c)) == "3.5 u[1] + 4 u[2] + 2 u[3]"
+    @test string(dot(c,u)) == "3.5 u[1] + 4 u[2] + 2 u[3]"
+    @test string(dot(u,c)) == "3.5 u[1] + 4 u[2] + 2 u[3]"
     # Matrix{Float64} (2D) :: JuMPArray{Uncertain} (2D)
-    @test affToStr(vecdot(A,U)) == "3 U[1,1] + 1.5 U[2,1] + 5.5 U[3,1] + 4 U[1,2] + 2.5 U[2,2] + 6.2 U[3,2] + 5 U[1,3] + 3.3 U[2,3] + 1.2 U[3,3]"
+    @test string(vecdot(A,U)) == "3 U[1,1] + 1.5 U[2,1] + 5.5 U[3,1] + 4 U[1,2] + 2.5 U[2,2] + 6.2 U[3,2] + 5 U[1,3] + 3.3 U[2,3] + 1.2 U[3,3]"
 
     # JuMPArray{Variable} :: JuMPArray{Uncertain}
-    @test affToStr(dot(x,u)) == "u[1] x[1] + u[2] x[2] + u[3] x[3]"
+    @test string(dot(x,u)) == "u[1] x[1] + u[2] x[2] + u[3] x[3]"
 
     # Matrix{Float64} (2D) :: JuMPDict{Uncertain} (1D)
     @test_throws DimensionMismatch vecdot(A, u)
@@ -470,47 +471,47 @@ end  # "Higher level"
 @testset "Matrix operations" begin
 
     m = RobustModel()
-    @defVar(m, matvar[1:3,1:3])
-    @defUnc(m, vecunc[1:3])
-    @defUnc(m, matunc[1:3,1:3])
+    @variable(m, matvar[1:3,1:3])
+    @uncertain(m, vecunc[1:3])
+    @uncertain(m, matunc[1:3,1:3])
     s = JuMPeR.get_robust(m).default_uncset
 
     b = [1,2,3]
     A = eye(3,3)
-    @addConstraint(m, A*vecunc .== b)
+    @constraint(m, A*vecunc .== b)
     c = s.linear_constraints[1:3]
     for i in 1:3
-        @test conToStr(c[i]) == "vecunc[$i] $eq $i"
+        @test JuMP.con_str(REPLMode, c[i]) == "vecunc[$i] $eq $i"
     end
 
-    @addConstraint(m, matunc*ones(3) .== b)
+    @constraint(m, matunc*ones(3) .== b)
     c = s.linear_constraints[4:6]
     for i in 1:3
-        @test conToStr(c[i]) == "matunc[$i,1] + matunc[$i,2] + matunc[$i,3] $eq $i"
+        @test JuMP.con_str(REPLMode, c[i]) == "matunc[$i,1] + matunc[$i,2] + matunc[$i,3] $eq $i"
     end
 
-    @addConstraint(m, matvar*vecunc .== b)
+    @constraint(m, matvar*vecunc .== b)
     c = JuMPeR.get_robust(m).unc_constraints[1:3]
     for i in 1:3
-        @test conToStr(c[i]) == "vecunc[1] matvar[$i,1] + vecunc[2] matvar[$i,2] + vecunc[3] matvar[$i,3] $eq $i"
+        @test JuMP.con_str(REPLMode, c[i]) == "vecunc[1] matvar[$i,1] + vecunc[2] matvar[$i,2] + vecunc[3] matvar[$i,3] $eq $i"
     end
 
-    @addConstraint(m, matvar*matunc .== ones(3,3))
+    @constraint(m, matvar*matunc .== ones(3,3))
     c = reshape(JuMPeR.get_robust(m).unc_constraints[4:12], (3,3))
     for i in 1:3, j in 1:3
-        @test conToStr(c[i,j]) == "matunc[1,$j] matvar[$i,1] + matunc[2,$j] matvar[$i,2] + matunc[3,$j] matvar[$i,3] $eq 1"
+        @test JuMP.con_str(REPLMode, c[i,j]) == "matunc[1,$j] matvar[$i,1] + matunc[2,$j] matvar[$i,2] + matunc[3,$j] matvar[$i,3] $eq 1"
     end
 
-    @addConstraint(m, matvar.*matunc .== ones(3,3))
+    @constraint(m, matvar.*matunc .== ones(3,3))
     c = reshape(JuMPeR.get_robust(m).unc_constraints[13:21], (3,3))
     for i in 1:3, j in 1:3
-        @test conToStr(c[i,j]) == "matunc[$i,$j] matvar[$i,$j] $eq 1"
+        @test JuMP.con_str(REPLMode, c[i,j]) == "matunc[$i,$j] matvar[$i,$j] $eq 1"
     end
 
-    @addConstraint(m, 2.*matvar.*matunc + matvar.*matunc .== ones(3,3))
+    @constraint(m, 2.*matvar.*matunc + matvar.*matunc .== ones(3,3))
     c = reshape(JuMPeR.get_robust(m).unc_constraints[22:30], (3,3))
     for i in 1:3, j in 1:3
-        @test conToStr(c[i,j]) == "(2 matunc[$i,$j]) matvar[$i,$j] + matunc[$i,$j] matvar[$i,$j] $eq 1"
+        @test JuMP.con_str(REPLMode, c[i,j]) == "(2 matunc[$i,$j]) matvar[$i,$j] + matunc[$i,$j] matvar[$i,$j] $eq 1"
     end
 end  # "Matrix operations"
 
@@ -520,61 +521,61 @@ end  # "Matrix operations"
 rm = RobustModel()
 us = JuMPeR.get_robust(rm).default_uncset
 nc = us.norm_constraints
-@defUnc(rm, u[1:3])
-@addConstraint(us, norm1{u[i],i=1:3} <= 1)
-@test conToStr(nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 1"
-@addConstraint(us, norm2{u[i],i=1:3} <= 2)
-@test conToStr(nc[end]) == "‖u[1],u[2],u[3]‖₂ $leq 2"
-@addConstraint(us, norm∞{u[i],i=1:3} <= 9)
-@test conToStr(nc[end]) == "‖u[1],u[2],u[3]‖∞ $leq 9"
+@uncertain(rm, u[1:3])
+@constraint(us, norm1{u[i],i=1:3} <= 1)
+@test JuMP.con_str(REPLMode, nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 1"
+@constraint(us, norm2{u[i],i=1:3} <= 2)
+@test JuMP.con_str(REPLMode, nc[end]) == "‖u[1],u[2],u[3]‖₂ $leq 2"
+@constraint(us, norm∞{u[i],i=1:3} <= 9)
+@test JuMP.con_str(REPLMode, nc[end]) == "‖u[1],u[2],u[3]‖∞ $leq 9"
 
-@addConstraint(us, 2*norm1{u[i],i=1:3} <= 1)
-@test conToStr(nc[end]) == "2‖u[1],u[2],u[3]‖₁ $leq 1"
-@addConstraint(us, -1*norm1{u[i],i=1:3} >= -1)
-@test conToStr(nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 1"
+@constraint(us, 2*norm1{u[i],i=1:3} <= 1)
+@test JuMP.con_str(REPLMode, nc[end]) == "2‖u[1],u[2],u[3]‖₁ $leq 1"
+@constraint(us, -1*norm1{u[i],i=1:3} >= -1)
+@test JuMP.con_str(REPLMode, nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 1"
 
-@addConstraint(us, 1 + norm1{u[i],i=1:3} <= 1)
-@test conToStr(nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 0"
+@constraint(us, 1 + norm1{u[i],i=1:3} <= 1)
+@test JuMP.con_str(REPLMode, nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 0"
 
-@defVar(rm, x)
+@variable(rm, x)
 
-@test_throws ErrorException @addConstraint(us, norm1{u[i],i=1:3} + u[1] <= 1)
-@test_throws ErrorException @addConstraint(us, norm1{u[i],i=1:3} - u[1] <= 1)
-@test_throws ErrorException @addConstraint(us, norm1{u[i],i=1:3} * u[1] <= 1)
-@test_throws ErrorException @addConstraint(us, norm1{u[i],i=1:3} / u[1] <= 1)
+@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} + u[1] <= 1)
+@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} - u[1] <= 1)
+@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} * u[1] <= 1)
+@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} / u[1] <= 1)
 
-@test_throws ErrorException @addConstraint(us, norm1{u[i],i=1:3} + (2*u[1]) <= 1)
-@test_throws ErrorException @addConstraint(us, norm1{u[i],i=1:3} - (2*u[1]) <= 1)
-@test_throws ErrorException @addConstraint(us, norm1{u[i],i=1:3} * (2*u[1]) <= 1)
-@test_throws MethodError    @addConstraint(us, norm1{u[i],i=1:3} / (2*u[1]) <= 1)
+@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} + (2*u[1]) <= 1)
+@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} - (2*u[1]) <= 1)
+@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} * (2*u[1]) <= 1)
+@test_throws MethodError    @constraint(us, norm1{u[i],i=1:3} / (2*u[1]) <= 1)
 # MethodError: `/` has no method matching /(::Int64, ::JuMP.GenericAffExpr{Float64,JuMPeR.Uncertain})
 
-@test_throws ErrorException @addConstraint(us, norm1{u[i],i=1:3} + (2*u[1]*x+u[2]) <= 1)
-@test_throws ErrorException @addConstraint(us, norm1{u[i],i=1:3} - (2*u[1]*x+u[2]) <= 1)
-@test_throws ErrorException @addConstraint(us, norm1{u[i],i=1:3} * (2*u[1]*x+u[2]) <= 1)
-@test_throws MethodError    @addConstraint(us, norm1{u[i],i=1:3} / (2*u[1]*x+u[2]) <= 1)
+@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} + (2*u[1]*x+u[2]) <= 1)
+@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} - (2*u[1]*x+u[2]) <= 1)
+@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} * (2*u[1]*x+u[2]) <= 1)
+@test_throws MethodError    @constraint(us, norm1{u[i],i=1:3} / (2*u[1]*x+u[2]) <= 1)
 
-@test_throws ErrorException @addConstraint(us, x + norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @addConstraint(us, x - norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @addConstraint(us, (2x) + norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @addConstraint(us, (2x) - norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, x + norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, x - norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (2x) + norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (2x) - norm1{u[i],i=1:3} <= 1)
 
-@test_throws ErrorException @addConstraint(us, (u[1]) + norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @addConstraint(us, (u[1]) - norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @addConstraint(us, (u[1]) * norm1{u[i],i=1:3} <= 1)
-# @addConstraint(us, (u[1]) / norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (u[1]) + norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (u[1]) - norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (u[1]) * norm1{u[i],i=1:3} <= 1)
+# @constraint(us, (u[1]) / norm1{u[i],i=1:3} <= 1)
 # UndefVarError: i not defined
 
-@test_throws ErrorException @addConstraint(us, (2*u[1]) + norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @addConstraint(us, (2*u[1]) - norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @addConstraint(us, (2*u[1]) * norm1{u[i],i=1:3} <= 1)
-# @addConstraint(us, (2*u[1]) / norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (2*u[1]) + norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (2*u[1]) - norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (2*u[1]) * norm1{u[i],i=1:3} <= 1)
+# @constraint(us, (2*u[1]) / norm1{u[i],i=1:3} <= 1)
 # UndefVarError: i not defined
 
-@test_throws ErrorException @addConstraint(us, (2*u[1]*x+u[2]) + norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @addConstraint(us, (2*u[1]*x+u[2]) - norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @addConstraint(us, (2*u[1]*x+u[2]) * norm1{u[i],i=1:3} <= 1)
-# @addConstraint(us, (2*u[1]*x+u[2]) / norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (2*u[1]*x+u[2]) + norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (2*u[1]*x+u[2]) - norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (2*u[1]*x+u[2]) * norm1{u[i],i=1:3} <= 1)
+# @constraint(us, (2*u[1]*x+u[2]) / norm1{u[i],i=1:3} <= 1)
 # UndefVarError: i not defined
 
 end  # "Unc. set norms"

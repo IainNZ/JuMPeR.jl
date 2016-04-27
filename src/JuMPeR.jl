@@ -21,6 +21,7 @@ import MathProgBase
 
 # Import everything we need from JuMP, so we can build on it
 importall JuMP
+import JuMP: addconstraint
 import JuMP: JuMPConstraint, sense, rhs
 import JuMP: GenericAffExpr, GenericRangeConstraint
 import JuMP: GenericNorm, GenericNormExpr
@@ -28,7 +29,7 @@ import JuMP: IndexedVector, addelt!
 import JuMP: JuMPContainer, JuMPDict, JuMPArray
 
 # JuMPeRs exported interface
-export RobustModel, @defUnc, uncertainty_set!, getScenario, unc_value
+export RobustModel, @uncertain, uncertainty_set!, getScenario, unc_value
 
 
 # Forward definition of the abstract parent type for uncertainty sets
@@ -37,7 +38,7 @@ export RobustModel, @defUnc, uncertainty_set!, getScenario, unc_value
     AbstractUncertaintySet
 
 All uncertainty sets implement the interface defined by AbstractUncertaintySet.
-Parent type is JuMP.AbstractModel, to enable JuMP's `@addConstraint`, etc.
+Parent type is JuMP.AbstractModel, to enable JuMP's `@constraint`, etc.
 """
 abstract AbstractUncertaintySet <: JuMP.AbstractModel
 
@@ -152,8 +153,8 @@ function RobustModel(; solver=JuMP.UnsetSolver(),
     # Add the robust extensions
     m.ext[:JuMPeR] = RobustModelExt(cutsolver)
     # Override the default printing and solving calls
-    JuMP.setPrintHook(m, print_robust)
-    JuMP.setSolveHook(m, solve_robust)
+    JuMP.setprinthook(m, print_robust)
+    JuMP.setsolvehook(m, solve_robust)
     return m
 end
 
@@ -219,12 +220,12 @@ end
 A constraint with uncertain parameters and variables (i.e., `UncVarExpr`).
 """
 typealias UncConstraint GenericRangeConstraint{UncVarExpr}
-function JuMP.addConstraint(m::Model, c::UncConstraint; uncset=nothing)
+function JuMP.addconstraint(m::Model, c::UncConstraint; uncset=nothing)
     # Handle the odd special case where there are actually no variables in
     # the constraint - arises from use of macros
     if length(c.terms.vars) == 0
         # Pure uncertain constraint
-        return addConstraint(m, UncSetConstraint(c.terms.constant, c.lb, c.ub))
+        return addconstraint(m, UncSetConstraint(c.terms.constant, c.lb, c.ub))
     end
     # Just a regular old constraint
     rmext = get_robust(m)::RobustModelExt
@@ -232,10 +233,10 @@ function JuMP.addConstraint(m::Model, c::UncConstraint; uncset=nothing)
     push!(rmext.constraint_uncsets, uncset)
     return ConstraintRef{Model,UncConstraint}(m, length(rmext.unc_constraints))
 end
-JuMP.addConstraint(m::Model, c::Array{UncConstraint}) =
+JuMP.addconstraint(m::Model, c::Array{UncConstraint}) =
     error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
 function JuMP.addVectorizedConstraint(m::Model, v::Array{UncConstraint})
-    map(c->addConstraint(m,c), v)
+    map(c->addconstraint(m,c), v)
 end
 
 
@@ -268,7 +269,7 @@ getScenario(uc::ConstraintRef{Model,UncConstraint}) = get_robust(uc.m).scenarios
 # Operator overloads for JuMPeR types
 include("operators.jl")
 
-# Adaptive optimization - @defAdapt, etc.
+# Adaptive optimization - @adaptive, etc.
 include("adaptive/macro.jl")
 include("adaptive/expand.jl")
 

@@ -27,9 +27,9 @@ print_with_color(:yellow, "UncertainySet...\n")
     eval(:(type IncompleteSet <: JuMPeR.AbstractUncertaintySet end))  # In global scope
     @test_throws ErrorException JuMPeR.register_constraint(IncompleteSet(), RobustModel(), 1, Dict{Symbol,Any}())
     @test_throws ErrorException JuMPeR.setup_set(IncompleteSet(), RobustModel(), false, nothing)
-    @test_throws ErrorException JuMPeR.generate_reform(IncompleteSet(), Model(), RobustModel(), Int[])
-    @test_throws ErrorException JuMPeR.generate_cut(IncompleteSet(), Model(), RobustModel(), Int[])
-    @test_throws ErrorException JuMPeR.generate_scenario(IncompleteSet(), Model(), RobustModel(), Int[])
+    @test_throws ErrorException JuMPeR.generate_reform(IncompleteSet(), RobustModel(), Int[])
+    @test_throws ErrorException JuMPeR.generate_cut(IncompleteSet(), RobustModel(), Int[])
+    @test_throws ErrorException JuMPeR.generate_scenario(IncompleteSet(), RobustModel(), Int[])
 end
 
 # build_cut_objective
@@ -38,9 +38,9 @@ end
 # is_constraint_violated
 @testset "Utilities" begin
     rm = RobustModel()
-    @defVar(rm, x[1:4] >= 0)
-    @defUnc(rm, u[1:5])
-    @addConstraint(rm,  (3*u[1] + 2.0) * x[1] +   # u1: 3*x1 = 3*2 = 6, c: 2*x1 = 2*2 =4
+    @variable(rm, x[1:4] >= 0)
+    @uncertain(rm, u[1:5])
+    @constraint(rm,  (3*u[1] + 2.0) * x[1] +   # u1: 3*x1 = 3*2 = 6, c: 2*x1 = 2*2 =4
                         (  u[2] - 1.0) * x[2] +   # u2: 1*x2 = 1*3 = 3, c: -1*x2 = -1*3 = -3
                         (u[1] +  u[3]) * x[3] +   # u1: 3*x3 = 3*4 = 12, u3: 1*x3 = 4
                         (u[3] +2*u[4]) * x[4] <=  # u3: 1*x4 = 1*5 = 5, u4: 2*x4 = 10
@@ -76,16 +76,16 @@ end
 
     # -------------------
     unc_val = [1.0, 2.0, 3.0, 4.0, 5.0]
-    new_con = JuMPeR.build_certain_constraint(rm, unc_con, unc_val)
-    @test conToStr(new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
+    new_con = JuMPeR.build_certain_constraint(unc_con, unc_val)
+    @test JuMP.con_str(JuMP.REPLMode, new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
 
     # Bit of a hack to test build from JuMPDict
     inner_m = Model(solver=lp_solvers[1])
-    @defVar(inner_m, i <= inner_u[i=1:5] <= i)
-    @setObjective(inner_m, Max, sum(inner_u))
+    @variable(inner_m, i <= inner_u[i=1:5] <= i)
+    @objective(inner_m, Max, sum(inner_u))
     solve(inner_m)
-    new_con = JuMPeR.build_certain_constraint(rm, unc_con, getValue(inner_u))
-    @test conToStr(new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
+    new_con = JuMPeR.build_certain_constraint(unc_con, getvalue(inner_u))
+    @test JuMP.con_str(JuMP.REPLMode, new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
 
     # -------------------
     lhs_val = 1.0*dot([5,1,4,11],[2,3,4,5])

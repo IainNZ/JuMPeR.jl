@@ -31,105 +31,105 @@ print_with_color(:yellow, "BasicUncertaintySet L1 norm...\n")
 
     @testset "Test 1" begin
         m = RobustModel(solver=solver)
-        @defVar(m, 0 <= x <= 10)
-        @defUnc(m, 0 <= u <= 10)
-        @setObjective(m, Max, 10x)
-        !flip && @addConstraint(m,  u*x <=  7)
-         flip && @addConstraint(m, -u*x >= -7)
-        @addConstraint(m, norm(u-5, 1) <= 2)
+        @variable(m, 0 <= x <= 10)
+        @uncertain(m, 0 <= u <= 10)
+        @objective(m, Max, 10x)
+        !flip && @constraint(m,  u*x <=  7)
+         flip && @constraint(m, -u*x >= -7)
+        @constraint(m, norm(u-5, 1) <= 2)
         @test solve(m, suppress_warnings=true, prefer_cuts=cuts) == :Optimal
-        @test isapprox(getValue(x), 1.0, atol=TOL)
+        @test isapprox(getvalue(x), 1.0, atol=TOL)
     end  # "Test 1"
 
     @testset "Test 2, macr=$macr" for macr in [true, false]
         m = RobustModel(solver=solver)
-        @defVar(m, 0 <= x[i=1:5] <= 2*i)
-        @defUnc(m, 0 <= u[i=1:5] <= i+4)
-        @setObjective(m, Max, sum{(6-i)*x[i], i=1:5})
-        !flip && @addConstraint(m,  sum{u[i]*x[i], i=1:5} <=  100)
-         flip && @addConstraint(m, -sum{u[i]*x[i], i=1:5} >= -100)
+        @variable(m, 0 <= x[i=1:5] <= 2*i)
+        @uncertain(m, 0 <= u[i=1:5] <= i+4)
+        @objective(m, Max, sum{(6-i)*x[i], i=1:5})
+        !flip && @constraint(m,  sum{u[i]*x[i], i=1:5} <=  100)
+         flip && @constraint(m, -sum{u[i]*x[i], i=1:5} >= -100)
         a = Float64[3, 0, 0, 2, 1];
         c = Float64[5, 0, 0, 5, 5]
         I = [1, 5, 4]
         z = convert(Vector{JuMPeR.UncExpr}, a.*u-c)
-        !macr && @addConstraint(m, norm(z, 1) <= 1)
-         macr && @addConstraint(m, norm1{a[i]*u[i]-c[i],i=I} <= 1)
+        !macr && @constraint(m, norm(z, 1) <= 1)
+         macr && @constraint(m, norm1{a[i]*u[i]-c[i],i=I} <= 1)
         @test solve(m, suppress_warnings=true, prefer_cuts=cuts) == :Optimal
         # u = [5, 6, 7, 5, 6]  (2,3 are unrestricted)
         # x = [2, 4, 6, 8, ?]
         # 100 - 10 - 42 - 40 = 8
         # 8 / 6 = 1+1/3 = x₅
-        @test isapprox(getValue(x[1]), 2.0, atol=TOL)
-        @test isapprox(getValue(x[2]), 4.0, atol=TOL)
-        @test isapprox(getValue(x[3]), 6.0, atol=TOL)
-        @test isapprox(getValue(x[4]), 8.0, atol=TOL)
-        @test isapprox(getValue(x[5]), 1+1/3, atol=TOL)
+        @test isapprox(getvalue(x[1]), 2.0, atol=TOL)
+        @test isapprox(getvalue(x[2]), 4.0, atol=TOL)
+        @test isapprox(getvalue(x[3]), 6.0, atol=TOL)
+        @test isapprox(getvalue(x[4]), 8.0, atol=TOL)
+        @test isapprox(getvalue(x[5]), 1+1/3, atol=TOL)
     end  # "Test 2"
 
     @testset "Test 3, macr=$macr" for macr in [true, false]
         m = RobustModel(solver=solver)
-        @defVar(m, 0 <= x[1:2] <= 10)
-        @defUnc(m, u[1:2])
-        @defUnc(m, z[1:2])
-        @setObjective(m, Min, 1x[1] + 2x[2])
-        !flip && @addConstraint(m,  u[1]*x[1] + u[2]*x[2] >=  5)
-         flip && @addConstraint(m, -u[1]*x[1] - u[2]*x[2] <= -5)
+        @variable(m, 0 <= x[1:2] <= 10)
+        @uncertain(m, u[1:2])
+        @uncertain(m, z[1:2])
+        @objective(m, Min, 1x[1] + 2x[2])
+        !flip && @constraint(m,  u[1]*x[1] + u[2]*x[2] >=  5)
+         flip && @constraint(m, -u[1]*x[1] - u[2]*x[2] <= -5)
         # Uncertainty set
-        @addConstraint(m, u[1] == 5.0*z[1]            + 10.0)
-        @addConstraint(m, u[2] == 3.0*z[1] - 2.0*z[2] +  3.0)
-        !macr && @addConstraint(m, norm(z,1) <= 1)
-         macr && @addConstraint(m, norm1{z[i],i=1:2} <= 1)
+        @constraint(m, u[1] == 5.0*z[1]            + 10.0)
+        @constraint(m, u[2] == 3.0*z[1] - 2.0*z[2] +  3.0)
+        !macr && @constraint(m, norm(z,1) <= 1)
+         macr && @constraint(m, norm1{z[i],i=1:2} <= 1)
         @test solve(m, suppress_warnings=true, prefer_cuts=cuts) == :Optimal
-        @test isapprox(getValue(x[1]), 1.0, atol=TOL)
-        @test isapprox(getValue(x[2]), 0.0, atol=TOL)
+        @test isapprox(getvalue(x[1]), 1.0, atol=TOL)
+        @test isapprox(getvalue(x[2]), 0.0, atol=TOL)
     end  # "Test 3"
 
     @testset "Test 4" begin
         m = RobustModel(solver=solver)
-        @defVar(m, 0 <= x <= 10)
-        @defUnc(m, 0 <= u <= 10)
-        @setObjective(m, Min, 10x)
-        !flip && @addConstraint(m,  x >=  u)
-         flip && @addConstraint(m, -x <= -u)
-        @addConstraint(m, norm(u-5,1) <= 2)
+        @variable(m, 0 <= x <= 10)
+        @uncertain(m, 0 <= u <= 10)
+        @objective(m, Min, 10x)
+        !flip && @constraint(m,  x >=  u)
+         flip && @constraint(m, -x <= -u)
+        @constraint(m, norm(u-5,1) <= 2)
         @test solve(m, suppress_warnings=true, prefer_cuts=cuts) == :Optimal
-        @test isapprox(getValue(x), 7.0, atol=TOL)
+        @test isapprox(getvalue(x), 7.0, atol=TOL)
     end
 
     @testset "Test 5" begin
         m = RobustModel(solver=solver)
-        @defVar(m, 0 <= x <=  8)
-        @defUnc(m, 0 <= u <= 10)
-        @defVar(m, 2 <= y <= 10)
-        @defUnc(m, 0 <= w <= 10)
-        @setObjective(m, Max, 20x + 10y)
-        !flip && @addConstraint(m,  u*x + w*y <=  10)
-         flip && @addConstraint(m, -u*x - w*y >= -10)
-        @addConstraint(m, norm(u - 5,1) <= 2)  # 5 <= u <= 7
-        @addConstraint(m, norm(w - 3,1) <= 1)  # 2 <= w <= 4
+        @variable(m, 0 <= x <=  8)
+        @uncertain(m, 0 <= u <= 10)
+        @variable(m, 2 <= y <= 10)
+        @uncertain(m, 0 <= w <= 10)
+        @objective(m, Max, 20x + 10y)
+        !flip && @constraint(m,  u*x + w*y <=  10)
+         flip && @constraint(m, -u*x - w*y >= -10)
+        @constraint(m, norm(u - 5,1) <= 2)  # 5 <= u <= 7
+        @constraint(m, norm(w - 3,1) <= 1)  # 2 <= w <= 4
         @test solve(m, suppress_warnings=true, prefer_cuts=cuts) == :Optimal
-        @test isapprox(getValue(x), (10-4*2)/7, atol=TOL)
-        @test isapprox(getValue(y), 2.0, atol=TOL)
+        @test isapprox(getvalue(x), (10-4*2)/7, atol=TOL)
+        @test isapprox(getvalue(y), 2.0, atol=TOL)
     end  # "Test 5"
 
     @testset "Test 6" begin
         m = RobustModel(solver=solver)
-        @defVar(m, 0 <= y <= 100)
-        @defVar(m, 0 <= z <= 100)
-        @defVar(m, -100 <= obj <= 100)
-        @defUnc(m, 0 <= u[1:2] <= 100)
-        @setObjective(m, Max, obj)
+        @variable(m, 0 <= y <= 100)
+        @variable(m, 0 <= z <= 100)
+        @variable(m, -100 <= obj <= 100)
+        @uncertain(m, 0 <= u[1:2] <= 100)
+        @objective(m, Max, obj)
         if !flip
-            @addConstraint(m, obj <= (z+u[2]*y))
-            @addConstraint(m, z <= (1-u[1]*y))
+            @constraint(m, obj <= (z+u[2]*y))
+            @constraint(m, z <= (1-u[1]*y))
         else
-            @addConstraint(m, -obj >= -(z+u[2]*y))
-            @addConstraint(m, -z >= -(1-u[1]*y))
+            @constraint(m, -obj >= -(z+u[2]*y))
+            @constraint(m, -z >= -(1-u[1]*y))
         end
-        @addConstraint(m, u[1] == 1)
-        @addConstraint(m, norm(u[2]-1.2,1) <= 0.01)
+        @constraint(m, u[1] == 1)
+        @constraint(m, norm(u[2]-1.2,1) <= 0.01)
         @test solve(m, suppress_warnings=true, prefer_cuts=cuts) == :Optimal
-        @test isapprox(getValue(obj), 1.19, atol=TOL)
+        @test isapprox(getvalue(obj), 1.19, atol=TOL)
     end  # "Test 6"
 end  # "LPs with"
 end  # "BasicUncertaintySet L1 norm"
