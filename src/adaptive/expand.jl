@@ -109,5 +109,5 @@ function expand_adaptive(rm::Model)
     end
 
     # Add these constraints to the RobustModel
-    map(c->addconstraint(rm, c), new_cons)
+    map(c->JuMP.addconstraint(rm, c), new_cons)
 end

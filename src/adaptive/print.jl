@@ -37,13 +37,13 @@ function aff_str(mode, a::AdaptExpr, show_constant=true)
     rd = get_robust(m)
 
     # Collect like terms
-    indvec_var = IndexedVector(Float64,  m.numCols)
-    indvec_adp = IndexedVector(Float64, rd.num_adps)
+    indvec_var = JuMP.IndexedVector(Float64,  m.numCols)
+    indvec_adp = JuMP.IndexedVector(Float64, rd.num_adps)
     for ind in 1:length(a.vars)
         if isa(a.vars[ind], Adaptive)
-            addelt!(indvec_adp, a.vars[ind].id, a.coeffs[ind])
+            JuMP.addelt!(indvec_adp, a.vars[ind].id, a.coeffs[ind])
         elseif isa(a.vars[ind], Variable)
-            addelt!(indvec_var, a.vars[ind].col, a.coeffs[ind])
+            JuMP.addelt!(indvec_var, a.vars[ind].col, a.coeffs[ind])
         end
     end
 

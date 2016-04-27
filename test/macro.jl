@@ -14,8 +14,8 @@
 using JuMP, JuMPeR
 using BaseTestNext
 
-lastuc(rm) = JuMP.con_str(JuMP.REPLMode, JuMPeR.get_robust(rm).unc_constraints[end])
-lastus(rm) = JuMP.con_str(JuMP.REPLMode, JuMPeR.get_robust(rm).default_uncset.linear_constraints[end])
+lastuc(rm) = string(JuMPeR.get_robust(rm).unc_constraints[end])
+lastus(rm) = string(JuMPeR.get_robust(rm).default_uncset.linear_constraints[end])
 le, eq, ge = JuMP.repl[:leq], JuMP.repl[:eq], JuMP.repl[:geq]
 
 @testset "Macros" begin

@@ -452,16 +452,16 @@ end
          1.5 2.5 3.3;
          5.5 6.2 1.2]
     # DOT
-    # Vector{Float64} :: JuMPArray{Uncertain}
+    # Vector{Float64} :: JuMP.JuMPArray{Uncertain}
     @test string(dot(c,u)) == "3.5 u[1] + 4 u[2] + 2 u[3]"
     @test string(dot(u,c)) == "3.5 u[1] + 4 u[2] + 2 u[3]"
-    # Matrix{Float64} (2D) :: JuMPArray{Uncertain} (2D)
+    # Matrix{Float64} (2D) :: JuMP.JuMPArray{Uncertain} (2D)
     @test string(vecdot(A,U)) == "3 U[1,1] + 1.5 U[2,1] + 5.5 U[3,1] + 4 U[1,2] + 2.5 U[2,2] + 6.2 U[3,2] + 5 U[1,3] + 3.3 U[2,3] + 1.2 U[3,3]"
 
-    # JuMPArray{Variable} :: JuMPArray{Uncertain}
+    # JuMP.JuMPArray{Variable} :: JuMP.JuMPArray{Uncertain}
     @test string(dot(x,u)) == "u[1] x[1] + u[2] x[2] + u[3] x[3]"
 
-    # Matrix{Float64} (2D) :: JuMPDict{Uncertain} (1D)
+    # Matrix{Float64} (2D) :: JuMP.JuMPDict{Uncertain} (1D)
     @test_throws DimensionMismatch vecdot(A, u)
 end
 
@@ -481,37 +481,37 @@ end  # "Higher level"
     @constraint(m, A*vecunc .== b)
     c = s.linear_constraints[1:3]
     for i in 1:3
-        @test JuMP.con_str(REPLMode, c[i]) == "vecunc[$i] $eq $i"
+        @test string(c[i]) == "vecunc[$i] $eq $i"
     end
 
     @constraint(m, matunc*ones(3) .== b)
     c = s.linear_constraints[4:6]
     for i in 1:3
-        @test JuMP.con_str(REPLMode, c[i]) == "matunc[$i,1] + matunc[$i,2] + matunc[$i,3] $eq $i"
+        @test string(c[i]) == "matunc[$i,1] + matunc[$i,2] + matunc[$i,3] $eq $i"
     end
 
     @constraint(m, matvar*vecunc .== b)
     c = JuMPeR.get_robust(m).unc_constraints[1:3]
     for i in 1:3
-        @test JuMP.con_str(REPLMode, c[i]) == "vecunc[1] matvar[$i,1] + vecunc[2] matvar[$i,2] + vecunc[3] matvar[$i,3] $eq $i"
+        @test string(c[i]) == "vecunc[1] matvar[$i,1] + vecunc[2] matvar[$i,2] + vecunc[3] matvar[$i,3] $eq $i"
     end
 
     @constraint(m, matvar*matunc .== ones(3,3))
     c = reshape(JuMPeR.get_robust(m).unc_constraints[4:12], (3,3))
     for i in 1:3, j in 1:3
-        @test JuMP.con_str(REPLMode, c[i,j]) == "matunc[1,$j] matvar[$i,1] + matunc[2,$j] matvar[$i,2] + matunc[3,$j] matvar[$i,3] $eq 1"
+        @test string(c[i,j]) == "matunc[1,$j] matvar[$i,1] + matunc[2,$j] matvar[$i,2] + matunc[3,$j] matvar[$i,3] $eq 1"
     end
 
     @constraint(m, matvar.*matunc .== ones(3,3))
     c = reshape(JuMPeR.get_robust(m).unc_constraints[13:21], (3,3))
     for i in 1:3, j in 1:3
-        @test JuMP.con_str(REPLMode, c[i,j]) == "matunc[$i,$j] matvar[$i,$j] $eq 1"
+        @test string(c[i,j]) == "matunc[$i,$j] matvar[$i,$j] $eq 1"
     end
 
     @constraint(m, 2.*matvar.*matunc + matvar.*matunc .== ones(3,3))
     c = reshape(JuMPeR.get_robust(m).unc_constraints[22:30], (3,3))
     for i in 1:3, j in 1:3
-        @test JuMP.con_str(REPLMode, c[i,j]) == "(2 matunc[$i,$j]) matvar[$i,$j] + matunc[$i,$j] matvar[$i,$j] $eq 1"
+        @test string(c[i,j]) == "(2 matunc[$i,$j]) matvar[$i,$j] + matunc[$i,$j] matvar[$i,$j] $eq 1"
     end
 end  # "Matrix operations"
 
@@ -523,19 +523,19 @@ us = JuMPeR.get_robust(rm).default_uncset
 nc = us.norm_constraints
 @uncertain(rm, u[1:3])
 @constraint(us, norm1{u[i],i=1:3} <= 1)
-@test JuMP.con_str(REPLMode, nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 1"
+@test string(nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 1"
 @constraint(us, norm2{u[i],i=1:3} <= 2)
-@test JuMP.con_str(REPLMode, nc[end]) == "‖u[1],u[2],u[3]‖₂ $leq 2"
+@test string(nc[end]) == "‖u[1],u[2],u[3]‖₂ $leq 2"
 @constraint(us, norm∞{u[i],i=1:3} <= 9)
-@test JuMP.con_str(REPLMode, nc[end]) == "‖u[1],u[2],u[3]‖∞ $leq 9"
+@test string(nc[end]) == "‖u[1],u[2],u[3]‖∞ $leq 9"
 
 @constraint(us, 2*norm1{u[i],i=1:3} <= 1)
-@test JuMP.con_str(REPLMode, nc[end]) == "2‖u[1],u[2],u[3]‖₁ $leq 1"
+@test string(nc[end]) == "2‖u[1],u[2],u[3]‖₁ $leq 1"
 @constraint(us, -1*norm1{u[i],i=1:3} >= -1)
-@test JuMP.con_str(REPLMode, nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 1"
+@test string(nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 1"
 
 @constraint(us, 1 + norm1{u[i],i=1:3} <= 1)
-@test JuMP.con_str(REPLMode, nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 0"
+@test string(nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 0"
 
 @variable(rm, x)
 

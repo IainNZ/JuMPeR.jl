@@ -120,7 +120,7 @@ function get_worst_case_value(us::BudgetUncertaintySet, rm::Model, idx::Int)
     max_inds = sortperm(scaled_vals)[(end - us.Γ + 1):end]
     # Determine the magnitude of the left-hand-side
     cut_value = nominal_value
-    if sense(con) == (:<=)
+    if JuMP.sense(con) == (:<=)
         # less-than-or-equal-to constraint - maximize left-hand-side
         cut_value += sum(scaled_vals[max_inds])
     else
@@ -128,27 +128,27 @@ function get_worst_case_value(us::BudgetUncertaintySet, rm::Model, idx::Int)
         cut_value -= sum(scaled_vals[max_inds])
     end
     # Calculate the uncertain parameter values
-    unc_values = copy(us.μ)
+    uncvalues = copy(us.μ)
     for i in max_inds
         if unc_x_vals[i] > 0
             # Net positive coefficient on this uncertain parameter
-            if sense(con) == :(<=)
-                unc_values[i] += us.σ[i]  # Push up, LHS goes up
+            if JuMP.sense(con) == :(<=)
+                uncvalues[i] += us.σ[i]  # Push up, LHS goes up
             else
-                unc_values[i] -= us.σ[i]  # Push down, LHS goes down
+                uncvalues[i] -= us.σ[i]  # Push down, LHS goes down
             end
         else
             # Net negative coefficient on this uncertain parameter
-            if sense(con) == :(<=)
-                unc_values[i] -= us.σ[i]  # Push down, LHS goes up
+            if JuMP.sense(con) == :(<=)
+                uncvalues[i] -= us.σ[i]  # Push down, LHS goes up
             else
-                unc_values[i] += us.σ[i]  # Push up, LHS goes down
+                uncvalues[i] += us.σ[i]  # Push up, LHS goes down
             end
         end
     end
     # Return the LHS value (used by generate_cut) and the values of
     # the uncertain parameters (used by generate_cut and generate_scenario)
-    return cut_value, unc_values
+    return cut_value, uncvalues
 end
 
 
@@ -161,8 +161,8 @@ function generate_scenario(us::BudgetUncertaintySet, rm::Model, idxs::Vector{Int
     # We need to return one Scenario per constraint
     scens = Nullable{Scenario}[]
     for idx in idxs
-        _, unc_values = get_worst_case_value(us, rm, idx)
-        scen = Scenario(unc_values)
+        _, uncvalues = get_worst_case_value(us, rm, idx)
+        scen = Scenario(uncvalues)
         push!(scens, Nullable{Scenario}(scen))
     end
     return scens
@@ -184,7 +184,7 @@ function generate_cut(us::BudgetUncertaintySet, rm::Model, idxs::Vector{Int})
     # For each constraint we need to generate a cut for
     for idx in idxs
         # Determine worst-case uncertain parameters
-        cut_value, unc_values = get_worst_case_value(us, rm, idx)
+        cut_value, uncvalues = get_worst_case_value(us, rm, idx)
         # Get the UncConstraint object out of the robust model
         con = rmext.unc_constraints[idx]
         # Use a utility function from uncsets_util.jl to check the violation
@@ -194,7 +194,7 @@ function generate_cut(us::BudgetUncertaintySet, rm::Model, idxs::Vector{Int})
             continue  # try next constraint
         end
         # Build a deterministic constraint from the uncertain constraint
-        new_con = build_certain_constraint(con, unc_values)
+        new_con = build_certain_constraint(con, uncvalues)
         push!(new_cons, new_con)
     end
     return new_cons

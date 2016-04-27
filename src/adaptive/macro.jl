@@ -11,8 +11,6 @@
 # Adaptive robust optimization support - macros
 #-----------------------------------------------------------------------
 
-export @adaptive
-
 macro adaptive(args...)
     length(args) <= 1 &&
         error("in @adaptive: expected model as first argument, then variable information.")
@@ -121,7 +119,7 @@ macro adaptive(args...)
     isa(var,Expr) || error("in @adaptive: expected $var to be a variable name")
 
 
-    # We now build the code to generate the variables (and possibly the JuMPDict
+    # We now build the code to generate the variables (and possibly the JuMP.JuMPDict
     # to contain them)
     refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(var)
     clear_dependencies(i) = (isdependent(idxvars,idxsets[i],i) ? nothing : idxsets[i])

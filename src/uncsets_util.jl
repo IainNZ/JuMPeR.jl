@@ -26,14 +26,14 @@ determine the status of the new constraint. Returns one of (for <=):
   * `:Violate` - `lhs - rhs > tol`
 """
 function check_cut_status(con, lhs_value::Float64, tol::Float64)
-    gap = rhs(con) - lhs_value
+    gap = JuMP.rhs(con) - lhs_value
     abs(gap) <= tol && return :Active
-    if sense(con) == :(<=)
+    if JuMP.sense(con) == :(<=)
         # lhs <= rhs  -> lhs - rhs <= tol
-        lhs_value - rhs(con) > tol && return :Violate
+        lhs_value - JuMP.rhs(con) > tol && return :Violate
     else
         # lhs >= rhs  -> rhs - lhs <= tol
-        rhs(con) - lhs_value > tol && return :Violate
+        JuMP.rhs(con) - lhs_value > tol && return :Violate
     end
     return :Slack
 end
@@ -61,10 +61,10 @@ function build_certain_constraint(unc_con::UncConstraint, unc_val::Vector{Float6
     # Standalone uncertain expression/constant term
     new_lhs.constant = unc_expr_to_coeff(unc_con.terms.constant)
     # Build the constraint
-    if sense(unc_con) == :(<=)
-        return @LinearConstraint(new_lhs <= rhs(unc_con))
+    if JuMP.sense(unc_con) == :(<=)
+        return @LinearConstraint(new_lhs <= JuMP.rhs(unc_con))
     else
-        return @LinearConstraint(new_lhs >= rhs(unc_con))
+        return @LinearConstraint(new_lhs >= JuMP.rhs(unc_con))
     end
 end
 
@@ -108,7 +108,7 @@ function build_cut_objective(   rm::Model,
             unc_coeffs[unc] += uaff.coeffs[unc_ind]
         end
 
-    return (sense(unc_con) == :(<=) ? :Max : :Min),
+    return (JuMP.sense(unc_con) == :(<=) ? :Max : :Min),
                 unc_coeffs, lhs_const
 end
 
@@ -159,7 +159,7 @@ function build_cut_objective_sparse(   unc_con::UncConstraint,
             end
         end
 
-    return (sense(unc_con) == :(<=) ? :Max : :Min),
+    return (JuMP.sense(unc_con) == :(<=) ? :Max : :Min),
                 collect(unc_coeffs), lhs_constant
 end
 

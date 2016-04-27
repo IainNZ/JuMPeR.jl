@@ -136,13 +136,13 @@ function solve_partitioned_problem(N::Int, θ::Float64, B::Float64,
     # Extend the scenario tree
     for p in 1:P
         # Extract the active uncertain parameter values
-        profit_scen = get(getScenario(profit_con_refs[p]))
-        profit_scen_ξ = [unc_value(profit_scen, ξ[i]) for i in 1:4]
+        profit_scen = get(getscenario(profit_con_refs[p]))
+        profit_scen_ξ = [uncvalue(profit_scen, ξ[i]) for i in 1:4]
         # Create a new child in the tree under this leaf
         profit_child = TreeScenario(profit_scen_ξ, leaf_scenarios[p], [])
         # Same for budget
-        budget_scen = get(getScenario(budget_con_refs[p]))
-        budget_scen_ξ = [unc_value(budget_scen, ξ[i]) for i in 1:4]
+        budget_scen = get(getscenario(budget_con_refs[p]))
+        budget_scen_ξ = [uncvalue(budget_scen, ξ[i]) for i in 1:4]
         budget_child = TreeScenario(budget_scen_ξ, leaf_scenarios[p], [])
         # Add to the tree
         push!(leaf_scenarios[p].children, profit_child)

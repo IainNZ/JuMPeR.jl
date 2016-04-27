@@ -163,9 +163,9 @@ print_with_color(:yellow, "BudgetUncertaintySet...\n")
         @test isapprox(getvalue(x), 5.0, atol=TOL)
         @test isapprox(getvalue(y), 5.0, atol=TOL)
         @test isapprox(getvalue(z), 5.0, atol=TOL)
-        @test isapprox(unc_value(get(getScenario(cn1)), u), 10.0, atol=TOL)
-        @test isapprox(unc_value(get(getScenario(cn2)), u), 100.0, atol=TOL)
-        @test isapprox(unc_value(get(getScenario(cn3)), u), 1000.0, atol=TOL)
+        @test isapprox(uncvalue(get(getscenario(cn1)), u), 10.0, atol=TOL)
+        @test isapprox(uncvalue(get(getscenario(cn2)), u), 100.0, atol=TOL)
+        @test isapprox(uncvalue(get(getscenario(cn3)), u), 1000.0, atol=TOL)
     end
 end  # "LPs with"
 end  # "BudgetUncertaintySet"

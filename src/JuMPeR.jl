@@ -18,18 +18,12 @@ module JuMPeR
 
 importall Base.Operators
 import MathProgBase
-
-# Import everything we need from JuMP, so we can build on it
-importall JuMP
-import JuMP: addconstraint
-import JuMP: JuMPConstraint, sense, rhs
-import JuMP: GenericAffExpr, GenericRangeConstraint
-import JuMP: GenericNorm, GenericNormExpr
-import JuMP: IndexedVector, addelt!
-import JuMP: JuMPContainer, JuMPDict, JuMPArray
+importall JuMP  # Import, so we can build on it
+import JuMP: JuMPContainer, GenericNorm, GenericNormExpr
 
 # JuMPeRs exported interface
-export RobustModel, @uncertain, uncertainty_set!, getScenario, unc_value
+export RobustModel, @uncertain, @adaptive,
+        uncertainty_set!, getscenario, uncvalue
 
 
 # Forward definition of the abstract parent type for uncertainty sets
@@ -198,7 +192,7 @@ include("adaptive.jl")
 
 `∑ⱼ (∑ᵢ aᵢⱼ uᵢ) xⱼ`  --  affine expression of unc. parameters and variables.
 """
-typealias UncVarExpr GenericAffExpr{UncExpr,JuMPeRVar}
+typealias UncVarExpr JuMP.GenericAffExpr{UncExpr,JuMPeRVar}
 UncVarExpr() = zero(UncVarExpr)
 Base.convert(::Type{UncVarExpr}, c::Number) =
     UncVarExpr(JuMPeRVar[], UncExpr[], UncExpr(c))
@@ -219,13 +213,13 @@ end
 
 A constraint with uncertain parameters and variables (i.e., `UncVarExpr`).
 """
-typealias UncConstraint GenericRangeConstraint{UncVarExpr}
+typealias UncConstraint JuMP.GenericRangeConstraint{UncVarExpr}
 function JuMP.addconstraint(m::Model, c::UncConstraint; uncset=nothing)
     # Handle the odd special case where there are actually no variables in
     # the constraint - arises from use of macros
     if length(c.terms.vars) == 0
         # Pure uncertain constraint
-        return addconstraint(m, UncSetConstraint(c.terms.constant, c.lb, c.ub))
+        return JuMP.addconstraint(m, UncSetConstraint(c.terms.constant, c.lb, c.ub))
     end
     # Just a regular old constraint
     rmext = get_robust(m)::RobustModelExt
@@ -236,7 +230,7 @@ end
 JuMP.addconstraint(m::Model, c::Array{UncConstraint}) =
     error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
 function JuMP.addVectorizedConstraint(m::Model, v::Array{UncConstraint})
-    map(c->addconstraint(m,c), v)
+    map(c->JuMP.addconstraint(m,c), v)
 end
 
 
@@ -251,19 +245,19 @@ end
 
 
 """
-    unc_value(Scenario, Uncertain)
+    uncvalue(Scenario, Uncertain)
 
 Returns the value of a particular uncertain parameter in the given Scenario.
 """
-unc_value(scen::Scenario, u::Uncertain) = scen.values[u.id]
+uncvalue(scen::Scenario, u::Uncertain) = scen.values[u.id]
 
 
 """
-    getScenario(ConstraintRef{RobustModel,UncConstraint})
+    getscenario(ConstraintRef{RobustModel,UncConstraint})
 
 Get the Scenario for a constraint (as a `Nullable{Scenario}`)
 """
-getScenario(uc::ConstraintRef{Model,UncConstraint}) = get_robust(uc.m).scenarios[uc.idx]
+getscenario(uc::ConstraintRef{Model,UncConstraint}) = get_robust(uc.m).scenarios[uc.idx]
 
 
 # Operator overloads for JuMPeR types

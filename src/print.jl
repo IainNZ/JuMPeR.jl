@@ -130,7 +130,7 @@ function unc_str(mode, m::Model, id::Int)
     end
     return uncNames[id] == "" ? "unc_$id" : uncNames[id]
 end
-function fill_unc_names{N}(mode, uncNames, u::JuMPArray{Uncertain,N})
+function fill_unc_names{N}(mode, uncNames, u::JuMP.JuMPArray{Uncertain,N})
     data = printdata(u)
     idxsets = data.indexsets
     lengths = map(length, idxsets)
@@ -148,7 +148,7 @@ function fill_unc_names{N}(mode, uncNames, u::JuMPArray{Uncertain,N})
         #end
     end
 end
-function fill_unc_names(mode, uncNames, u::JuMPDict{Uncertain})
+function fill_unc_names(mode, uncNames, u::JuMP.JuMPDict{Uncertain})
     name = printdata(u).name
     for (ind,unc) in zip(keys(u),values(u))
         #if mode == IJuliaMode
@@ -248,7 +248,7 @@ function cont_str(mode, j::Union{JuMPContainer{Uncertain},Array{Uncertain}},
                                 JuMP.cont_str_set(data.indexsets[dim], sym[:dots]),
                                 sym[:close_set]), 1:num_dims), ", ")
     # 3. Handle any conditionals
-    #if isa(dict, JuMPDict) && !isempty(dict.condition)
+    #if isa(dict, JuMP.JuMPDict) && !isempty(dict.condition)
     #    tail_str *= " s.t. $(join(parse_conditions(j.condition[1]), " and "))"
     #end
 
@@ -321,9 +321,9 @@ function aff_str(mode, a::UncExpr, show_constant=true)
     rmext = get_robust(m)
 
     # Collect like terms
-    indvec = IndexedVector(Float64, rmext.num_uncs)
+    indvec = JuMP.IndexedVector(Float64, rmext.num_uncs)
     for ind in 1:length(a.vars)
-        addelt!(indvec, a.vars[ind].id, a.coeffs[ind])
+        JuMP.addelt!(indvec, a.vars[ind].id, a.coeffs[ind])
     end
 
     elm = 1

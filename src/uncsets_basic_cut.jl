@@ -122,8 +122,8 @@ function generate_scenario(us::BasicUncertaintySet, rm::Model, idxs::Vector{Int}
     # We need to return one Scenario per constraint
     scens = Nullable{Scenario}[]
     for idx in idxs
-        _, unc_values = get_worst_case_value(us, rm, idx)
-        scen = Scenario(unc_values)
+        _, uncvalues = get_worst_case_value(us, rm, idx)
+        scen = Scenario(uncvalues)
         push!(scens, Nullable{Scenario}(scen))
     end
     return scens
@@ -144,13 +144,13 @@ function generate_cut(us::BasicUncertaintySet, rm::Model, idxs::Vector{Int})
     new_cons = Any[]
     for idx in idxs
         con = rmext.unc_constraints[idx]
-        lhs_of_cut, unc_values = get_worst_case_value(us, rm, idx)
+        lhs_of_cut, uncvalues = get_worst_case_value(us, rm, idx)
         # Check violation
         if check_cut_status(con, lhs_of_cut, us.cut_tol) != :Violate
             continue  # No violation, no new cut
         end
         # Create and add the new constraint
-        new_con = JuMPeR.build_certain_constraint(con, unc_values)
+        new_con = JuMPeR.build_certain_constraint(con, uncvalues)
         push!(new_cons, new_con)
     end
     return new_cons

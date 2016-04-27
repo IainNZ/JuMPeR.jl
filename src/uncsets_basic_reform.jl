@@ -79,8 +79,8 @@ function setup_set_reform(us::BasicUncertaintySet, rm::Model)
         for (coef,uncp) in linearterms(lhs)
             push!(dual_A[uncp.id], (aff_ind, coef))
         end
-        dual_objs[aff_ind]    =   rhs(aff_con)
-        dual_vartype[aff_ind] = sense(aff_con)
+        dual_objs[aff_ind]    =   JuMP.rhs(aff_con)
+        dual_vartype[aff_ind] = JuMP.sense(aff_con)
     end
 
     # Set ellipse objective coefficients for each β.β′
@@ -242,9 +242,9 @@ function apply_reform(us::BasicUncertaintySet, rm::Model, idx::Int)
     new_lhs     = AffExpr()
     # We do all reformulation as if the constraint is a <= constraint
     # This necessitates mulitplying through by -1 if it is a >= constraint
-    sign_flip   = sense(con) == :(<=) ? +1.0 : -1.0
+    sign_flip   = JuMP.sense(con) == :(<=) ? +1.0 : -1.0
     # Initialize the RHS of the new constraint
-    new_rhs     = rhs(con) * sign_flip
+    new_rhs     = JuMP.rhs(con) * sign_flip
     # Extract the LHS of the constraint
     orig_lhs    = con.terms
 

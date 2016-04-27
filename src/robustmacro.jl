@@ -148,7 +148,7 @@ macro uncertain(args...)
     isa(var,Expr) || error("in @uncertain: expected $var to be an uncertain parameter name")
 
 
-    # We now build the code to generate the variables (and possibly the JuMPDict
+    # We now build the code to generate the variables (and possibly the JuMP.JuMPDict
     # to contain them)
     refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(var)
     clear_dependencies(i) = (isdependent(idxvars,idxsets[i],i) ? nothing : idxsets[i])

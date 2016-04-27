@@ -57,7 +57,7 @@ typealias JuMPeRVar Union{Variable,Adaptive}
 
 `∑ᵢ aᵢ vᵢ`  --  affine expression of JuMPeRVars and numbers.
 """
-typealias AdaptExpr GenericAffExpr{Float64,JuMPeRVar}
+typealias AdaptExpr JuMP.GenericAffExpr{Float64,JuMPeRVar}
 AdaptExpr() = zero(AdaptExpr)
 Base.convert(::Type{AdaptExpr}, c::Number) =
     AdaptExpr(JuMPeRVar[ ], Float64[ ], 0.0)
@@ -72,7 +72,7 @@ Base.convert(::Type{AdaptExpr}, aff::AffExpr) =
 
 A constraint with just JuMPeRVars and numbers (i.e., `AdaptExpr`).
 """
-typealias AdaptConstraint GenericRangeConstraint{AdaptExpr}
+typealias AdaptConstraint JuMP.GenericRangeConstraint{AdaptExpr}
 function JuMP.addconstraint(m::Model, c::AdaptConstraint)
     rm = get_robust(m)::RobustModelExt
     push!(rm.adapt_constraints, c)

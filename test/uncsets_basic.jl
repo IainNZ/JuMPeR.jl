@@ -258,10 +258,10 @@ end  # "MILPs with..."
         @test solve(m, prefer_cuts=cuts, active_scenarios=true) == :Optimal
         @test isapprox(getvalue(x[1]), 2.0+2.0/3.0, atol=TOL)
         @test isapprox(getvalue(x[2]),     2.0/3.0, atol=TOL)
-        scen1 = get(getScenario(con1))
-        @test isapprox(unc_value(scen1, u1), 0.5, atol=TOL)
-        scen2 = get(getScenario(con2))
-        @test isapprox(unc_value(scen2, u2), 2.0, atol=TOL)
+        scen1 = get(getscenario(con1))
+        @test isapprox(uncvalue(scen1, u1), 0.5, atol=TOL)
+        scen2 = get(getscenario(con2))
+        @test isapprox(uncvalue(scen2, u2), 2.0, atol=TOL)
     end
 end
 

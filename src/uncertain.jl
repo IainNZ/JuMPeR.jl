@@ -46,7 +46,7 @@ Base.isequal(u1::Uncertain, u2::Uncertain) = (u1.m === u2.m) && isequal(u1.id, u
 
 `∑ᵢ aᵢ uᵢ`  --  affine expression of uncertain parameters and numbers.
 """
-typealias UncExpr GenericAffExpr{Float64,Uncertain}
+typealias UncExpr JuMP.GenericAffExpr{Float64,Uncertain}
 Base.convert(::Type{UncExpr}, u::Uncertain) = UncExpr(Uncertain[u],Float64[1],0.0)
 Base.convert(::Type{UncExpr}, c::Number)    = UncExpr(Uncertain[ ],Float64[ ],  c)
 UncExpr() = zero(UncExpr)
@@ -59,17 +59,17 @@ UncExpr(c::Number,u::Uncertain) = UncExpr(Uncertain[u],Float64[c],0.0)
 
 A constraint with just uncertain parameters and numbers (i.e., `UncExpr`).
 """
-typealias UncSetConstraint GenericRangeConstraint{UncExpr}
+typealias UncSetConstraint JuMP.GenericRangeConstraint{UncExpr}
 function JuMP.addconstraint(m::Model, c::UncSetConstraint)
     # If m is a RobustModel, we add it to the default uncertainty set
     rmext = get_robust(m)::RobustModelExt
-    return addconstraint(rmext.default_uncset, c)
+    return JuMP.addconstraint(rmext.default_uncset, c)
 end
 function JuMP.addconstraint(m::Model, c::Array{UncSetConstraint})
     error("The operators <=, >=, and == can only be used to specify scalar constraints. If you are trying to add a vectorized constraint, use the element-wise dot comparison operators (.<=, .>=, or .==) instead")
 end
 function JuMP.addVectorizedConstraint(m::Model, v::Array{UncSetConstraint})
-    map(c->addconstraint(m,c), v)
+    map(c->JuMP.addconstraint(m,c), v)
 end
 
 
@@ -87,11 +87,11 @@ JuMP._build_norm(Lp, terms::Vector{UncExpr}) = UncSetNorm{Lp}(terms)
 
 A constraint involving a norm of uncertain parameters.
 """
-type UncSetNormConstraint{P} <: JuMPConstraint
+type UncSetNormConstraint{P} <: JuMP.AbstractConstraint
     normexpr::GenericNormExpr{P,Float64,Uncertain}
 end
 function JuMP.addconstraint(m::Model, c::UncSetNormConstraint)
     # If m is a RobustModel, we add it to the default uncertainty set
     rmext = get_robust(m)::RobustModelExt
-    return addconstraint(rmext.default_uncset, c)
+    return JuMP.addconstraint(rmext.default_uncset, c)
 end

@@ -77,15 +77,15 @@ end
     # -------------------
     unc_val = [1.0, 2.0, 3.0, 4.0, 5.0]
     new_con = JuMPeR.build_certain_constraint(unc_con, unc_val)
-    @test JuMP.con_str(JuMP.REPLMode, new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
+    @test string(new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
 
-    # Bit of a hack to test build from JuMPDict
+    # Bit of a hack to test build from JuMP.JuMPDict
     inner_m = Model(solver=lp_solvers[1])
     @variable(inner_m, i <= inner_u[i=1:5] <= i)
     @objective(inner_m, Max, sum(inner_u))
     solve(inner_m)
     new_con = JuMPeR.build_certain_constraint(unc_con, getvalue(inner_u))
-    @test JuMP.con_str(JuMP.REPLMode, new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
+    @test string(new_con) == "5 x[1] + x[2] + 4 x[3] + 11 x[4] $(JuMP.repl[:leq]) 10"
 
     # -------------------
     lhs_val = 1.0*dot([5,1,4,11],[2,3,4,5])
