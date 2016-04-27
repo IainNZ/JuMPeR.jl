@@ -49,23 +49,13 @@ BudgetUncertaintySet(Γ, μ, σ) = BudgetUncertaintySet(Γ, μ, σ, 1e-4)
 
 
 """
-    register_constraint(BudgetUncertaintySet, ...)
+    setup_set(BudgetUncertaintySet, ...)
 
 BudgetUncertaintySet takes no action at this stage, but we must provide this
 method as JuMPeR expects all uncertainty sets to implement it.
 """
-register_constraint(us::BudgetUncertaintySet, rm::Model, ind::Int,
-    prefs::Dict{Symbol,Any}) = nothing
-
-
-"""
-    setup(BudgetUncertaintySet, ...)
-
-BudgetUncertaintySet takes no action at this stage, but we must provide this
-method as JuMPeR expects all uncertainty sets to implement it.
-"""
-setup_set(us::BudgetUncertaintySet, rm::Model, scens_requested::Bool,
-    prefs::Dict{Symbol,Any}) = nothing
+setup_set(us::BudgetUncertaintySet, rm::Model, idxs::Vector{Int},
+            scens_requested::Bool, other_prefs::Dict{Symbol,Any}) = nothing
 
 
 """

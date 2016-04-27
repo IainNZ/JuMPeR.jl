@@ -25,8 +25,7 @@ print_with_color(:yellow, "UncertainySet...\n")
 
 @testset "Check interface throws" begin
     eval(:(type IncompleteSet <: JuMPeR.AbstractUncertaintySet end))  # In global scope
-    @test_throws ErrorException JuMPeR.register_constraint(IncompleteSet(), RobustModel(), 1, Dict{Symbol,Any}())
-    @test_throws ErrorException JuMPeR.setup_set(IncompleteSet(), RobustModel(), false, nothing)
+    @test_throws ErrorException JuMPeR.setup_set(IncompleteSet(), RobustModel(), Int[], false, nothing)
     @test_throws ErrorException JuMPeR.generate_reform(IncompleteSet(), RobustModel(), Int[])
     @test_throws ErrorException JuMPeR.generate_cut(IncompleteSet(), RobustModel(), Int[])
     @test_throws ErrorException JuMPeR.generate_scenario(IncompleteSet(), RobustModel(), Int[])

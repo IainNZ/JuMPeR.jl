@@ -72,26 +72,15 @@ end
 
 
 """
-    register_constraint(BasicUncertaintySet, ...)
-
-BasicUncertaintySet takes no action at this stage.
-"""
-function register_constraint(us::BasicUncertaintySet, rm::Model,
-                             ind::Int, prefs::Dict{Symbol,Any})
-    nothing
-end
-
-
-"""
     setup_set(BasicUncertaintySet, ...)
 
 Generate the cutting plane model, or precompute the reformulation's structure.
 """
-function setup_set(us::BasicUncertaintySet, rm::Model, scens_requested::Bool,
-                        prefs::Dict{Symbol,Any})
+function setup_set(us::BasicUncertaintySet, rm::Model, idxs::Vector{Int},
+                    scens_requested::Bool, other_prefs::Dict{Symbol,Any})
     # Extract preferences we care about
-    us.use_cuts = get(prefs, :prefer_cuts, false)
-    us.cut_tol  = get(prefs, :cut_tol, 1e-6)
+    us.use_cuts = get(other_prefs, :prefer_cuts, false)
+    us.cut_tol  = get(other_prefs, :cut_tol, 1e-6)
     # Set up only what is needed
     if us.use_cuts || scens_requested
         setup_set_cut(us, rm)

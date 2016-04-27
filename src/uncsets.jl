@@ -17,30 +17,21 @@
 # AbstractUncertaintySet is defined in src/JuMPeR.jl
 
 """
-    register_constraint(UncSet, RobustModel, idx, prefs)
+    setup_set(UncSet, RobustModel, idxs, scens_requested, other_prefs)
 
-Called when a RobustModel is being solved. Notifies the `uncset` that it is
-responsible for an uncertain constraint belonging to the RobustModel with
-index `idx`. `prefs` is a dictionary of keyword arguments passed via the
-`solve(RobustModel)` function.
-"""
-register_constraint(us::AbstractUncertaintySet, rm::Model, idx::Int, prefs::Dict{Symbol,Any}) =
-    error("$(typeof(us)) has not implemented register_constraint!")
-
-
-"""
-    setup_set(UncSet, RobustModel, scens_requested, prefs)
-
-Called after all constraints have been registered with the uncertainty sets,
-but before any reformulations or cuts have been requested. Examples of work
-that could be done here include transforming the uncertainty set somehow, or
-building a cutting plane generating model. Will be called once. If the user
-has requested that `Scenario`s be generated at optimality, then the
+Called when a RobustModel is being solved, but before any reformulations or
+cuts have been requested. Notifies the `uncset` that it is responsible for
+uncertain constraints belonging to the RobustModel with indices `idxs`.
+Examples of work that could be done here include transforming the uncertainty
+set somehow, or building a cutting plane generating model. Will be called once.
+If the user has requested that `Scenario`s be generated at optimality, then
 `scens_requested` will be `true` - the uncertainty set may want to generate
 the cutting plane model in anticipation of this, even if cutting planes are
-not going to be used for solving the problem.
+not going to be used for solving the problem. `other_prefs` is a dictionary
+of keyword arguments passed via the `solve(RobustModel)` function.
 """
-setup_set(us::AbstractUncertaintySet, rm::Model, scens_requested::Bool, prefs) =
+setup_set(us::AbstractUncertaintySet, rm::Model, idxs::Vector{Int},
+            scens_requested::Bool, other_prefs) =
     error("$(typeof(us)) has not implemented setup_set!")
 
 

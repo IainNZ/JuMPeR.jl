@@ -59,33 +59,31 @@ function _solve_robust(rm::Model, suppress_warnings::Bool,
     #-------------------------------------------------------------------
     # Prepare to pass through preferences to a sets
     prefs = Dict{Symbol,Any}([name => value for (name,value) in kwargs])
-    # Register the constraints with their uncertainty sets
+    # Build mapping from uncertainty sets to constraints
+    uncsets_to_con_idxs = Dict{AbstractUncertaintySet,Vector{Int}}()
     for idx in 1:length(rmext.constraint_uncsets)
         # Associate constraints with the default set if they haven't
         # been assigned one manually
-        if rmext.constraint_uncsets[idx] == nothing
+        cur_uncset = rmext.constraint_uncsets[idx]
+        if cur_uncset == nothing
             rmext.constraint_uncsets[idx] = rmext.default_uncset
+            cur_uncset = rmext.default_uncset
         end
-        register_constraint(rmext.constraint_uncsets[idx], rm, idx, prefs)
+        if cur_uncset in keys(uncsets_to_con_idxs)
+            push!(uncsets_to_con_idxs[cur_uncset], idx)
+        else
+            uncsets_to_con_idxs[cur_uncset] = [idx]
+        end
     end
     # Give uncertainty sets chances to do any pre-solve setup
-    uncsets_to_cons = Dict{AbstractUncertaintySet,Vector{Int}}()
-    for idx in 1:length(rmext.constraint_uncsets)
-        uncset = rmext.constraint_uncsets[idx]
-        if uncset ∉ keys(uncsets_to_cons)
-            # Uncset hasn't been set up yet
-            setup_set(uncset, rm, active_scenarios, prefs)
-            uncsets_to_cons[uncset] = [idx]
-        else
-            # Already done set up
-            push!(uncsets_to_cons[uncset], idx)
-        end
+    for (uncset, idxs) in uncsets_to_con_idxs
+        setup_set(uncset, rm, idxs, active_scenarios, prefs)
     end
 
     #-------------------------------------------------------------------
     # 3. Reformulations
     #-------------------------------------------------------------------
-    for (uncset, idxs) in uncsets_to_cons
+    for (uncset, idxs) in uncsets_to_con_idxs
         generate_reform(uncset, rm, idxs)
     end
 
@@ -104,7 +102,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool,
             function lazyCallback(cb)
                 cutting_rounds += 1
                 show_cuts && println("JuMPeR: Cutting plane callback $cutting_rounds")
-                for (uncset, idxs) in uncsets_to_cons
+                for (uncset, idxs) in uncsets_to_con_idxs
                     cons_to_add = generate_cut(uncset, rm, idxs)
                     for new_con in cons_to_add
                         JuMP.addlazyconstraint(cb, new_con)
@@ -199,7 +197,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool,
             disable_cuts && break
             # Attempt to generate cut
             cut_added = false
-            for (uncset, idxs) in uncsets_to_cons
+            for (uncset, idxs) in uncsets_to_con_idxs
                 cons_to_add = generate_cut(uncset, rm, idxs)
                 for new_con in cons_to_add
                     JuMP.addconstraint(rm, new_con)
@@ -224,7 +222,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool,
     #-------------------------------------------------------------------
     if active_scenarios
         rmext.scenarios = Vector{Nullable{Scenario}}(length(rmext.unc_constraints))
-        for (uncset, idxs) in uncsets_to_cons
+        for (uncset, idxs) in uncsets_to_con_idxs
             scens_to_add = generate_scenario(uncset, rm, idxs)
             for i in 1:length(idxs)
                 rmext.scenarios[idxs[i]] = scens_to_add[i]
