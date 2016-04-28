@@ -13,6 +13,7 @@
 # Included by src/uncsets.jl
 #-----------------------------------------------------------------------
 
+
 """
     BudgetUncertaintySet
 
@@ -143,7 +144,7 @@ end
 
 
 """
-    generate_scenario(UncSet, Model, v::Vector{Float64}, idxs)
+    generate_scenario(BudgetUncertaintySet, ...)
 
 Wraps the results from `get_worst_case_value` in `Scenario` objects.
 """

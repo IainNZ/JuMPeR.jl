@@ -96,14 +96,14 @@ type RobustModelExt{S,T,U}
     # Uncertainty sets
     default_uncset::AbstractUncertaintySet
     constraint_uncsets::Vector{Any}
-    # Pretty printing magic
-    dictList::Vector
-    uncDict::Dict{Symbol,Any}
-    uncData::ObjectIdDict
     # Scenarios
     scenarios::Vector{Nullable{U}}
     # Misc
     solved::Bool
+    # Pretty printing magic
+    dictList::Vector
+    uncDict::Dict{Symbol,Any}
+    uncData::ObjectIdDict
 end
 RobustModelExt(cutsolver) =
     RobustModelExt{UncConstraint, AdaptConstraint, Scenario}(
@@ -123,22 +123,21 @@ RobustModelExt(cutsolver) =
     # Uncertainty sets
     BasicUncertaintySet(),      # default_uncset
     Any[],                      # constraint_uncsets
-    # Pretty printing magic
-    Any[],                      # dictList
-    Dict{Symbol,Any}(),         # uncDict
-    ObjectIdDict(),             # uncData
     # Scenarios
     Nullable{Scenario}[],       # scenarios
     # Misc
-    false)                      # solved
+    false,                      # solved
+    # Pretty printing magic
+    Any[],                      # dictList
+    Dict{Symbol,Any}(),         # uncDict
+    ObjectIdDict())             # uncData
 
 
 """
     RobustModel(;solver=..., cutsolver=...)
 
-Constructs a extended JuMP model that is the description of an uncertainty set.
-The only operations it supports are adding constraints on uncertain parameters
-that belong to the parent model (which must be a RobustModel).
+Constructs a JuMP model with a RobustModelExt extension, and new solve and
+print functions via the respective hooks.
 """
 function RobustModel(; solver=JuMP.UnsetSolver(),
                     cutsolver=JuMP.UnsetSolver())
@@ -263,9 +262,8 @@ getscenario(uc::ConstraintRef{Model,UncConstraint}) = get_robust(uc.m).scenarios
 # Operator overloads for JuMPeR types
 include("operators.jl")
 
-# Adaptive optimization - @adaptive, etc.
-include("adaptive/macro.jl")
-include("adaptive/expand.jl")
+# Adaptive optimization support
+include("expand.jl")
 
 # Define the uncertainty set interface, as well as the BasicUncertaintySet
 # and the BudgetUncertaintySet
@@ -279,6 +277,5 @@ include("robustmacro.jl")
 
 # Pretty printing
 include("print.jl")
-include("adaptive/print.jl")
 
 end  # module

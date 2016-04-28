@@ -44,13 +44,13 @@ end
                         (u[1] +  u[3]) * x[3] +   # u1: 3*x3 = 3*4 = 12, u3: 1*x3 = 4
                         (u[3] +2*u[4]) * x[4] <=  # u3: 1*x4 = 1*5 = 5, u4: 2*x4 = 10
                         5.0 + u[5])  # u5
-    col_val = [2.0, 3.0, 4.0, 5.0]
+    rm.colVal = [2.0, 3.0, 4.0, 5.0]
     unc_con = JuMPeR.get_robust(rm).unc_constraints[end]
 
     # Accumulate the coefficients for each uncertain parameter using
     # the values of the decision variables and the coefficients, to build
     # the objective function for a cut generating problem
-    sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective(rm, unc_con, col_val)
+    sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective_dense(rm, unc_con)
     @test sense == :Max
     @test unc_coeffs[1] == 6 + 4
     @test unc_coeffs[2] == 3
@@ -60,7 +60,7 @@ end
     @test lhs_const     == 4 - 3
 
     # Same as above, but "sparse"
-    sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective_sparse(unc_con, col_val)
+    sense, unc_coeffs, lhs_const = JuMPeR.build_cut_objective_sparse(rm, unc_con)
     sort!(unc_coeffs)
     @test sense == :Max
     for i in 1:5

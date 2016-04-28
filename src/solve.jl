@@ -16,23 +16,6 @@
 # Warning messages
 include("solve_msgs.jl")
 
-# Utility functions for moving an expression to a new model
-copy_quad(old_quad::QuadExpr, new_vars) =
-    QuadExpr(   Variable[new_vars[v.col] for v in old_quad.qvars1],
-                Variable[new_vars[v.col] for v in old_quad.qvars2],
-                copy(old_quad.qcoeffs),
-                copy_aff(old_quad.aff, new_vars))
-copy_aff(old_aff::AffExpr, new_vars) =
-    AffExpr(    Variable[new_vars[v.col] for v in old_aff.vars],
-                copy(old_aff.coeffs),
-                old_aff.constant)
-copy_linconstr(old_con::LinearConstraint, new_vars) =
-    LinearConstraint(copy_aff(old_con.terms, new_vars), old_con.lb, old_con.ub)
-copy_quadconstr(old_con::QuadConstraint, new_vars) =
-    QuadConstraint(copy_quad(old_con.terms, new_vars), old_con.sense)
-
-#-----------------------------------------------------------------------
-
 function solve_robust(rm::Model; suppress_warnings=false,
                         disable_cuts=false, active_scenarios=false,
                         show_cuts=false, kwargs...)
@@ -51,7 +34,9 @@ function _solve_robust(rm::Model, suppress_warnings::Bool,
                you should build the model from scratch each time.")
     end
 
-    # TEMP: Expand out adaptive terms
+    #-------------------------------------------------------------------
+    # 1. Expand out adaptive terms
+    #-------------------------------------------------------------------
     expand_adaptive(rm)
 
     #-------------------------------------------------------------------
@@ -218,7 +203,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool,
     end
 
     #-------------------------------------------------------------------
-    # 4. Extract active scenarios, if desired
+    # 5. Extract active scenarios, if desired
     #-------------------------------------------------------------------
     if active_scenarios
         rmext.scenarios = Vector{Nullable{Scenario}}(length(rmext.unc_constraints))

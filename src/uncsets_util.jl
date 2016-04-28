@@ -69,101 +69,72 @@ function build_certain_constraint(unc_con::UncConstraint, unc_val::Vector{Float6
 end
 
 
-# build_cut_objective
-# Takes an uncertain constraint (unc_con) and a master solution (x_val)
-# and returns the coefficients for each uncertainty, as
-# well as the objective sense and the constant term of the objective
-# of the cutting plane problem that arises from variables that do not have
-# uncertain coefficients.
-# For example, for input:
-#     unc_con = (3*u[1] + 2.0) * x[1] + (  u[2] - 1.0) * x[2] +
-#               (u[1] +  u[3]) * x[3] + (u[3] +2*u[4]) * x[4] <= 5.0 + u[5]
-#     x_val   = [2.0, 3.0, 4.0, 5.0]
-# returns
-#     :Max, [], 1.0
-# Constraint with build_cut_objective_sparse, which returns only
-# the coefficients that appear in the constraint
-function build_cut_objective(   rm::Model,
-                                unc_con::UncConstraint,
-                                x_val::Vector{Float64})
-    rme = get_robust(rm)
-    unc_coeffs = zeros(rme.num_uncs)
-    unc_lhs    = unc_con.terms
+"""
+    build_cut_objective_dense(RobustModel, unc_con)
+
+Takes an uncertain constraint (unc_con) belonging to RobustModel. Returns the
+objective function coefficients for the uncertain parameters for a cutting
+plane problem for this constraint, using the current RobustModel solution.
+Also returns the sense of that cutting plane problem, based on the sense of
+the constraint, and the constant term corresponding to the deterministic part
+of the constraint.
+"""
+function build_cut_objective_dense(rm::Model, unc_con::UncConstraint)
+    rmext      = get_robust(rm)
+    unc_coeffs = zeros(rmext.num_uncs)
     lhs_const  = 0.0
-
-    # Uncertains attached to variables
-    for var_ind = 1:length(unc_lhs.vars)
-        uaff = unc_lhs.coeffs[var_ind]
-        col  = unc_lhs.vars[var_ind].col
-        for unc_ind = 1:length(uaff.vars)
-            unc = uaff.vars[unc_ind].id
-            unc_coeffs[unc] += uaff.coeffs[unc_ind] * x_val[col]
+    con_sense  = (JuMP.sense(unc_con) == :(<=)) ? :Max  :  :Min
+    # Uncertain expression--variable terms
+    for (unc_expr, var) in linearterms(unc_con.terms)
+        var_val = getvalue(var)
+        for (unc_coeff, unc) in linearterms(unc_expr)
+            unc_coeffs[unc.id] += unc_coeff * var_val
         end
-        lhs_const += uaff.constant * x_val[col]
+        lhs_const += unc_expr.constant * var_val
     end
-    # Uncertains not attached to variables
-        uaff = unc_lhs.constant
-        for unc_ind = 1:length(uaff.vars)
-            unc = uaff.vars[unc_ind].id
-            unc_coeffs[unc] += uaff.coeffs[unc_ind]
+    # Standalone uncertain expression/constant term
+        for (unc_coeff, unc) in linearterms(unc_con.terms.constant)
+            unc_coeffs[unc.id] += unc_coeff
         end
-
-    return (JuMP.sense(unc_con) == :(<=) ? :Max : :Min),
-                unc_coeffs, lhs_const
+        lhs_const += unc_con.terms.constant.constant
+    return con_sense, unc_coeffs, lhs_const
 end
 
 
-# build_cut_objective_sparse
-# Takes an uncertain constraint (unc_con) and a master solution (x_val)
-# and returns the coefficients for each uncertain in the cutting plane, as
-# well as the objective sense and the constant term of the objective
-# of the cutting plane problem that arises from variables that do not have
-# uncertain coefficients.
-# For example, for input:
-#     unc_con = (3*u[1] + 2.0) * x[1] + (  u[2] - 1.0) * x[2] +
-#               (u[1] +  u[3]) * x[3] + (u[3] +2*u[4]) * x[4] <= 5.0 + u[5]
-#     x_val   = [2.0, 3.0, 4.0, 5.0]
-# returns
-#     :Max, [(5,-1.0),(4,10.0),(2,3.0),(3,9.0),(1,10.0)], 1.0
-# Note that exact order of coefficients is non-deterministic due to the
-# use of a dictionary internally.
-function build_cut_objective_sparse(   unc_con::UncConstraint,
-                                x_val::Vector{Float64})
+"""
+    build_cut_objective_sparse(RobustModel, unc_con)
+
+Takes an uncertain constraint (unc_con) belonging to RobustModel. Returns the
+objective function coefficients for the uncertain parameters for a cutting
+plane problem for this constraint, using the current RobustModel solution.
+Unlike `build_cut_objective_dense`, the return is sparse: the coefficients
+are returned as a vector of tuples (uncertain.id, coeff).
+Also returns the sense of that cutting plane problem, based on the sense of
+the constraint, and the constant term corresponding to the deterministic part
+of the constraint.
+"""
+function build_cut_objective_sparse(rm::Model, unc_con::UncConstraint)
+    rmext      = get_robust(rm)
     unc_coeffs = Dict{Int,Float64}()
-    unc_lhs = unc_con.terms
-    num_var = length(unc_lhs.vars)
-    lhs_constant = 0.0
-
-    # Uncertains attached to variables
-    for var_ind = 1:num_var
-        uaff = unc_lhs.coeffs[var_ind]
-        col  = unc_lhs.vars[var_ind].col
-        for unc_ind = 1:length(uaff.vars)
-            unc = uaff.vars[unc_ind].id
-            if !haskey(unc_coeffs, unc)
-                unc_coeffs[unc]  = uaff.coeffs[unc_ind] * x_val[col]
-            else
-                unc_coeffs[unc] += uaff.coeffs[unc_ind] * x_val[col]
-            end
+    lhs_const  = 0.0
+    con_sense  = (JuMP.sense(unc_con) == :(<=)) ? :Max  :  :Min
+    # Uncertain expression--variable terms
+    for (unc_expr, var) in linearterms(unc_con.terms)
+        var_val = getvalue(var)
+        for (unc_coeff, unc) in linearterms(unc_expr)
+            cur_unc_coeff = get(unc_coeffs, unc.id, 0.0)
+            unc_coeffs[unc.id] = cur_unc_coeff + unc_coeff * var_val
         end
-        lhs_constant += uaff.constant * x_val[col]
+        lhs_const += unc_expr.constant * var_val
     end
-    # Uncertains not attached to variables
-        uaff = unc_lhs.constant
-        for unc_ind = 1:length(uaff.vars)
-            unc = uaff.vars[unc_ind].id
-            if !haskey(unc_coeffs, unc)
-                unc_coeffs[unc]  = uaff.coeffs[unc_ind]
-            else
-                unc_coeffs[unc] += uaff.coeffs[unc_ind]
-            end
+    # Standalone uncertain expression/constant term
+        for (unc_coeff, unc) in linearterms(unc_con.terms.constant)
+            cur_unc_coeff = get(unc_coeffs, unc.id, 0.0)
+            unc_coeffs[unc.id] = cur_unc_coeff + unc_coeff
         end
-
-    return (JuMP.sense(unc_con) == :(<=) ? :Max : :Min),
-                collect(unc_coeffs), lhs_constant
+        lhs_const += unc_con.terms.constant.constant
+    return con_sense, collect(unc_coeffs), lhs_const
 end
-
-
 
 
 """

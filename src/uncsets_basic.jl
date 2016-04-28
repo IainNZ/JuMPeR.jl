@@ -74,7 +74,7 @@ end
 """
     setup_set(BasicUncertaintySet, ...)
 
-Generate the cutting plane model, or precompute the reformulation's structure.
+Generate the cutting plane model &| precompute the reformulation's structure.
 """
 function setup_set(us::BasicUncertaintySet, rm::Model, idxs::Vector{Int},
                     scens_requested::Bool, other_prefs::Dict{Symbol,Any})

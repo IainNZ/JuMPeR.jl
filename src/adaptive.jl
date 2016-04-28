@@ -24,15 +24,15 @@ type Adaptive <: JuMP.AbstractJuMPScalar
     m::Model
     id::Int
 end
-function Adaptive(m::Model, name::AbstractString, lower::Real, upper::Real,
-                    cat::Symbol, policy::Symbol,
-                    stage::Int, depends_on::Any)
+function Adaptive(m::Model, lower::Real, upper::Real,
+                    cat::Symbol, name::AbstractString,
+                    policy::Symbol, depends_on::Any)
     rmext = get_robust(m)
     rmext.num_adps += 1
-    push!(rmext.adp_names,  name)
     push!(rmext.adp_lower,  lower)
     push!(rmext.adp_upper,  upper)
     push!(rmext.adp_cat,    cat)
+    push!(rmext.adp_names,  name)
     push!(rmext.adp_policy, policy)
     push!(rmext.adp_arguments, depends_on)
     return Adaptive(m, rmext.num_adps)
@@ -43,6 +43,7 @@ Base.one(::Type{Adaptive})  = AdaptExpr(1)
 Base.one(     ::Adaptive)   = one(Adaptive)
 Base.isequal(a::Adaptive, b::Adaptive) = (a.m === b.m) && (a.id == b.id)
 getname(x::Adaptive) = get_robust(x.m).adp_names[x.id]
+
 
 """
     JuMPeRVar

@@ -2,7 +2,7 @@
 # JuMPeR  --  JuMP Extension for Robust Optimization
 # http://github.com/IainNZ/JuMPeR.jl
 #-----------------------------------------------------------------------
-# Copyright (c) 2015: Iain Dunning
+# Copyright (c) 2016: Iain Dunning
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -17,7 +17,6 @@ import JuMP: PRINT_ZERO_TOL, DIMS
 import JuMP: str_round, getmeta
 import JuMP: aff_str, aff_str
 import JuMP: cont_str, con_str
-import JuMP: _values
 
 # helper to look up corresponding JuMPContainerData
 printdata(v::JuMPContainer{Uncertain}) = get_robust(getmeta(v, :model)).uncData[v]
@@ -80,7 +79,7 @@ function print_robust(io::IO, m::Model)
     in_dictlist = falses(rmext.num_uncs)
     for d in rmext.dictList
         println(io, cont_str(REPLMode,d))
-        for it in _values(d)  # Mark uncertains in JuMPContainer as printed
+        for it in JuMP._values(d)  # Mark uncertains in JuMPContainer as printed
             in_dictlist[it.id] = true
         end
     end
@@ -253,7 +252,7 @@ function cont_str(mode, j::Union{JuMPContainer{Uncertain},Array{Uncertain}},
     #end
 
     # 4. Bounds and category, if possible, and return final string
-    a_var = first(_values(j))
+    a_var = first(JuMP._values(j))
     unc_cat = rmext.unc_cat[a_var.id]
     unc_lb  = rmext.unc_lower[a_var.id]
     unc_ub  = rmext.unc_upper[a_var.id]
@@ -262,7 +261,7 @@ function cont_str(mode, j::Union{JuMPContainer{Uncertain},Array{Uncertain}},
     # creation, which we'd never be able to handle.
     all_same_lb = true
     all_same_ub = true
-    for unc in _values(j)
+    for unc in JuMP._values(j)
         all_same_lb &= rmext.unc_lower[unc.id] == unc_lb
         all_same_ub &= rmext.unc_upper[unc.id] == unc_ub
     end
@@ -472,4 +471,84 @@ function con_str{P}(mode, unc::UncSetNormConstraint{P})
     @assert length(aff.vars) == 0
     ret *= str_round(-aff.constant)
     return ret
+end
+
+
+#------------------------------------------------------------------------
+## Adaptive
+#------------------------------------------------------------------------
+function adp_str(mode, m::Model, id::Int)
+    rd = get_robust(m)
+    return rd.adp_names[id] == "" ? "adp_$id" : rd.adp_names[id]
+end
+adp_str(m::Model, id::Int) = adp_str(REPLMode, m::Model, id::Int)
+
+
+#------------------------------------------------------------------------
+## AdaptExpr
+#------------------------------------------------------------------------
+Base.show(io::IO, a::AdaptExpr) = print(io, aff_str(REPLMode,a))
+# Generic string converter, called by mode-specific handlers
+function aff_str(mode, a::AdaptExpr, show_constant=true)
+    # If the expression is empty, return the constant (or 0)
+    if length(a.vars) == 0
+        return show_constant ? str_round(a.constant) : "0"
+    end
+
+    # Get reference to model and robust part of model
+    m  = a.vars[1].m
+    rd = get_robust(m)
+
+    # Collect like terms
+    indvec_var = JuMP.IndexedVector(Float64,  m.numCols)
+    indvec_adp = JuMP.IndexedVector(Float64, rd.num_adps)
+    for ind in 1:length(a.vars)
+        if isa(a.vars[ind], Adaptive)
+            JuMP.addelt!(indvec_adp, a.vars[ind].id, a.coeffs[ind])
+        elseif isa(a.vars[ind], Variable)
+            JuMP.addelt!(indvec_var, a.vars[ind].col, a.coeffs[ind])
+        end
+    end
+
+    elm = 1
+    term_str = Array(UTF8String, 2*length(a.vars))
+    # For each non-zero
+    for i in 1:indvec_var.nnz
+        idx = indvec_var.nzidx[i]
+        elt = indvec_var.elts[idx]
+        abs(elt) < PRINT_ZERO_TOL && continue  # e.g. x - x
+
+        pre = abs(abs(elt)-1) < PRINT_ZERO_TOL ? "" : str_round(abs(elt)) * " "
+        var = JuMP.var_str(mode,m,idx)
+
+        term_str[2*elm-1] = elt < 0 ? " - " : " + "
+        term_str[2*elm  ] = "$pre$var"
+        elm += 1
+    end
+    for i in 1:indvec_adp.nnz
+        idx = indvec_adp.nzidx[i]
+        elt = indvec_adp.elts[idx]
+        abs(elt) < PRINT_ZERO_TOL && continue  # e.g. x - x
+
+        pre = abs(abs(elt)-1) < PRINT_ZERO_TOL ? "" : str_round(abs(elt)) * " "
+        var = adp_str(mode,m,idx)
+
+        term_str[2*elm-1] = elt < 0 ? " - " : " + "
+        term_str[2*elm  ] = "$pre$var"
+        elm += 1
+    end
+
+    if elm == 1
+        # Will happen with cancellation of all terms
+        # We should just return the constant, if its desired
+        return show_constant ? str_round(a.constant) : "0"
+    else
+        # Correction for very first term - don't want a " + "/" - "
+        term_str[1] = (term_str[1] == " - ") ? "-" : ""
+        ret = join(term_str[1:2*(elm-1)])
+        if abs(a.constant) >= PRINT_ZERO_TOL && show_constant
+            ret = string(ret, a.constant < 0 ? " - " : " + ", str_round(abs(a.constant)))
+        end
+        return ret
+    end
 end
