@@ -6,11 +6,11 @@
 **[JuMPeR]** is a modeling language for [robust optimization].
 It is embedded in the [Julia programming language], and is an extension to the [JuMP] modeling language.
 
-    * Install with Julia package manager: `julia> Pkg.add("JuMPeR")`.
-    * [Read the (limited) documentation to learn more](doc/index.md).
-        * Help with documentation is appreciated!
-        * The source code is well-commented.
-    * [Checkout the examples](examples/).
+  - Install with Julia package manager: `julia> Pkg.add("JuMPeR")`.
+  - [Read the (limited) documentation to learn more](doc/index.md).
+    - Help with documentation is appreciated!
+    - The source code is well-commented.
+  - [Checkout the examples](examples/).
 
 #### JuMPeR v0.4
 
