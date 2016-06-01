@@ -1,0 +1,26 @@
+site_name:        JuMPeR
+repo_url:         https://github.com/IainNZ/JuMPeR.jl
+site_description: JuMP extension for Robust Optimization.
+site_author:      Iain Dunning
+
+theme: cinder
+docs_dir: 'build'
+
+extra_css:
+  - assets/Documenter.css
+  - assets/friendly.css
+
+extra_javascript:
+  - https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML
+  - assets/mathjaxhelper.js
+
+markdown_extensions:
+  - extra
+  - codehilite
+  - tables
+  - fenced_code
+  - def_list
+  - mdx_math
+
+pages:
+- Home: index.md

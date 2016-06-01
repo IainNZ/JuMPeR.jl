@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JuMP extension for Robust Optimization."> 
+    <meta name="author" content="Iain Dunning">  
+    <link rel="shortcut icon" href="./img/favicon.ico">
+
+    <title>JuMPeR</title>
+
+    <link href="./css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/font-hack/2.018/css/hack.min.css">
+    <link href='//fonts.googleapis.com/css?family=PT+Sans:400,400italic,700,700italic&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="./css/base.css" rel="stylesheet">
+    <link href="./css/cinder.css" rel="stylesheet">
+    <link rel="stylesheet" href="./css/highlight.css">
+
+
+    <link href="./assets/Documenter.css" rel="stylesheet">
+
+
+    <link href="./assets/friendly.css" rel="stylesheet">
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+            <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+        <![endif]-->
+
+    <script src="https://ajax.googleapis.com/ajax/libs/webfont/1.5.18/webfont.js"></script>
+    <script>
+    WebFont.load({
+        google: {
+            families: ['Open Sans', 'PT Sans']
+        }
+    });
+    </script>
+
+    
+</head>
+
+<body class="homepage" >
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+            <a class="navbar-brand" href=".">JuMPeR</a>
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+            
+
+            <ul class="nav navbar-nav navbar-right">
+                <li>
+                    <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                        <i class="fa fa-search"></i> Search
+                    </a>
+                </li>
+                
+                
+                    <li>
+                        <a href="https://github.com/IainNZ/JuMPeR.jl">
+                            
+                                <i class="fa fa-github"></i>
+                            
+                            GitHub
+                        </a>
+                    </li>
+                
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+    
+        <li class="first-level active"><a href="#installation">Installation</a></li>
+        
+    
+        <li class="first-level "><a href="#basics-of-jumper-for-ro-problems">Basics of JuMPeR for RO problems</a></li>
+        
+            <li class="second-level"><a href="#robustmodel">RobustModel</a></li>
+            
+        
+    
+        <li class="first-level "><a href="#use-default-solver-for-the-problem-class">Use default solver for the problem class</a></li>
+        
+    
+        <li class="first-level "><a href="#can-also-specify-the-solver">Can also specify the solver</a></li>
+        
+    
+        <li class="first-level "><a href="#thatd-produce-a-lot-of-output-when-using">That'd produce a lot of output when using</a></li>
+        
+    
+        <li class="first-level "><a href="#cutting-planes-so-we-can-set-a-solver-just-for-cuts">cutting planes, so we can set a solver just for cuts</a></li>
+        
+    
+        <li class="first-level "><a href="#create-auxiliary-for-the-objective">Create auxiliary for the objective</a></li>
+        
+    
+        <li class="first-level "><a href="#epigraph-form">Epigraph form</a></li>
+        
+    
+        <li class="first-level "><a href="#constraints-x-in-x">... constraints x in X ...</a></li>
+        
+    
+        <li class="first-level "><a href="#constraints-c-in-u">... constraints c in U ...</a></li>
+        
+            <li class="second-level"><a href="#ellipsoidal-constraints">Ellipsoidal Constraints</a></li>
+            
+        
+    
+        <li class="first-level "><a href="#a-trivial-ellipse-5-v-7">A trivial ellipse: 5 &lt;= v &lt;= 7</a></li>
+        
+    
+        <li class="first-level "><a href="#an-sphere-centered-at-12345-with-a-radius">An sphere centered at (1,2,3,4,5) with a radius</a></li>
+        
+    
+        <li class="first-level "><a href="#of-1-in-each-dimension">of 1 in each dimension</a></li>
+        
+    
+        <li class="first-level "><a href="#a-more-complicated-ellipse">A more complicated ellipse</a></li>
+        
+    
+        <li class="first-level "><a href="#oracles">Oracles</a></li>
+        
+            <li class="second-level"><a href="#using-oracles">Using oracles</a></li>
+            
+        
+    
+        <li class="first-level "><a href="#create-the-model">Create the model...</a></li>
+        
+    
+        <li class="first-level "><a href="#and-set-all-constraints-to-use-the-bertsimas-sim-set">... and set all constraints to use the Bertsimas-Sim set</a></li>
+        
+    
+        <li class="first-level "><a href="#setup-our-problem">Setup our problem</a></li>
+        
+    
+        <li class="first-level "><a href="#notice-we-havent-provided-an-explicit-uncertainty-set">Notice we haven't provided an explicit uncertainty set,</a></li>
+        
+    
+        <li class="first-level "><a href="#apart-from-the-ranges-on-the-uncertain-values">apart from the ranges on the uncertain values?</a></li>
+        
+    
+        <li class="first-level "><a href="#the-bertsimoracle-looks-at-the-range-and-treats-the">The BertSimOracle looks at the range, and treats the</a></li>
+        
+    
+        <li class="first-level "><a href="#nominal-value-for-each-uncertain-parameter-as-the">nominal value for each uncertain parameter as the</a></li>
+        
+    
+        <li class="first-level "><a href="#midpoint-of-the-range-the-parameter-we-passed-is-the">midpoint of the range. The parameter we passed is the</a></li>
+        
+    
+        <li class="first-level "><a href="#number-of-uncertain-parameters-that-can-deviate-from">number of uncertain parameters that can deviate from</a></li>
+        
+    
+        <li class="first-level "><a href="#this-nominal-value-in-other-words">this nominal value. In other words:</a></li>
+        
+    
+        <li class="first-level "><a href="#u-41-u-63-u-42-1">|u - 4|/1  +  |u - 6|/3  +  |u - 4|/2  &lt;=  1</a></li>
+        
+    
+        <li class="first-level "><a href="#u-41-1">|u - 4|/1  &lt;=  1</a></li>
+        
+    
+        <li class="first-level "><a href="#u-63-1">|u - 6|/3  &lt;=  1</a></li>
+        
+    
+        <li class="first-level "><a href="#u-42-1">|u - 4|/2  &lt;=  1</a></li>
+        
+    
+        <li class="first-level "><a href="#registerconstraint">registerConstraint</a></li>
+        
+    
+        <li class="first-level "><a href="#notifies-the-oracle-that-it-is-responsible-for-this-constraint-and">Notifies the oracle that it is responsible for this constraint, and</a></li>
+        
+    
+        <li class="first-level "><a href="#passes-any-preferences-provided-via-the-solverobust-command">passes any preferences provided via the solveRobust() command.</a></li>
+        
+    
+        <li class="first-level "><a href="#setup">setup</a></li>
+        
+    
+        <li class="first-level "><a href="#gives-oracle-time-to-do-any-setup-it-needs-to-do-called-after-all">Gives oracle time to do any setup it needs to do. Called after all</a></li>
+        
+    
+        <li class="first-level "><a href="#constraints-have-been-registered-examples-of-work-that-could-be-done-here">constraints have been registered. Examples of work that could be done here</a></li>
+        
+    
+        <li class="first-level "><a href="#include-transforming-the-uncertainty-set-and-generating-a-cutting-plane">include transforming the uncertainty set and generating a cutting plane</a></li>
+        
+    
+        <li class="first-level "><a href="#model-will-not-be-called-multiple-times">model. Will NOT be called multiple times.</a></li>
+        
+    
+        <li class="first-level "><a href="#generatereform">generateReform</a></li>
+        
+    
+        <li class="first-level "><a href="#called-before-the-main-loop-adds-anything-it-wants-to-the-model-returns">Called before the main loop, adds anything it wants to the model. Returns</a></li>
+        
+    
+        <li class="first-level "><a href="#number-of-constraints-reformulated-if-reformulation-not-supported-or">number of constraints reformulated. If reformulation not supported or</a></li>
+        
+    
+        <li class="first-level "><a href="#desired-simply-return-0">desired, simply return 0</a></li>
+        
+    
+        <li class="first-level "><a href="#generatecut">generateCut</a></li>
+        
+    
+        <li class="first-level "><a href="#called-in-the-main-loop-every-iterationevery-time-an-integer-solution-is">Called in the main loop every iteration/every time an integer solution is</a></li>
+        
+    
+        <li class="first-level "><a href="#found-returns-a-vector-of-constraints-which-are-added-to-the-problem-by">found. Returns a vector of constraints which are added to the problem by</a></li>
+        
+    
+        <li class="first-level "><a href="#the-main-solve-loop-return-an-empty-list-if-there-are-no-constraints-to-add">the main solve loop. Return an empty list if there are no constraints to add.</a></li>
+        
+    
+        <li class="first-level "><a href="#the-optional-active-argument-will-be-called-if-the-user-wants-to-know">The optional "active" argument will be called if the user wants to know</a></li>
+        
+    
+        <li class="first-level "><a href="#the-active-scenarios-at-optimality-this-is-still-experimental">the active scenarios at optimality. This is still experimental!</a></li>
+        
+            <li class="second-level"><a href="#oracle-design-advice">Oracle design advice</a></li>
+            
+        
+    
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<p><img alt="JuMPeR Logo" src="./assets/logo.svg" /></p>
+<p><strong><a href="https://github.com/IainNZ/JuMPeR.jl">JuMPeR</a></strong> is a modeling language for robust optimization (RO) (see, e.g., <a href="http://www.mit.edu/~dbertsim/papers/Robust%20Optimization/The%20price%20of%20Robustness.pdf">"The Price of Robustness"</a>). It is embedded in the <a href="http://julialang.org/">Julia programming language</a>, and is an extension to the <a href="https://github.com/JuliaOpt/JuMP.jl">JuMP</a> modeling language. JuMPeR was created by <a href="http://iaindunning.com">Iain Dunning</a>. JuMPeR supports the following features:</p>
+<ul>
+<li>Easily create polyhedral and ellipsoidal uncertainty sets</li>
+<li>Use a <em>reformulation</em> or <em>cutting plane</em> approach to solving the problems</li>
+<li>Special support for <em>affine adaptability</em> (linear decision rules)</li>
+<li>Extensible uncertainty set system for more exotic uncertainty sets.</li>
+</ul>
+<p>JuMPeR does't have a corresponding paper at this time. I'd appreciate if, for now, that you cite the source code and the <a href="http://arxiv.org/abs/1508.01982">JuMP paper</a>. As JuMPeR builds on JuMP, you should be comfortable with the basics of modeling with JuMP before learning JuMPeR.</p>
+<p><a id='Installation-1'></a></p>
+<h1 id="installation">Installation</h1>
+<p>JuMPeR is a registered Julia package, so you can simply install it with</p>
+<div class="codehilite"><pre><span></span><span class="go">Pkg.add(&quot;JuMPeR&quot;)</span>
+</pre></div>
+
+
+<p>Note that both JuMP and JuMPeR do not come with a solver - you'll need to install one listed on the <a href="http://juliaopt.org">JuliaOpt website</a>. Make sure that you have the required solver for your problem class, or you might receive an error. For example:</p>
+<ul>
+<li>For a linear problem with an ellipsoidal uncertainty set, the reformulation will have second-order cone/quadratic constraints. Solvers like <code>ECOS</code> or <code>Gurobi</code> will work, but solvers like <code>Clp</code> will not.</li>
+<li>If using cutting planes for a problem with integer variables, the solver must support <em>lazy constraints</em>. For example <code>GLPK</code> and <code>Gurobi</code> will work, but <code>Cbc</code> will not.</li>
+</ul>
+<p><a id='Basics-of-JuMPeR-for-RO-problems-1'></a></p>
+<h1 id="basics-of-jumper-for-ro-problems">Basics of JuMPeR for RO problems</h1>
+<p>JuMPeR introduces a new primitive, <code>Uncertain</code>, that represents an uncertain parameter. To use <code>Uncertain</code>s, you must use a <code>RobustModel</code> instead of JuMP's <code>Model</code>, e.g.,</p>
+<div class="codehilite"><pre><span></span><span class="go">m = RobustModel()</span>
+<span class="go"># Set the solver just like you would for Model</span>
+<span class="go">m = RobustModel(solver=GurobiSolver(OutputFlag=0))</span>
+</pre></div>
+
+
+<p>In this section we'll dive straight into modeling RO problems with the default <em>oracle</em>, and defer discussion of exactly what an oracle is (in the JuMPeR context) until later. You can think of them as a black box that JuMPeR asks how to solve a problem. They can reformulate constraints with uncertain parameters, and approximate them with cutting planes. The default oracle, called <code>GeneralOracle</code>, takes polyhedral and ellipsoidal constraints on the uncertain parameters and will reformulate them using duality or generate cutting planes by solving LPs/SOCPs.</p>
+<p><a id='RobustModel-1'></a></p>
+<h2 id="robustmodel">RobustModel</h2>
+<p>It all starts with the <code>RobustModel</code>, which is essentially the same as a JuMP <code>Model</code>. Like a <code>Model</code>, it also accepts a <code>solver</code> keyword argument. It can also take an additional <code>cutsolver</code> keyword argument, which the oracle can use for cutting planes.</p>
+<p>```{.julia execute="false"}</p>
+<h1 id="use-default-solver-for-the-problem-class">Use default solver for the problem class</h1>
+<p>rm = RobustModel()</p>
+<h1 id="can-also-specify-the-solver">Can also specify the solver</h1>
+<p>using Gurobi
+rm = RobustModel(solver=GurobiSolver())</p>
+<h1 id="thatd-produce-a-lot-of-output-when-using">That'd produce a lot of output when using</h1>
+<h1 id="cutting-planes-so-we-can-set-a-solver-just-for-cuts">cutting planes, so we can set a solver just for cuts</h1>
+<p>rm = RobustModel(   solver=GurobiSolver(MIPGap=0.01),
+                 cutsolver=GurobiSolver(OutputFlag=0))</p>
+<div class="codehilite"><pre><span></span><span class="nt">&lt;a</span> <span class="na">id=</span><span class="s">&#39;Uncertain-Parameters-1&#39;</span><span class="nt">&gt;&lt;/a&gt;</span>
+
+## Uncertain Parameters
+
+
+JuMPeR adds the `Uncertain` type to allow the user to model *uncertain parameters*. `Uncertain`s behave much like JuMP&#39;s `Variable`s - they have bounds and types, and can be combined with numbers, data, and inequalities to make expressions and constraints. They are defined with `@defUnc`:
+
+
+```{.julia execute=&quot;false&quot;}
+rm = RobustModel()
+# Can define single uncertain parameterss
+@defUnc(rm, u)
+# Can define indexed uncertain parameters too
+@defUnc(rm, v[4:10,-2:2])
+# They can have bounds too
+@defUnc(rm, 0 <span class="err">&lt;</span>= w[i=1:10] <span class="err">&lt;</span>= i^2)
+# You can also have types: integer (Int) and binary (Bin)
+# Support for these will depend on the oracle. With the default
+# oracle, they will only work with cutting plane mode, as
+# reformulation is not possible in general for these types.
+idxset = [:Apple, :Banana, :Orange]
+@defUnc(rm, fruits[idxset], Bin)
+</pre></div>
+
+
+<p>There are some minor restrictions on <code>Uncertain</code> to be aware of:</p>
+<ul>
+<li>You cannot currently have products of uncertain parameters, e.g. <code>u*u</code> is not allowed.</li>
+<li>You cannot use uncertain parameters in the objective. If you have an uncertain objective, you should make an auxiliary variable to represent the objective and turn the objective into a contraint (e.g. an epigraph formulation):</li>
+</ul>
+<p>:$</p>
+<p>
+<script type="math/tex; mode=display">\begin{alignat}{2} \max_{\mathbf{x} \in X} \min_{\mathbf{c} \in U} & \quad \mathbf{c} \cdot \mathbf{x} \end{alignat}</script> :$</p>
+<p>```{.julia execute="false"}
+rm = RobustModel()
+@defVar(rm, x[1:n])
+@defUnc(rm, c[1:n])</p>
+<h1 id="create-auxiliary-for-the-objective">Create auxiliary for the objective</h1>
+<p>@defVar(rm, t)</p>
+<h1 id="epigraph-form">Epigraph form</h1>
+<p>@setObjective(rm, Max, t)
+@addConstraint(rm, t &lt;= sum{c[i]*x[i],i=1:n})</p>
+<h1 id="constraints-x-in-x">... constraints x in X ...</h1>
+<h1 id="constraints-c-in-u">... constraints c in U ...</h1>
+<p>solve(rm)</p>
+<div class="codehilite"><pre><span></span><span class="nt">&lt;a</span> <span class="na">id=</span><span class="s">&#39;Expressions-and-Constraints-1&#39;</span><span class="nt">&gt;&lt;/a&gt;</span>
+
+## Expressions and Constraints
+
+
+In JuMP we have only data and variables, with one type of expression and one type of constraint (mostly). In JuMPeR we have three types of expression, each with are corresponding type of constraint:
+
+
+1. Just data and variables (internally: `AffExpr`)
+2. Just data and uncertain parameters (internally: `UAffExpr`)
+3. Just data, uncertain parameters, and variables (internally: `FullAffExpr`)
+
+
+Type 1 is just like in JuMP - these a deterministic constraints, and are JuMPeR doesn&#39;t do anything with them. JuMPeR treats Type 2 constraints as *uncertainty set constraints* - that is, they partially define the uncertainty set for this problem. They can be used by the oracles to perform reformulations or generate cutting planes. Type 3 constraints are uncertain constraints that must be feasible for all realizations of the uncertain parameters - these are what the oracles are dealing with to solve the problem. Here is an example of each, from the knapsack problem defined above:
+
+
+```{.julia execute=&quot;false&quot;}
+w = rand(n)
+σ = 0.2 * rand(n) .* w
+
+knap = RobustModel()
+@defVar(knap,      x[1:n], Bin)
+@defUnc(knap, 0 <span class="err">&lt;</span>= z[1:n] <span class="err">&lt;</span>= 1)
+
+# Type 1 constraint: only on the variables
+#   &quot;must take at least one item&quot;
+@addConstraint(knap, sum{x[i], i=1:n} &gt;= 1)
+
+# Type 2 constraint: only on the uncertain parameters
+#   &quot;only Γ parameters can be at their upper bound&quot;
+@addConstraint(knap, sum{z[i], i=1:n} <span class="err">&lt;</span>= Γ)
+
+# Type 3 constraint: both variables and uncertain parameters
+#   &quot;the total uncertain weight of items is less than capacity&quot;
+@addConstraint(knap, sum{(w[i]+σ[i]*z[i])*x[i], i=1:n} <span class="err">&lt;</span>= C)
+</pre></div>
+
+
+<p><a id='Ellipsoidal-Constraints-1'></a></p>
+<h4 id="ellipsoidal-constraints">Ellipsoidal Constraints</h4>
+<p>JuMP doesn't provide a convenient syntax to express "ellipsoidal constraints", i.e.</p>
+<p>:$</p>
+<p>
+<script type="math/tex; mode=display">\begin{alignat}{2} \| \mathbf{x} \|_2 & \leq \Gamma \end{alignat}</script> :$</p>
+<p>but ellipsoidal uncertainty sets are popular. We address this by providing <code>addEllipseConstraint</code>. This function takes 3 arguments: a <code>RobustModel</code>, a vector of <code>Uncertain</code>s or affine expressions of them, and a <strong>constant</strong> right-hand-side that the norm of this vector should be less than. For example:</p>
+<p>```{.julia execute="false"}</p>
+<h1 id="a-trivial-ellipse-5-v-7">A trivial ellipse: 5 &lt;= v &lt;= 7</h1>
+<p>@defUnc(m, v)
+addEllipseConstraint(m, [v], 2)</p>
+<h1 id="an-sphere-centered-at-12345-with-a-radius">An sphere centered at (1,2,3,4,5) with a radius</h1>
+<h1 id="of-1-in-each-dimension">of 1 in each dimension</h1>
+<p>@defUnc(m, u[1:5])
+addEllipseConstraint(m, [(u-i) for i in 1:5], 1)</p>
+<h1 id="a-more-complicated-ellipse">A more complicated ellipse</h1>
+<p>@defUnc(m, w[1:5])
+addEllipseConstraint(m, [3.0<em>w[1]-5, 1.0</em>w[5]-5, 2.0*w[4]-5], 2)</p>
+<div class="codehilite"><pre><span></span><span class="nt">&lt;a</span> <span class="na">id=</span><span class="s">&#39;Solving-1&#39;</span><span class="nt">&gt;&lt;/a&gt;</span>
+
+## Solving
+
+
+By default, JuMPeR will use duality to reformulate the uncertain problem into a deterministic robust counterpart. However there are a couple of options to customize the solve, not to mention any options you provide to the oracle (more on that later).
+
+
+  * You can signal that you want cuts with the `prefer_cuts` option.
+  * If the problem is unbounded before any cuts are added, you can automatically add upper and lower bounds to variables that don&#39;t have them already using `add_box`.
+  * You can get a summary report of how the model was solved and how long the different solve components took by setting the `report` option.
+
+
+```{.julia execute=&quot;false&quot;}
+solve(rm)  # Will use default, which is reformulation
+solve(rm, prefer_cuts=true)  # Use cuts if possible
+solve(rm, report=true)       # Get some information about the
+                             # solution process at the end
+solve(rm, add_box=1e3)       # Provide an upper and lower bound of
+                             # 1e3 (or whatever) for all variables
+                             # that don&#39;t otherwise have them.
+</pre></div>
+
+
+<p>Note that the solution methods available depends on the chosen oracle's capabilities. The default oracle supports both, but some uncertainty sets may only support one or the other.</p>
+<p><a id="oracles"></a></p>
+<p><a id='Oracles-1'></a></p>
+<h1 id="oracles">Oracles</h1>
+<p>JuMPeR's design is focussed around <em>oracles</em>. Oracles are responsible for taking RO problems, or parts of them, and transforming them into something solveable. That could be reformulating uncertain constraints into deterministic constraints, it could be generating cutting-planes, or something else entirely. Oracles are also intimately connected to uncertainty sets - for example, we can provide data to an oracle from which it can generate cutting-planes - an uncertainty set  never needs to explictly constructed. Finally oracles are interchangeable - you can obtain oracles from others or create your own to allow others to explore the performance of different sets and implementations.</p>
+<p>In this section we will describe how to use oracles other than the default oracle, how to make an oracle, and some design considerations for oracles.</p>
+<p><a id='Using-oracles-1'></a></p>
+<h2 id="using-oracles">Using oracles</h2>
+<p>JuMPeR currently comes with three oracles:</p>
+<ul>
+<li><code>GeneralOracle</code>, the default oracle. It takes an explicit polyhedral/ellipsoidal representation of the uncertainty set and can generate a reformulation or use cutting-planes.</li>
+<li><code>GeneralGraphOracle</code>, a variation on <code>GeneralOracle</code>. This oracle attempts to discover if the uncertain parameters actually belong to seperate, disjunct uncertainty sets. This allows it to generate smaller reformulations, and a seperator cut generator for each set if using cutting-planes.</li>
+<li><code>BertSimOracle</code>, implements the uncertainty set described in the 2004 paper <em>The Price of Robustness</em> by Bertsimas and Sim. Will generate cutting-planes efficiently using sorting instead of solving an LP. The <code>GeneralOracle</code> should be used if a reformulation is desired.</li>
+</ul>
+<p>To set the oracle for all constraints, use the <code>setDefaultOracle!</code> command, e.g.</p>
+<p>```{.julia execute=false}
+n           = 3
+weight_low  = [1.0, 3.0, 2.0]
+weight_high = [3.0, 9.0, 6.0]
+values      = [5.0, 6.0, 4.0]</p>
+<h1 id="create-the-model">Create the model...</h1>
+<p>m = RobustModel()</p>
+<h1 id="and-set-all-constraints-to-use-the-bertsimas-sim-set">... and set all constraints to use the Bertsimas-Sim set</h1>
+<p>setDefaultOracle!(m, BertSimOracle(1))</p>
+<h1 id="setup-our-problem">Setup our problem</h1>
+<p>@defVar(m, x[1:n], Bin)
+@defUnc(m, weight_low[i] &lt;= u[i=1:n] &lt;= weight_high[i])
+@setObjective(m, Max, sum{values[i] * x[i], i=1:n})</p>
+<h1 id="notice-we-havent-provided-an-explicit-uncertainty-set">Notice we haven't provided an explicit uncertainty set,</h1>
+<h1 id="apart-from-the-ranges-on-the-uncertain-values">apart from the ranges on the uncertain values?</h1>
+<h1 id="the-bertsimoracle-looks-at-the-range-and-treats-the">The BertSimOracle looks at the range, and treats the</h1>
+<h1 id="nominal-value-for-each-uncertain-parameter-as-the">nominal value for each uncertain parameter as the</h1>
+<h1 id="midpoint-of-the-range-the-parameter-we-passed-is-the">midpoint of the range. The parameter we passed is the</h1>
+<h1 id="number-of-uncertain-parameters-that-can-deviate-from">number of uncertain parameters that can deviate from</h1>
+<h1 id="this-nominal-value-in-other-words">this nominal value. In other words:</h1>
+<h1 id="u-41-u-63-u-42-1">|u - 4|/1  +  |u - 6|/3  +  |u - 4|/2  &lt;=  1</h1>
+<h1 id="u-41-1">|u - 4|/1  &lt;=  1</h1>
+<h1 id="u-63-1">|u - 6|/3  &lt;=  1</h1>
+<h1 id="u-42-1">|u - 4|/2  &lt;=  1</h1>
+<p>@addConstraint(m, sum{u[i]*x[i], i=1:n} &lt;= 8)</p>
+<p>solve(m, prefer_cuts=true)</p>
+<div class="codehilite"><pre><span></span><span class="nt">&lt;a</span> <span class="na">id=</span><span class="s">&#39;Making-an-oracle-1&#39;</span><span class="nt">&gt;&lt;/a&gt;</span>
+
+## Making an oracle
+
+
+To make an oracle, we first need to understand what happens when you call `solve` on a `RobustModel`:
+
+
+1. A new JuMP `Model`, referred to as the *master*, is created with the same variables as the original `RobustModel` and with all the deterministic constraints.
+2. For each constraint, `registerConstraint` is called for the oracle associated with that constraint. Any constraints that don&#39;t have a oracle explicitly provided use the default.
+3. `setup` is called for each oracle, giving them time to do any general setup shared across constraints. For example, it may take the dual of the uncertainty set in order to more efficiently reformulate multiple constraints.
+4. Each oracle is then given a chance to reformulate its constraints (`generateReform`). It will return the number of constraints reformulated (which may be zero).
+5. Start solving  * If the problem is continuous, the master problem will be solved.  * If the problem has integer variables, the MIP solver will be started.
+6. Oracles get a chance to generate cutting-planes.  * If the problem is continuous, the cutting-planes are added to the master problem and the master problem is resolved. If no new constraints are added, we terminate the solve.  * If the problem has integer variables, the cutting-planes are added as lazy constraints only at integer solutions. The solve terminates when the MIP solver finds an optimal integer solution and no new constraints are added.
+
+
+We can now specific how to make an oracle. An oracle should be a Julia type that is a subtype of `AbstractOracle`, i.e.
+
+
+```{.julia execute=&quot;false&quot;}
+type MyNewOracle <span class="nt">&lt;:</span> <span class="err">JuMPeR.AbstractOracle</span>
+    <span class="err">some_internal_state</span>
+<span class="err">end</span>
+</pre></div>
+
+
+<p>The oracle must implement four methods, regardless of its functionality (defined in <code>src/oracle.jl</code>)</p>
+<p>```{.julia execute="false"}</p>
+<h1 id="registerconstraint">registerConstraint</h1>
+<h1 id="notifies-the-oracle-that-it-is-responsible-for-this-constraint-and">Notifies the oracle that it is responsible for this constraint, and</h1>
+<h1 id="passes-any-preferences-provided-via-the-solverobust-command">passes any preferences provided via the solveRobust() command.</h1>
+<p>function registerConstraint(ab::AbstractOracle, rm::Model, ind::Int, prefs)</p>
+<h1 id="setup">setup</h1>
+<h1 id="gives-oracle-time-to-do-any-setup-it-needs-to-do-called-after-all">Gives oracle time to do any setup it needs to do. Called after all</h1>
+<h1 id="constraints-have-been-registered-examples-of-work-that-could-be-done-here">constraints have been registered. Examples of work that could be done here</h1>
+<h1 id="include-transforming-the-uncertainty-set-and-generating-a-cutting-plane">include transforming the uncertainty set and generating a cutting plane</h1>
+<h1 id="model-will-not-be-called-multiple-times">model. Will NOT be called multiple times.</h1>
+<p>function setup(ab::AbstractOracle, rm::Model, prefs)</p>
+<h1 id="generatereform">generateReform</h1>
+<h1 id="called-before-the-main-loop-adds-anything-it-wants-to-the-model-returns">Called before the main loop, adds anything it wants to the model. Returns</h1>
+<h1 id="number-of-constraints-reformulated-if-reformulation-not-supported-or">number of constraints reformulated. If reformulation not supported or</h1>
+<h1 id="desired-simply-return-0">desired, simply return 0</h1>
+<p>function generateReform(ab::AbstractOracle, master::Model, rm::Model, inds::Vector{Int})</p>
+<h1 id="generatecut">generateCut</h1>
+<h1 id="called-in-the-main-loop-every-iterationevery-time-an-integer-solution-is">Called in the main loop every iteration/every time an integer solution is</h1>
+<h1 id="found-returns-a-vector-of-constraints-which-are-added-to-the-problem-by">found. Returns a vector of constraints which are added to the problem by</h1>
+<h1 id="the-main-solve-loop-return-an-empty-list-if-there-are-no-constraints-to-add">the main solve loop. Return an empty list if there are no constraints to add.</h1>
+<h1 id="the-optional-active-argument-will-be-called-if-the-user-wants-to-know">The optional "active" argument will be called if the user wants to know</h1>
+<h1 id="the-active-scenarios-at-optimality-this-is-still-experimental">the active scenarios at optimality. This is still experimental!</h1>
+<p>generateCut(ab::AbstractOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)
+```</p>
+<p><a id='Oracle-design-advice-1'></a></p>
+<h2 id="oracle-design-advice">Oracle design advice</h2>
+<p>Stay tuned, watch this space, etc.</p>
+<p>[Cbc]: http://github.com/JuliaOpt/Cbc.jl [Clp]: http://github.com/JuliaOpt/Clp.jl [CPLEX]: http://github.com/JuliaOpt/CPLEX.jl [ECOS]: http://github.com/JuliaOpt/ECOS.jl [GLPK]: http://github.com/JuliaOpt/GLPK.jl [Gurobi]: http://github.com/JuliaOpt/Gurobi.jl</p></div>
+        
+    </div>
+
+    <footer class="col-md-12 text-center">
+        <hr>
+        <p>
+        <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</p></small>
+    </footer>
+
+    <script src="./js/jquery-1.10.2.min.js"></script>
+    <script src="./js/bootstrap-3.0.3.min.js"></script>
+    <script src="./js/highlight.pack.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+    <script>
+    var base_url = '.';
+    </script>
+    <script data-main="./mkdocs/js/search.js" src="./mkdocs/js/require.js"></script>
+    <script src="./js/base.js"></script>
+    <script src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
+    <script src="./assets/mathjaxhelper.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="Search Modal" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title" id="exampleModalLabel">Search</h4>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        From here you can search these documents. Enter your search terms below.
+                    </p>
+                    <form role="form">
+                        <div class="form-group">
+                            <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query">
+                        </div>
+                    </form>
+                    <div id="mkdocs-search-results"></div>
+                </div>
+                <div class="modal-footer">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </body>
+
+</html>
+
+<!--
+MkDocs version : 0.15.3
+Build Date UTC : 2016-05-19 03:43:13.727512
+-->

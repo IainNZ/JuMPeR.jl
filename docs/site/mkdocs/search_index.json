@@ -1,0 +1,264 @@
+{
+    "docs": [
+        {
+            "location": "/", 
+            "text": "JuMPeR\n is a modeling language for robust optimization (RO) (see, e.g., \n\"The Price of Robustness\"\n). It is embedded in the \nJulia programming language\n, and is an extension to the \nJuMP\n modeling language. JuMPeR was created by \nIain Dunning\n. JuMPeR supports the following features:\n\n\n\n\nEasily create polyhedral and ellipsoidal uncertainty sets\n\n\nUse a \nreformulation\n or \ncutting plane\n approach to solving the problems\n\n\nSpecial support for \naffine adaptability\n (linear decision rules)\n\n\nExtensible uncertainty set system for more exotic uncertainty sets.\n\n\n\n\nJuMPeR does't have a corresponding paper at this time. I'd appreciate if, for now, that you cite the source code and the \nJuMP paper\n. As JuMPeR builds on JuMP, you should be comfortable with the basics of modeling with JuMP before learning JuMPeR.\n\n\n\n\nInstallation\n\n\nJuMPeR is a registered Julia package, so you can simply install it with\n\n\nPkg.add(\nJuMPeR\n)\n\n\n\n\n\n\nNote that both JuMP and JuMPeR do not come with a solver - you'll need to install one listed on the \nJuliaOpt website\n. Make sure that you have the required solver for your problem class, or you might receive an error. For example:\n\n\n\n\nFor a linear problem with an ellipsoidal uncertainty set, the reformulation will have second-order cone/quadratic constraints. Solvers like \nECOS\n or \nGurobi\n will work, but solvers like \nClp\n will not.\n\n\nIf using cutting planes for a problem with integer variables, the solver must support \nlazy constraints\n. For example \nGLPK\n and \nGurobi\n will work, but \nCbc\n will not.\n\n\n\n\n\n\nBasics of JuMPeR for RO problems\n\n\nJuMPeR introduces a new primitive, \nUncertain\n, that represents an uncertain parameter. To use \nUncertain\ns, you must use a \nRobustModel\n instead of JuMP's \nModel\n, e.g.,\n\n\nm = RobustModel()\n\n\n# Set the solver just like you would for Model\n\n\nm = RobustModel(solver=GurobiSolver(OutputFlag=0))\n\n\n\n\n\n\nIn this section we'll dive straight into modeling RO problems with the default \noracle\n, and defer discussion of exactly what an oracle is (in the JuMPeR context) until later. You can think of them as a black box that JuMPeR asks how to solve a problem. They can reformulate constraints with uncertain parameters, and approximate them with cutting planes. The default oracle, called \nGeneralOracle\n, takes polyhedral and ellipsoidal constraints on the uncertain parameters and will reformulate them using duality or generate cutting planes by solving LPs/SOCPs.\n\n\n\n\nRobustModel\n\n\nIt all starts with the \nRobustModel\n, which is essentially the same as a JuMP \nModel\n. Like a \nModel\n, it also accepts a \nsolver\n keyword argument. It can also take an additional \ncutsolver\n keyword argument, which the oracle can use for cutting planes.\n\n\n```{.julia execute=\"false\"}\n\n\nUse default solver for the problem class\n\n\nrm = RobustModel()\n\n\nCan also specify the solver\n\n\nusing Gurobi\nrm = RobustModel(solver=GurobiSolver())\n\n\nThat'd produce a lot of output when using\n\n\ncutting planes, so we can set a solver just for cuts\n\n\nrm = RobustModel(   solver=GurobiSolver(MIPGap=0.01),\n                 cutsolver=GurobiSolver(OutputFlag=0))\n\n\na\n \nid=\nUncertain-Parameters-1\n/a\n\n\n## Uncertain Parameters\n\n\nJuMPeR adds the `Uncertain` type to allow the user to model *uncertain parameters*. `Uncertain`s behave much like JuMP\ns `Variable`s - they have bounds and types, and can be combined with numbers, data, and inequalities to make expressions and constraints. They are defined with `@defUnc`:\n\n\n```{.julia execute=\nfalse\n}\nrm = RobustModel()\n# Can define single uncertain parameterss\n@defUnc(rm, u)\n# Can define indexed uncertain parameters too\n@defUnc(rm, v[4:10,-2:2])\n# They can have bounds too\n@defUnc(rm, 0 \n= w[i=1:10] \n= i^2)\n# You can also have types: integer (Int) and binary (Bin)\n# Support for these will depend on the oracle. With the default\n# oracle, they will only work with cutting plane mode, as\n# reformulation is not possible in general for these types.\nidxset = [:Apple, :Banana, :Orange]\n@defUnc(rm, fruits[idxset], Bin)\n\n\n\n\n\nThere are some minor restrictions on \nUncertain\n to be aware of:\n\n\n\n\nYou cannot currently have products of uncertain parameters, e.g. \nu*u\n is not allowed.\n\n\nYou cannot use uncertain parameters in the objective. If you have an uncertain objective, you should make an auxiliary variable to represent the objective and turn the objective into a contraint (e.g. an epigraph formulation):\n\n\n\n\n:$\n\n\n\n\n\\begin{alignat}{2} \\max_{\\mathbf{x} \\in X} \\min_{\\mathbf{c} \\in U} & \\quad \\mathbf{c} \\cdot \\mathbf{x} \\end{alignat}\n :$\n\n\n```{.julia execute=\"false\"}\nrm = RobustModel()\n@defVar(rm, x[1:n])\n@defUnc(rm, c[1:n])\n\n\nCreate auxiliary for the objective\n\n\n@defVar(rm, t)\n\n\nEpigraph form\n\n\n@setObjective(rm, Max, t)\n@addConstraint(rm, t \n= sum{c[i]*x[i],i=1:n})\n\n\n... constraints x in X ...\n\n\n... constraints c in U ...\n\n\nsolve(rm)\n\n\na\n \nid=\nExpressions-and-Constraints-1\n/a\n\n\n## Expressions and Constraints\n\n\nIn JuMP we have only data and variables, with one type of expression and one type of constraint (mostly). In JuMPeR we have three types of expression, each with are corresponding type of constraint:\n\n\n1. Just data and variables (internally: `AffExpr`)\n2. Just data and uncertain parameters (internally: `UAffExpr`)\n3. Just data, uncertain parameters, and variables (internally: `FullAffExpr`)\n\n\nType 1 is just like in JuMP - these a deterministic constraints, and are JuMPeR doesn\nt do anything with them. JuMPeR treats Type 2 constraints as *uncertainty set constraints* - that is, they partially define the uncertainty set for this problem. They can be used by the oracles to perform reformulations or generate cutting planes. Type 3 constraints are uncertain constraints that must be feasible for all realizations of the uncertain parameters - these are what the oracles are dealing with to solve the problem. Here is an example of each, from the knapsack problem defined above:\n\n\n```{.julia execute=\nfalse\n}\nw = rand(n)\n\u03c3 = 0.2 * rand(n) .* w\n\nknap = RobustModel()\n@defVar(knap,      x[1:n], Bin)\n@defUnc(knap, 0 \n= z[1:n] \n= 1)\n\n# Type 1 constraint: only on the variables\n#   \nmust take at least one item\n\n@addConstraint(knap, sum{x[i], i=1:n} \n= 1)\n\n# Type 2 constraint: only on the uncertain parameters\n#   \nonly \u0393 parameters can be at their upper bound\n\n@addConstraint(knap, sum{z[i], i=1:n} \n= \u0393)\n\n# Type 3 constraint: both variables and uncertain parameters\n#   \nthe total uncertain weight of items is less than capacity\n\n@addConstraint(knap, sum{(w[i]+\u03c3[i]*z[i])*x[i], i=1:n} \n= C)\n\n\n\n\n\n\n\nEllipsoidal Constraints\n\n\nJuMP doesn't provide a convenient syntax to express \"ellipsoidal constraints\", i.e.\n\n\n:$\n\n\n\n\n\\begin{alignat}{2} \\| \\mathbf{x} \\|_2 & \\leq \\Gamma \\end{alignat}\n :$\n\n\nbut ellipsoidal uncertainty sets are popular. We address this by providing \naddEllipseConstraint\n. This function takes 3 arguments: a \nRobustModel\n, a vector of \nUncertain\ns or affine expressions of them, and a \nconstant\n right-hand-side that the norm of this vector should be less than. For example:\n\n\n```{.julia execute=\"false\"}\n\n\nA trivial ellipse: 5 \n= v \n= 7\n\n\n@defUnc(m, v)\naddEllipseConstraint(m, [v], 2)\n\n\nAn sphere centered at (1,2,3,4,5) with a radius\n\n\nof 1 in each dimension\n\n\n@defUnc(m, u[1:5])\naddEllipseConstraint(m, [(u-i) for i in 1:5], 1)\n\n\nA more complicated ellipse\n\n\n@defUnc(m, w[1:5])\naddEllipseConstraint(m, [3.0\nw[1]-5, 1.0\nw[5]-5, 2.0*w[4]-5], 2)\n\n\na\n \nid=\nSolving-1\n/a\n\n\n## Solving\n\n\nBy default, JuMPeR will use duality to reformulate the uncertain problem into a deterministic robust counterpart. However there are a couple of options to customize the solve, not to mention any options you provide to the oracle (more on that later).\n\n\n  * You can signal that you want cuts with the `prefer_cuts` option.\n  * If the problem is unbounded before any cuts are added, you can automatically add upper and lower bounds to variables that don\nt have them already using `add_box`.\n  * You can get a summary report of how the model was solved and how long the different solve components took by setting the `report` option.\n\n\n```{.julia execute=\nfalse\n}\nsolve(rm)  # Will use default, which is reformulation\nsolve(rm, prefer_cuts=true)  # Use cuts if possible\nsolve(rm, report=true)       # Get some information about the\n                             # solution process at the end\nsolve(rm, add_box=1e3)       # Provide an upper and lower bound of\n                             # 1e3 (or whatever) for all variables\n                             # that don\nt otherwise have them.\n\n\n\n\n\nNote that the solution methods available depends on the chosen oracle's capabilities. The default oracle supports both, but some uncertainty sets may only support one or the other.\n\n\n\n\n\n\nOracles\n\n\nJuMPeR's design is focussed around \noracles\n. Oracles are responsible for taking RO problems, or parts of them, and transforming them into something solveable. That could be reformulating uncertain constraints into deterministic constraints, it could be generating cutting-planes, or something else entirely. Oracles are also intimately connected to uncertainty sets - for example, we can provide data to an oracle from which it can generate cutting-planes - an uncertainty set  never needs to explictly constructed. Finally oracles are interchangeable - you can obtain oracles from others or create your own to allow others to explore the performance of different sets and implementations.\n\n\nIn this section we will describe how to use oracles other than the default oracle, how to make an oracle, and some design considerations for oracles.\n\n\n\n\nUsing oracles\n\n\nJuMPeR currently comes with three oracles:\n\n\n\n\nGeneralOracle\n, the default oracle. It takes an explicit polyhedral/ellipsoidal representation of the uncertainty set and can generate a reformulation or use cutting-planes.\n\n\nGeneralGraphOracle\n, a variation on \nGeneralOracle\n. This oracle attempts to discover if the uncertain parameters actually belong to seperate, disjunct uncertainty sets. This allows it to generate smaller reformulations, and a seperator cut generator for each set if using cutting-planes.\n\n\nBertSimOracle\n, implements the uncertainty set described in the 2004 paper \nThe Price of Robustness\n by Bertsimas and Sim. Will generate cutting-planes efficiently using sorting instead of solving an LP. The \nGeneralOracle\n should be used if a reformulation is desired.\n\n\n\n\nTo set the oracle for all constraints, use the \nsetDefaultOracle!\n command, e.g.\n\n\n```{.julia execute=false}\nn           = 3\nweight_low  = [1.0, 3.0, 2.0]\nweight_high = [3.0, 9.0, 6.0]\nvalues      = [5.0, 6.0, 4.0]\n\n\nCreate the model...\n\n\nm = RobustModel()\n\n\n... and set all constraints to use the Bertsimas-Sim set\n\n\nsetDefaultOracle!(m, BertSimOracle(1))\n\n\nSetup our problem\n\n\n@defVar(m, x[1:n], Bin)\n@defUnc(m, weight_low[i] \n= u[i=1:n] \n= weight_high[i])\n@setObjective(m, Max, sum{values[i] * x[i], i=1:n})\n\n\nNotice we haven't provided an explicit uncertainty set,\n\n\napart from the ranges on the uncertain values?\n\n\nThe BertSimOracle looks at the range, and treats the\n\n\nnominal value for each uncertain parameter as the\n\n\nmidpoint of the range. The parameter we passed is the\n\n\nnumber of uncertain parameters that can deviate from\n\n\nthis nominal value. In other words:\n\n\n|u - 4|/1  +  |u - 6|/3  +  |u - 4|/2  \n=  1\n\n\n|u - 4|/1  \n=  1\n\n\n|u - 6|/3  \n=  1\n\n\n|u - 4|/2  \n=  1\n\n\n@addConstraint(m, sum{u[i]*x[i], i=1:n} \n= 8)\n\n\nsolve(m, prefer_cuts=true)\n\n\na\n \nid=\nMaking-an-oracle-1\n/a\n\n\n## Making an oracle\n\n\nTo make an oracle, we first need to understand what happens when you call `solve` on a `RobustModel`:\n\n\n1. A new JuMP `Model`, referred to as the *master*, is created with the same variables as the original `RobustModel` and with all the deterministic constraints.\n2. For each constraint, `registerConstraint` is called for the oracle associated with that constraint. Any constraints that don\nt have a oracle explicitly provided use the default.\n3. `setup` is called for each oracle, giving them time to do any general setup shared across constraints. For example, it may take the dual of the uncertainty set in order to more efficiently reformulate multiple constraints.\n4. Each oracle is then given a chance to reformulate its constraints (`generateReform`). It will return the number of constraints reformulated (which may be zero).\n5. Start solving  * If the problem is continuous, the master problem will be solved.  * If the problem has integer variables, the MIP solver will be started.\n6. Oracles get a chance to generate cutting-planes.  * If the problem is continuous, the cutting-planes are added to the master problem and the master problem is resolved. If no new constraints are added, we terminate the solve.  * If the problem has integer variables, the cutting-planes are added as lazy constraints only at integer solutions. The solve terminates when the MIP solver finds an optimal integer solution and no new constraints are added.\n\n\nWe can now specific how to make an oracle. An oracle should be a Julia type that is a subtype of `AbstractOracle`, i.e.\n\n\n```{.julia execute=\nfalse\n}\ntype MyNewOracle \n:\n \nJuMPeR.AbstractOracle\n\n    \nsome_internal_state\n\n\nend\n\n\n\n\n\n\nThe oracle must implement four methods, regardless of its functionality (defined in \nsrc/oracle.jl\n)\n\n\n```{.julia execute=\"false\"}\n\n\nregisterConstraint\n\n\nNotifies the oracle that it is responsible for this constraint, and\n\n\npasses any preferences provided via the solveRobust() command.\n\n\nfunction registerConstraint(ab::AbstractOracle, rm::Model, ind::Int, prefs)\n\n\nsetup\n\n\nGives oracle time to do any setup it needs to do. Called after all\n\n\nconstraints have been registered. Examples of work that could be done here\n\n\ninclude transforming the uncertainty set and generating a cutting plane\n\n\nmodel. Will NOT be called multiple times.\n\n\nfunction setup(ab::AbstractOracle, rm::Model, prefs)\n\n\ngenerateReform\n\n\nCalled before the main loop, adds anything it wants to the model. Returns\n\n\nnumber of constraints reformulated. If reformulation not supported or\n\n\ndesired, simply return 0\n\n\nfunction generateReform(ab::AbstractOracle, master::Model, rm::Model, inds::Vector{Int})\n\n\ngenerateCut\n\n\nCalled in the main loop every iteration/every time an integer solution is\n\n\nfound. Returns a vector of constraints which are added to the problem by\n\n\nthe main solve loop. Return an empty list if there are no constraints to add.\n\n\nThe optional \"active\" argument will be called if the user wants to know\n\n\nthe active scenarios at optimality. This is still experimental!\n\n\ngenerateCut(ab::AbstractOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)\n```\n\n\n\n\nOracle design advice\n\n\nStay tuned, watch this space, etc.\n\n\n[Cbc]: http://github.com/JuliaOpt/Cbc.jl [Clp]: http://github.com/JuliaOpt/Clp.jl [CPLEX]: http://github.com/JuliaOpt/CPLEX.jl [ECOS]: http://github.com/JuliaOpt/ECOS.jl [GLPK]: http://github.com/JuliaOpt/GLPK.jl [Gurobi]: http://github.com/JuliaOpt/Gurobi.jl", 
+            "title": "Home"
+        }, 
+        {
+            "location": "/#installation", 
+            "text": "JuMPeR is a registered Julia package, so you can simply install it with  Pkg.add( JuMPeR )   Note that both JuMP and JuMPeR do not come with a solver - you'll need to install one listed on the  JuliaOpt website . Make sure that you have the required solver for your problem class, or you might receive an error. For example:   For a linear problem with an ellipsoidal uncertainty set, the reformulation will have second-order cone/quadratic constraints. Solvers like  ECOS  or  Gurobi  will work, but solvers like  Clp  will not.  If using cutting planes for a problem with integer variables, the solver must support  lazy constraints . For example  GLPK  and  Gurobi  will work, but  Cbc  will not.", 
+            "title": "Installation"
+        }, 
+        {
+            "location": "/#basics-of-jumper-for-ro-problems", 
+            "text": "JuMPeR introduces a new primitive,  Uncertain , that represents an uncertain parameter. To use  Uncertain s, you must use a  RobustModel  instead of JuMP's  Model , e.g.,  m = RobustModel()  # Set the solver just like you would for Model  m = RobustModel(solver=GurobiSolver(OutputFlag=0))   In this section we'll dive straight into modeling RO problems with the default  oracle , and defer discussion of exactly what an oracle is (in the JuMPeR context) until later. You can think of them as a black box that JuMPeR asks how to solve a problem. They can reformulate constraints with uncertain parameters, and approximate them with cutting planes. The default oracle, called  GeneralOracle , takes polyhedral and ellipsoidal constraints on the uncertain parameters and will reformulate them using duality or generate cutting planes by solving LPs/SOCPs.", 
+            "title": "Basics of JuMPeR for RO problems"
+        }, 
+        {
+            "location": "/#robustmodel", 
+            "text": "It all starts with the  RobustModel , which is essentially the same as a JuMP  Model . Like a  Model , it also accepts a  solver  keyword argument. It can also take an additional  cutsolver  keyword argument, which the oracle can use for cutting planes.  ```{.julia execute=\"false\"}", 
+            "title": "RobustModel"
+        }, 
+        {
+            "location": "/#use-default-solver-for-the-problem-class", 
+            "text": "rm = RobustModel()", 
+            "title": "Use default solver for the problem class"
+        }, 
+        {
+            "location": "/#can-also-specify-the-solver", 
+            "text": "using Gurobi\nrm = RobustModel(solver=GurobiSolver())", 
+            "title": "Can also specify the solver"
+        }, 
+        {
+            "location": "/#thatd-produce-a-lot-of-output-when-using", 
+            "text": "", 
+            "title": "That'd produce a lot of output when using"
+        }, 
+        {
+            "location": "/#cutting-planes-so-we-can-set-a-solver-just-for-cuts", 
+            "text": "rm = RobustModel(   solver=GurobiSolver(MIPGap=0.01),\n                 cutsolver=GurobiSolver(OutputFlag=0))  a   id= Uncertain-Parameters-1 /a \n\n## Uncertain Parameters\n\n\nJuMPeR adds the `Uncertain` type to allow the user to model *uncertain parameters*. `Uncertain`s behave much like JuMP s `Variable`s - they have bounds and types, and can be combined with numbers, data, and inequalities to make expressions and constraints. They are defined with `@defUnc`:\n\n\n```{.julia execute= false }\nrm = RobustModel()\n# Can define single uncertain parameterss\n@defUnc(rm, u)\n# Can define indexed uncertain parameters too\n@defUnc(rm, v[4:10,-2:2])\n# They can have bounds too\n@defUnc(rm, 0  = w[i=1:10]  = i^2)\n# You can also have types: integer (Int) and binary (Bin)\n# Support for these will depend on the oracle. With the default\n# oracle, they will only work with cutting plane mode, as\n# reformulation is not possible in general for these types.\nidxset = [:Apple, :Banana, :Orange]\n@defUnc(rm, fruits[idxset], Bin)  There are some minor restrictions on  Uncertain  to be aware of:   You cannot currently have products of uncertain parameters, e.g.  u*u  is not allowed.  You cannot use uncertain parameters in the objective. If you have an uncertain objective, you should make an auxiliary variable to represent the objective and turn the objective into a contraint (e.g. an epigraph formulation):   :$   \\begin{alignat}{2} \\max_{\\mathbf{x} \\in X} \\min_{\\mathbf{c} \\in U} & \\quad \\mathbf{c} \\cdot \\mathbf{x} \\end{alignat}  :$  ```{.julia execute=\"false\"}\nrm = RobustModel()\n@defVar(rm, x[1:n])\n@defUnc(rm, c[1:n])", 
+            "title": "cutting planes, so we can set a solver just for cuts"
+        }, 
+        {
+            "location": "/#create-auxiliary-for-the-objective", 
+            "text": "@defVar(rm, t)", 
+            "title": "Create auxiliary for the objective"
+        }, 
+        {
+            "location": "/#epigraph-form", 
+            "text": "@setObjective(rm, Max, t)\n@addConstraint(rm, t  = sum{c[i]*x[i],i=1:n})", 
+            "title": "Epigraph form"
+        }, 
+        {
+            "location": "/#constraints-x-in-x", 
+            "text": "", 
+            "title": "... constraints x in X ..."
+        }, 
+        {
+            "location": "/#constraints-c-in-u", 
+            "text": "solve(rm)  a   id= Expressions-and-Constraints-1 /a \n\n## Expressions and Constraints\n\n\nIn JuMP we have only data and variables, with one type of expression and one type of constraint (mostly). In JuMPeR we have three types of expression, each with are corresponding type of constraint:\n\n\n1. Just data and variables (internally: `AffExpr`)\n2. Just data and uncertain parameters (internally: `UAffExpr`)\n3. Just data, uncertain parameters, and variables (internally: `FullAffExpr`)\n\n\nType 1 is just like in JuMP - these a deterministic constraints, and are JuMPeR doesn t do anything with them. JuMPeR treats Type 2 constraints as *uncertainty set constraints* - that is, they partially define the uncertainty set for this problem. They can be used by the oracles to perform reformulations or generate cutting planes. Type 3 constraints are uncertain constraints that must be feasible for all realizations of the uncertain parameters - these are what the oracles are dealing with to solve the problem. Here is an example of each, from the knapsack problem defined above:\n\n\n```{.julia execute= false }\nw = rand(n)\n\u03c3 = 0.2 * rand(n) .* w\n\nknap = RobustModel()\n@defVar(knap,      x[1:n], Bin)\n@defUnc(knap, 0  = z[1:n]  = 1)\n\n# Type 1 constraint: only on the variables\n#    must take at least one item \n@addConstraint(knap, sum{x[i], i=1:n}  = 1)\n\n# Type 2 constraint: only on the uncertain parameters\n#    only \u0393 parameters can be at their upper bound \n@addConstraint(knap, sum{z[i], i=1:n}  = \u0393)\n\n# Type 3 constraint: both variables and uncertain parameters\n#    the total uncertain weight of items is less than capacity \n@addConstraint(knap, sum{(w[i]+\u03c3[i]*z[i])*x[i], i=1:n}  = C)", 
+            "title": "... constraints c in U ..."
+        }, 
+        {
+            "location": "/#ellipsoidal-constraints", 
+            "text": "JuMP doesn't provide a convenient syntax to express \"ellipsoidal constraints\", i.e.  :$   \\begin{alignat}{2} \\| \\mathbf{x} \\|_2 & \\leq \\Gamma \\end{alignat}  :$  but ellipsoidal uncertainty sets are popular. We address this by providing  addEllipseConstraint . This function takes 3 arguments: a  RobustModel , a vector of  Uncertain s or affine expressions of them, and a  constant  right-hand-side that the norm of this vector should be less than. For example:  ```{.julia execute=\"false\"}", 
+            "title": "Ellipsoidal Constraints"
+        }, 
+        {
+            "location": "/#a-trivial-ellipse-5-v-7", 
+            "text": "@defUnc(m, v)\naddEllipseConstraint(m, [v], 2)", 
+            "title": "A trivial ellipse: 5 &lt;= v &lt;= 7"
+        }, 
+        {
+            "location": "/#an-sphere-centered-at-12345-with-a-radius", 
+            "text": "", 
+            "title": "An sphere centered at (1,2,3,4,5) with a radius"
+        }, 
+        {
+            "location": "/#of-1-in-each-dimension", 
+            "text": "@defUnc(m, u[1:5])\naddEllipseConstraint(m, [(u-i) for i in 1:5], 1)", 
+            "title": "of 1 in each dimension"
+        }, 
+        {
+            "location": "/#a-more-complicated-ellipse", 
+            "text": "@defUnc(m, w[1:5])\naddEllipseConstraint(m, [3.0 w[1]-5, 1.0 w[5]-5, 2.0*w[4]-5], 2)  a   id= Solving-1 /a \n\n## Solving\n\n\nBy default, JuMPeR will use duality to reformulate the uncertain problem into a deterministic robust counterpart. However there are a couple of options to customize the solve, not to mention any options you provide to the oracle (more on that later).\n\n\n  * You can signal that you want cuts with the `prefer_cuts` option.\n  * If the problem is unbounded before any cuts are added, you can automatically add upper and lower bounds to variables that don t have them already using `add_box`.\n  * You can get a summary report of how the model was solved and how long the different solve components took by setting the `report` option.\n\n\n```{.julia execute= false }\nsolve(rm)  # Will use default, which is reformulation\nsolve(rm, prefer_cuts=true)  # Use cuts if possible\nsolve(rm, report=true)       # Get some information about the\n                             # solution process at the end\nsolve(rm, add_box=1e3)       # Provide an upper and lower bound of\n                             # 1e3 (or whatever) for all variables\n                             # that don t otherwise have them.  Note that the solution methods available depends on the chosen oracle's capabilities. The default oracle supports both, but some uncertainty sets may only support one or the other.", 
+            "title": "A more complicated ellipse"
+        }, 
+        {
+            "location": "/#oracles", 
+            "text": "JuMPeR's design is focussed around  oracles . Oracles are responsible for taking RO problems, or parts of them, and transforming them into something solveable. That could be reformulating uncertain constraints into deterministic constraints, it could be generating cutting-planes, or something else entirely. Oracles are also intimately connected to uncertainty sets - for example, we can provide data to an oracle from which it can generate cutting-planes - an uncertainty set  never needs to explictly constructed. Finally oracles are interchangeable - you can obtain oracles from others or create your own to allow others to explore the performance of different sets and implementations.  In this section we will describe how to use oracles other than the default oracle, how to make an oracle, and some design considerations for oracles.", 
+            "title": "Oracles"
+        }, 
+        {
+            "location": "/#using-oracles", 
+            "text": "JuMPeR currently comes with three oracles:   GeneralOracle , the default oracle. It takes an explicit polyhedral/ellipsoidal representation of the uncertainty set and can generate a reformulation or use cutting-planes.  GeneralGraphOracle , a variation on  GeneralOracle . This oracle attempts to discover if the uncertain parameters actually belong to seperate, disjunct uncertainty sets. This allows it to generate smaller reformulations, and a seperator cut generator for each set if using cutting-planes.  BertSimOracle , implements the uncertainty set described in the 2004 paper  The Price of Robustness  by Bertsimas and Sim. Will generate cutting-planes efficiently using sorting instead of solving an LP. The  GeneralOracle  should be used if a reformulation is desired.   To set the oracle for all constraints, use the  setDefaultOracle!  command, e.g.  ```{.julia execute=false}\nn           = 3\nweight_low  = [1.0, 3.0, 2.0]\nweight_high = [3.0, 9.0, 6.0]\nvalues      = [5.0, 6.0, 4.0]", 
+            "title": "Using oracles"
+        }, 
+        {
+            "location": "/#create-the-model", 
+            "text": "m = RobustModel()", 
+            "title": "Create the model..."
+        }, 
+        {
+            "location": "/#and-set-all-constraints-to-use-the-bertsimas-sim-set", 
+            "text": "setDefaultOracle!(m, BertSimOracle(1))", 
+            "title": "... and set all constraints to use the Bertsimas-Sim set"
+        }, 
+        {
+            "location": "/#setup-our-problem", 
+            "text": "@defVar(m, x[1:n], Bin)\n@defUnc(m, weight_low[i]  = u[i=1:n]  = weight_high[i])\n@setObjective(m, Max, sum{values[i] * x[i], i=1:n})", 
+            "title": "Setup our problem"
+        }, 
+        {
+            "location": "/#notice-we-havent-provided-an-explicit-uncertainty-set", 
+            "text": "", 
+            "title": "Notice we haven't provided an explicit uncertainty set,"
+        }, 
+        {
+            "location": "/#apart-from-the-ranges-on-the-uncertain-values", 
+            "text": "", 
+            "title": "apart from the ranges on the uncertain values?"
+        }, 
+        {
+            "location": "/#the-bertsimoracle-looks-at-the-range-and-treats-the", 
+            "text": "", 
+            "title": "The BertSimOracle looks at the range, and treats the"
+        }, 
+        {
+            "location": "/#nominal-value-for-each-uncertain-parameter-as-the", 
+            "text": "", 
+            "title": "nominal value for each uncertain parameter as the"
+        }, 
+        {
+            "location": "/#midpoint-of-the-range-the-parameter-we-passed-is-the", 
+            "text": "", 
+            "title": "midpoint of the range. The parameter we passed is the"
+        }, 
+        {
+            "location": "/#number-of-uncertain-parameters-that-can-deviate-from", 
+            "text": "", 
+            "title": "number of uncertain parameters that can deviate from"
+        }, 
+        {
+            "location": "/#this-nominal-value-in-other-words", 
+            "text": "", 
+            "title": "this nominal value. In other words:"
+        }, 
+        {
+            "location": "/#u-41-u-63-u-42-1", 
+            "text": "", 
+            "title": "|u - 4|/1  +  |u - 6|/3  +  |u - 4|/2  &lt;=  1"
+        }, 
+        {
+            "location": "/#u-41-1", 
+            "text": "", 
+            "title": "|u - 4|/1  &lt;=  1"
+        }, 
+        {
+            "location": "/#u-63-1", 
+            "text": "", 
+            "title": "|u - 6|/3  &lt;=  1"
+        }, 
+        {
+            "location": "/#u-42-1", 
+            "text": "@addConstraint(m, sum{u[i]*x[i], i=1:n}  = 8)  solve(m, prefer_cuts=true)  a   id= Making-an-oracle-1 /a \n\n## Making an oracle\n\n\nTo make an oracle, we first need to understand what happens when you call `solve` on a `RobustModel`:\n\n\n1. A new JuMP `Model`, referred to as the *master*, is created with the same variables as the original `RobustModel` and with all the deterministic constraints.\n2. For each constraint, `registerConstraint` is called for the oracle associated with that constraint. Any constraints that don t have a oracle explicitly provided use the default.\n3. `setup` is called for each oracle, giving them time to do any general setup shared across constraints. For example, it may take the dual of the uncertainty set in order to more efficiently reformulate multiple constraints.\n4. Each oracle is then given a chance to reformulate its constraints (`generateReform`). It will return the number of constraints reformulated (which may be zero).\n5. Start solving  * If the problem is continuous, the master problem will be solved.  * If the problem has integer variables, the MIP solver will be started.\n6. Oracles get a chance to generate cutting-planes.  * If the problem is continuous, the cutting-planes are added to the master problem and the master problem is resolved. If no new constraints are added, we terminate the solve.  * If the problem has integer variables, the cutting-planes are added as lazy constraints only at integer solutions. The solve terminates when the MIP solver finds an optimal integer solution and no new constraints are added.\n\n\nWe can now specific how to make an oracle. An oracle should be a Julia type that is a subtype of `AbstractOracle`, i.e.\n\n\n```{.julia execute= false }\ntype MyNewOracle  :   JuMPeR.AbstractOracle \n     some_internal_state  end   The oracle must implement four methods, regardless of its functionality (defined in  src/oracle.jl )  ```{.julia execute=\"false\"}", 
+            "title": "|u - 4|/2  &lt;=  1"
+        }, 
+        {
+            "location": "/#registerconstraint", 
+            "text": "", 
+            "title": "registerConstraint"
+        }, 
+        {
+            "location": "/#notifies-the-oracle-that-it-is-responsible-for-this-constraint-and", 
+            "text": "", 
+            "title": "Notifies the oracle that it is responsible for this constraint, and"
+        }, 
+        {
+            "location": "/#passes-any-preferences-provided-via-the-solverobust-command", 
+            "text": "function registerConstraint(ab::AbstractOracle, rm::Model, ind::Int, prefs)", 
+            "title": "passes any preferences provided via the solveRobust() command."
+        }, 
+        {
+            "location": "/#setup", 
+            "text": "", 
+            "title": "setup"
+        }, 
+        {
+            "location": "/#gives-oracle-time-to-do-any-setup-it-needs-to-do-called-after-all", 
+            "text": "", 
+            "title": "Gives oracle time to do any setup it needs to do. Called after all"
+        }, 
+        {
+            "location": "/#constraints-have-been-registered-examples-of-work-that-could-be-done-here", 
+            "text": "", 
+            "title": "constraints have been registered. Examples of work that could be done here"
+        }, 
+        {
+            "location": "/#include-transforming-the-uncertainty-set-and-generating-a-cutting-plane", 
+            "text": "", 
+            "title": "include transforming the uncertainty set and generating a cutting plane"
+        }, 
+        {
+            "location": "/#model-will-not-be-called-multiple-times", 
+            "text": "function setup(ab::AbstractOracle, rm::Model, prefs)", 
+            "title": "model. Will NOT be called multiple times."
+        }, 
+        {
+            "location": "/#generatereform", 
+            "text": "", 
+            "title": "generateReform"
+        }, 
+        {
+            "location": "/#called-before-the-main-loop-adds-anything-it-wants-to-the-model-returns", 
+            "text": "", 
+            "title": "Called before the main loop, adds anything it wants to the model. Returns"
+        }, 
+        {
+            "location": "/#number-of-constraints-reformulated-if-reformulation-not-supported-or", 
+            "text": "", 
+            "title": "number of constraints reformulated. If reformulation not supported or"
+        }, 
+        {
+            "location": "/#desired-simply-return-0", 
+            "text": "function generateReform(ab::AbstractOracle, master::Model, rm::Model, inds::Vector{Int})", 
+            "title": "desired, simply return 0"
+        }, 
+        {
+            "location": "/#generatecut", 
+            "text": "", 
+            "title": "generateCut"
+        }, 
+        {
+            "location": "/#called-in-the-main-loop-every-iterationevery-time-an-integer-solution-is", 
+            "text": "", 
+            "title": "Called in the main loop every iteration/every time an integer solution is"
+        }, 
+        {
+            "location": "/#found-returns-a-vector-of-constraints-which-are-added-to-the-problem-by", 
+            "text": "", 
+            "title": "found. Returns a vector of constraints which are added to the problem by"
+        }, 
+        {
+            "location": "/#the-main-solve-loop-return-an-empty-list-if-there-are-no-constraints-to-add", 
+            "text": "", 
+            "title": "the main solve loop. Return an empty list if there are no constraints to add."
+        }, 
+        {
+            "location": "/#the-optional-active-argument-will-be-called-if-the-user-wants-to-know", 
+            "text": "", 
+            "title": "The optional \"active\" argument will be called if the user wants to know"
+        }, 
+        {
+            "location": "/#the-active-scenarios-at-optimality-this-is-still-experimental", 
+            "text": "generateCut(ab::AbstractOracle, master::Model, rm::Model, inds::Vector{Int}, active=false)\n```", 
+            "title": "the active scenarios at optimality. This is still experimental!"
+        }, 
+        {
+            "location": "/#oracle-design-advice", 
+            "text": "Stay tuned, watch this space, etc.  [Cbc]: http://github.com/JuliaOpt/Cbc.jl [Clp]: http://github.com/JuliaOpt/Clp.jl [CPLEX]: http://github.com/JuliaOpt/CPLEX.jl [ECOS]: http://github.com/JuliaOpt/ECOS.jl [GLPK]: http://github.com/JuliaOpt/GLPK.jl [Gurobi]: http://github.com/JuliaOpt/Gurobi.jl", 
+            "title": "Oracle design advice"
+        }
+    ]
+}
