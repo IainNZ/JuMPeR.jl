@@ -1,4 +1,4 @@
-![JuMPeR Logo](assets/logo.svg)
+![JuMPeR Logo](logo.svg)
 
 
 **[JuMPeR](https://github.com/IainNZ/JuMPeR.jl)** is a modeling language for robust optimization (RO) (see, e.g., ["The Price of Robustness"](http://www.mit.edu/~dbertsim/papers/Robust%20Optimization/The%20price%20of%20Robustness.pdf)). It is embedded in the [Julia programming language](http://julialang.org/), and is an extension to the [JuMP](https://github.com/JuliaOpt/JuMP.jl) modeling language. JuMPeR was created by [Iain Dunning](http://iaindunning.com). JuMPeR supports the following features:
