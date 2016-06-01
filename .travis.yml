@@ -15,7 +15,6 @@ addons:
 script:
     - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
     - julia -e 'Pkg.clone(pwd())'
-    - julia -e 'Pkg.checkout("JuMP")'
     - julia -e 'Pkg.update()'
     - julia -e 'Pkg.test("JuMPeR", coverage=true)'
 after_success:
