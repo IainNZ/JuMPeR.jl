@@ -32,7 +32,7 @@ of keyword arguments passed via the `solve(RobustModel)` function.
 """
 setup_set(us::AbstractUncertaintySet, rm::Model, idxs::Vector{Int},
             scens_requested::Bool, other_prefs) =
-    error("$(typeof(us)) has not implemented setup_set!")
+    error("$(typeof(us)) has not implemented setup_set")
 
 
 """
