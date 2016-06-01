@@ -9,7 +9,8 @@ It is embedded in the [Julia programming language], and is an extension to the [
   - Install with Julia package manager: `julia> Pkg.add("JuMPeR")`.
   - [Read the (limited) documentation to learn more](doc/index.md).
     - Help with documentation is appreciated!
-    - The source code is well-commented.
+    - The JuMPeR chapter from my thesis is [also available](doc/JuMPeRChapter.pdf).
+    - The source code is well-commented, if you'd like to understand more.
   - [Checkout the examples](examples/).
 
 #### JuMPeR v0.4
