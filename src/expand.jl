@@ -50,10 +50,10 @@ function expand_adaptive(rm::Model)
             for j in eachindex(deps)
                 # Construct a roughly sensible name for the auxiliary using
                 # the adaptive variable and uncertain parameter names
-                vname = utf8(string(adp_str(rm,i), "{", deps[j], "}"))
+                vname = string(adp_str(rm,i), "{", deps[j], "}")
                 aux_aff[j] = Variable(rm, -Inf, +Inf, :Cont, vname)
             end
-            vname = string(utf8(adp_str(rm,i)), utf8("{_}"))
+            vname = string(adp_str(rm,i), "{_}")
             aux_con = Variable(rm, -Inf, +Inf, :Cont, vname)
             # Build the policy
             aff_policy = UncExpr(1) * aux_con

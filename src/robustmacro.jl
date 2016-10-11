@@ -17,7 +17,7 @@
 
 import JuMP: assert_validmodel, validmodel, esc_nonconstant
 import JuMP: getloopedcode, buildrefsets
-import JuMP: storecontainerdata, isdependent, JuMPContainerData, pushmeta!
+import JuMP: storecontainerdata, isdependent, JuMPArray, JuMPContainerData, pushmeta!
 using Base.Meta
 
 storecontainerdata_unc(m::Model, variable, varname, idxsets, idxpairs, condition) =
@@ -113,6 +113,7 @@ macro uncertain(args...)
     # MODIFICATION: no column generation, no initial values
     quotvarname = quot(getname(var))
     escvarname  = esc(getname(var))
+    symvarname = Symbol(getname(var))
     for ex in kwargs
         kwarg = ex.args[1]
         if kwarg == :basename
@@ -170,7 +171,7 @@ macro uncertain(args...)
         # MODIFICATION: skip SDP check
         return assert_validmodel(m, quote
             # MODIFICATION: Variable to Uncertain, no start value
-            $(esc(var)) = Uncertain($m,$lb,$ub,$(quot(t)),utf8(string($quotvarname)))
+            $(esc(var)) = Uncertain($m,$lb,$ub,$(quot(t)),string($quotvarname))
             # MODIFICATION: No equivalent to registering variables
         end)
     end
@@ -188,19 +189,20 @@ macro uncertain(args...)
     # if symmetric
     #     ...
     # else
+
     # MODIFICATION: Variable to Uncertain
-    looped = getloopedcode(var, code, condition, idxvars, idxsets, idxpairs, :Uncertain)
+    looped = getloopedcode(getname(var), code, condition, idxvars, idxsets, idxpairs, :Uncertain)
     return assert_validmodel(m, quote
         $looped
         # MODIFICATION: use RMExt dictList instead of model dictList
-        push!(get_robust($(m)).dictList, $escvarname)
+        push!(get_robust($(m)).dictList, $symvarname)
         # MODIFICATION: No equivalent to registering variables
         # MODIFICATION: storecontainerdata -> storecontainerdata_unc
-        storecontainerdata_unc($m, $escvarname, $quotvarname,
+        storecontainerdata_unc($m, $symvarname, $quotvarname,
                            $(Expr(:tuple,map(clear_dependencies,1:length(idxsets))...)),
                            $idxpairs, $(quot(condition)))
-        isa($escvarname, JuMPContainer) && pushmeta!($escvarname, :model, $m)
-        $escvarname
+        isa($symvarname, JuMPContainer) && pushmeta!($symvarname, :model, $m)
+        $escvarname = $symvarname
     end)
 end
 
@@ -295,6 +297,7 @@ macro adaptive(args...)
     # MODIFICATION: no column generation, no initial values
     quotvarname = quot(getname(var))
     escvarname  = esc(getname(var))
+    symvarname = Symbol(getname(var))
     # MODIFICATION: adaptive-only things
     policy = :Static
     depends_on = Uncertain[]
@@ -359,7 +362,7 @@ macro adaptive(args...)
         # MODIFICATION: skip SDP check
         return assert_validmodel(m, quote
             # MODIFICATION: Variable to Adaptive, no start value, etc
-            $(esc(var)) = Adaptive($m,$lb,$ub,$(quot(t)),utf8(string($quotvarname)),
+            $(esc(var)) = Adaptive($m,$lb,$ub,$(quot(t)),string($quotvarname),
                                     $(quot(policy)), $(depends_on))
             # MODIFICATION: No equivalent to registering variables
         end)
@@ -380,11 +383,11 @@ macro adaptive(args...)
     #     ...
     # else
     # MODIFICATION: Variable to Adaptive
-    looped = getloopedcode(var, code, condition, idxvars, idxsets, idxpairs, :Adaptive)
+    looped = getloopedcode(getname(var), code, condition, idxvars, idxsets, idxpairs, :Adaptive)
     return assert_validmodel(m, quote
         $looped
         # MODIFICATION: no fancy name stuff
-        $escvarname
+        $escvarname = $symvarname
     end)
 end
 

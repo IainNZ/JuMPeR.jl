@@ -76,13 +76,13 @@ Fields:
 type RobustModelExt{S,T,U}
     # Uncertain parameters
     num_uncs::Int
-    unc_names::Vector{UTF8String}
+    unc_names::Vector{String}
     unc_lower::Vector{Float64}
     unc_upper::Vector{Float64}
     unc_cat::Vector{Symbol}
     # Adaptive variables
     num_adps::Int
-    adp_names::Vector{UTF8String}
+    adp_names::Vector{String}
     adp_lower::Vector{Float64}
     adp_upper::Vector{Float64}
     adp_cat::Vector{Symbol}
@@ -108,11 +108,11 @@ end
 RobustModelExt(cutsolver) =
     RobustModelExt{UncConstraint, AdaptConstraint, Scenario}(
     # Uncertain parameters
-    0, UTF8String[],            # num_uncs, unc_names
+    0, String[],            # num_uncs, unc_names
     Float64[], Float64[],       # unc_lower, unc_upper
     Symbol[],                   # unc_cat
     # Adaptive variables
-    0, UTF8String[],            # num_adps, adp_names
+    0, String[],            # num_adps, adp_names
     Float64[], Float64[],       # adp_lower, adp_upper
     Symbol[], Symbol[], Any[],  # adp_cat, adp_policy,adp_arguments
     # Constraints
@@ -176,6 +176,9 @@ function setuncertaintyset(m::Model, us::AbstractUncertaintySet)
     get_robust(m).default_uncset = us
     return us
 end
+
+# TODO: properly register uncset constraints
+JuMP.registercon(m::AbstractUncertaintySet, conname, value) = value
 
 
 # Uncertain, UncExpr, UncSetConstraint, UncSetNorm, UncSetNormConstraint
