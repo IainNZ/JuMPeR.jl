@@ -28,7 +28,7 @@ end
 function Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol, name::AbstractString)
     robdata = get_robust(m)::RobustModelExt
     robdata.num_uncs += 1
-    push!(robdata.unc_names, convert(UTF8String, name))
+    push!(robdata.unc_names, convert(String, name))
     push!(robdata.unc_lower, convert(Float64, lower))
     push!(robdata.unc_upper, convert(Float64, upper))
     push!(robdata.unc_cat, cat)

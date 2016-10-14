@@ -222,8 +222,6 @@ const ADP = "an adaptive variable"
 (-)(lhs::UncExpr, rhs::Variable) = UncVarExpr([rhs],[UncExpr(-1)],lhs)
 (*)(lhs::UncExpr, rhs::Variable) = (*)(rhs,lhs)
 (/)(lhs::UncExpr, rhs::Variable) = error("Cannot divide $UNE by a variable")
-# UncExpr--GenericNormExpr
-(/){P,C,V<:Uncertain}(lhs::UncExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot divide $UNE by $UNM")
 # UncExpr--AffExpr
 (+)(lhs::UncExpr, rhs::AffExpr) = (+)( rhs,lhs)
 (-)(lhs::UncExpr, rhs::AffExpr) = (+)(-rhs,lhs)
@@ -269,8 +267,6 @@ const ADP = "an adaptive variable"
 (-)(lhs::UncVarExpr, rhs::Variable) = UncVarExpr(vcat(lhs.vars,rhs),vcat(lhs.coeffs,UncExpr(-1)), lhs.constant)
 (*)(lhs::UncVarExpr, rhs::Variable) = error("Cannot multiply $UVE by a variable")
 (/)(lhs::UncVarExpr, rhs::Variable) = error("Cannot divide $UVE by a variable")
-# UncVarExpr--GenericNormExpr
-(/){P,C,V<:Uncertain}(lhs::UncVarExpr, rhs::GenericNormExpr{P,C,V}) = error("Cannot divide $UVE by $UNM")
 # UncVarExpr--AffExpr
 (+)(lhs::UncVarExpr, rhs::AffExpr) = (+)(rhs,lhs)
 (-)(lhs::UncVarExpr, rhs::AffExpr) = UncVarExpr(

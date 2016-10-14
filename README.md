@@ -11,7 +11,7 @@ It is embedded in the [Julia programming language], and is an extension to the [
     - Help with documentation is appreciated!
     - The JuMPeR chapter from my thesis is [also available](doc/JuMPeRChapter.pdf).
     - The source code is well-commented, if you'd like to understand more.
-  - [Checkout the examples](examples/).
+  - [Checkout the examples](example/).
 
 #### JuMPeR v0.4
 
