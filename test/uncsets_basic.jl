@@ -178,7 +178,6 @@ print_with_color(:yellow, "  LP tests...\n")
 
 end  # "LPs with ..."
 
-
 print_with_color(:yellow, "  MILP tests...\n")
 @testset "MILPs with $(solver_name(solver)), cuts=$cuts" for
                         solver in lazy_solvers, cuts in [true,false]
@@ -191,7 +190,7 @@ print_with_color(:yellow, "  MILP tests...\n")
         @objective(m, Max, 1.1*x[1] + x[2])
         @constraint(m, u1*x[1] + 1*x[2] <= 2)
         @constraint(m, u2*x[1] + 1*x[2] <= 6)
-        @test solve(m, prefer_cuts=cuts) == :Optimal
+        @test solve(m, disable_cuts=cuts) == :Optimal
         @test isapprox(getvalue(x[1]), 3.0, atol=TOL)
         @test isapprox(getvalue(x[2]), 0.0, atol=TOL)
     end

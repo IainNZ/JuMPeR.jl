@@ -45,15 +45,15 @@ print_with_color(:yellow, "BasicUncertaintySet L1 norm...\n")
         m = RobustModel(solver=solver)
         @variable(m, 0 <= x[i=1:5] <= 2*i)
         @uncertain(m, 0 <= u[i=1:5] <= i+4)
-        @objective(m, Max, sum{(6-i)*x[i], i=1:5})
-        !flip && @constraint(m,  sum{u[i]*x[i], i=1:5} <=  100)
-         flip && @constraint(m, -sum{u[i]*x[i], i=1:5} >= -100)
+        @objective(m, Max, sum((6-i)*x[i] for i=1:5))
+        !flip && @constraint(m,  sum(u[i]*x[i] for i=1:5) <=  100)
+         flip && @constraint(m, -sum(u[i]*x[i] for i=1:5) >= -100)
         a = Float64[3, 0, 0, 2, 1];
         c = Float64[5, 0, 0, 5, 5]
         I = [1, 5, 4]
         z = convert(Vector{JuMPeR.UncExpr}, a.*u-c)
         !macr && @constraint(m, norm(z, 1) <= 1)
-         macr && @constraint(m, norm1{a[i]*u[i]-c[i],i=I} <= 1)
+         macr && @constraint(m, norm((a[i]*u[i]-c[i] for i=I),1) <= 1)
         @test solve(m, suppress_warnings=true, prefer_cuts=cuts) == :Optimal
         # u = [5, 6, 7, 5, 6]  (2,3 are unrestricted)
         # x = [2, 4, 6, 8, ?]
@@ -78,7 +78,7 @@ print_with_color(:yellow, "BasicUncertaintySet L1 norm...\n")
         @constraint(m, u[1] == 5.0*z[1]            + 10.0)
         @constraint(m, u[2] == 3.0*z[1] - 2.0*z[2] +  3.0)
         !macr && @constraint(m, norm(z,1) <= 1)
-         macr && @constraint(m, norm1{z[i],i=1:2} <= 1)
+         macr && @constraint(m, norm((z[i] for i=1:2),1) <= 1)
         @test solve(m, suppress_warnings=true, prefer_cuts=cuts) == :Optimal
         @test isapprox(getvalue(x[1]), 1.0, atol=TOL)
         @test isapprox(getvalue(x[2]), 0.0, atol=TOL)

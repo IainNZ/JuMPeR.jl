@@ -45,12 +45,12 @@ print_with_color(:yellow, "BasicUncertaintySet L2 norm...\n")
         m = RobustModel(solver=solver)
         @variable(m, 0 <= x[i=1:5] <= 2*i)
         @uncertain(m, 0 <= u[i=1:5] <= i+4)
-        @objective(m, Max, sum{(6-i)*x[i], i=1:5})
-        !flip && @constraint(m,  sum{u[i]*x[i], i=1:5} <=  100)
-         flip && @constraint(m, -sum{u[i]*x[i], i=1:5} >= -100)
+        @objective(m, Max, sum((6-i)*x[i] for i=1:5))
+        !flip && @constraint(m,  sum(u[i]*x[i] for i=1:5) <=  100)
+         flip && @constraint(m, -sum(u[i]*x[i] for i=1:5) >= -100)
         a = [3, 0, 0, 2, 1];
         I = [1, 5, 4]
-        @constraint(m, norm2{a[i]*u[i]-5,i=I} <= 1)
+        @constraint(m, norm(a[i]*u[i]-5 for i=I) <= 1)
         @test solve(m, suppress_warnings=true, prefer_cuts=cuts) == :Optimal
         @test isapprox(getvalue(x[1]), 2.0, atol=TOL)
         @test isapprox(getvalue(x[2]), 4.0, atol=TOL)

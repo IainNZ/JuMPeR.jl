@@ -11,7 +11,7 @@
 # Test UncertainySet interface & tools.
 #-----------------------------------------------------------------------
 
-using JuMP, JuMPeR
+using JuMP, JuMPeR, GLPKMathProgInterface
 using BaseTestNext
 
 if !(:lp_solvers in names(Main))
@@ -25,10 +25,10 @@ print_with_color(:yellow, "UncertainySet...\n")
 
 @testset "Check interface throws" begin
     eval(:(type IncompleteSet <: JuMPeR.AbstractUncertaintySet end))  # In global scope
-    @test_throws ErrorException JuMPeR.setup_set(IncompleteSet(), RobustModel(), Int[], false, nothing)
-    @test_throws ErrorException JuMPeR.generate_reform(IncompleteSet(), RobustModel(), Int[])
-    @test_throws ErrorException JuMPeR.generate_cut(IncompleteSet(), RobustModel(), Int[])
-    @test_throws ErrorException JuMPeR.generate_scenario(IncompleteSet(), RobustModel(), Int[])
+    @test_throws ErrorException JuMPeR.setup_set(IncompleteSet(), RobustModel(solver=GLPKSolverLP()), Int[], false, nothing)
+    @test_throws ErrorException JuMPeR.generate_reform(IncompleteSet(), RobustModel(solver=GLPKSolverLP()), Int[])
+    @test_throws ErrorException JuMPeR.generate_cut(IncompleteSet(), RobustModel(solver=GLPKSolverLP()), Int[])
+    @test_throws ErrorException JuMPeR.generate_scenario(IncompleteSet(), RobustModel(solver=GLPKSolverLP()), Int[])
 end
 
 # build_cut_objective
@@ -36,7 +36,7 @@ end
 # build_certain_constraint
 # is_constraint_violated
 @testset "Utilities" begin
-    rm = RobustModel()
+    rm = RobustModel(solver=GLPKSolverLP())
     @variable(rm, x[1:4] >= 0)
     @uncertain(rm, u[1:5])
     @constraint(rm,  (3*u[1] + 2.0) * x[1] +   # u1: 3*x1 = 3*2 = 6, c: 2*x1 = 2*2 =4
