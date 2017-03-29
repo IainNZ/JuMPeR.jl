@@ -43,7 +43,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool,
     # 2. Setup for uncertainty sets
     #-------------------------------------------------------------------
     # Prepare to pass through preferences to a sets
-    prefs = Dict{Symbol,Any}([name => value for (name,value) in kwargs])
+    prefs = Dict{Symbol,Any}(name => value for (name,value) in kwargs)
     # Build mapping from uncertainty sets to constraints
     uncsets_to_con_idxs = Dict{AbstractUncertaintySet,Vector{Int}}()
     for idx in 1:length(rmext.constraint_uncsets)
