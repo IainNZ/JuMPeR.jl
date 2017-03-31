@@ -63,7 +63,7 @@ print_with_color(:yellow, "Adaptive Inventory Model...\n")
     end
 
     @testset "Affine, manual" begin
-        rm = RobustModel(solver=GLPKSolverLP())
+        rm = RobustModel(solver=solver)
         # Uncertain parameter: demand at each time stage
         @uncertain(rm, d_nom[t]*(1-θ) <= d[t=1:T] <= d_nom[t]*(1+θ))
         # Decision: how much to produce at each factory at each time
@@ -83,7 +83,7 @@ print_with_color(:yellow, "Adaptive Inventory Model...\n")
     end
 
     @testset "Affine, auto" begin
-        rm = RobustModel(solver=GLPKSolverLP())
+        rm = RobustModel(solver=solver)
         # Uncertain parameter: demand at each time stage
         @uncertain(rm, d_nom[t]*(1-θ) <= d[t=1:T] <= d_nom[t]*(1+θ))
         # Decision: how much to produce at each factory at each time
