@@ -20,7 +20,7 @@
 #     D ∈ { ‖(D - μ)/σ‖₁ ≤ ⌊√N⌋, ‖(D - μ)/σ‖∞ ≤ 1 }
 #-----------------------------------------------------------------------
 
-using JuMP, JuMPeR, GLPKMathProgInterface
+using JuMP, JuMPeR
 using BaseTestNext
 
 const TOL = 1e-4
@@ -56,7 +56,7 @@ print_with_color(:yellow, "Adaptive Newsvendor Model...\n")
     end
 
     @testset "Static, manual" begin
-        m = RobustModel(solver=GLPKSolverLP())
+        m = RobustModel(solver=solver)
         D = add_set(m)
         @variable(m, x >= 0)
         @variable(m, S[1:N] >= 0)
@@ -70,7 +70,7 @@ print_with_color(:yellow, "Adaptive Newsvendor Model...\n")
     end  # "Static, manual"
 
     @testset "Static, auto" begin
-        m = RobustModel(solver=GLPKSolverLP())
+        m = RobustModel(solver=solver)
         D = add_set(m)
         @variable(m, x >= 0)
         @adaptive(m, S[1:N] >= 0, policy=Static, depends_on=D)
@@ -84,7 +84,7 @@ print_with_color(:yellow, "Adaptive Newsvendor Model...\n")
     end  # "Static, auto"
 
     @testset "Affine, manual" begin
-        m = RobustModel(solver=GLPKSolverLP())
+        m = RobustModel(solver=solver)
         D = add_set(m)
         @variable(m, x >= 0)
         @variable(m, S_aff[1:N,0:N])
@@ -105,7 +105,7 @@ print_with_color(:yellow, "Adaptive Newsvendor Model...\n")
     end
 
     @testset "Affine, auto" begin
-        m = RobustModel(solver=GLPKSolverLP())
+        m = RobustModel(solver=solver)
         D = add_set(m)
         @variable(m, x >= 0)
         @adaptive(m, S[1:N] >= 0, policy=Affine, depends_on=D)
