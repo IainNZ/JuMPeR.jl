@@ -13,10 +13,10 @@
 #   "Adjustable Robust Solutions of Uncertain Linear Programs"
 #-----------------------------------------------------------------------
 
-using JuMP, JuMPeR, GLPKMathProgInterface
+using JuMP, JuMPeR
 using BaseTestNext
 
-const TOL = 1e-4
+const TOL = 5e-3
 
 if !(:lp_solvers in names(Main))
     print_with_color(:magenta, "Loading solvers...\n")
