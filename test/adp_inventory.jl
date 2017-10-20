@@ -16,7 +16,7 @@
 using JuMP, JuMPeR
 using BaseTestNext
 
-const TOL = 1e-4
+const TOL = 5e-3
 
 if !(:lp_solvers in names(Main))
     print_with_color(:magenta, "Loading solvers...\n")
@@ -51,19 +51,19 @@ print_with_color(:yellow, "Adaptive Inventory Model...\n")
             @constraint(rm, p[i,t] <= P)
         end
         for i in 1:I
-            @constraint(rm, sum{p[i,t], t=1:T} <= Q)
+            @constraint(rm, sum(p[i,t] for t=1:T) <= Q)
         end
         # Constraint: cannot exceed inventory limits
         for t in 1:T
             @constraint(rm,
-                v1 + sum{p[i,s], i=1:I, s=1:t} - sum{d[s],s=1:t} >= Vmin)
+                v1 + sum(p[i,s] for i=1:I, s=1:t) - sum(d[s] for s=1:t) >= Vmin)
             @constraint(rm,
-                v1 + sum{p[i,s], i=1:I, s=1:t} - sum{d[s],s=1:t} <= Vmax)
+                v1 + sum(p[i,s] for i=1:I, s=1:t) - sum(d[s] for s=1:t) <= Vmax)
         end
     end
 
     @testset "Affine, manual" begin
-        rm = RobustModel()
+        rm = RobustModel(solver=solver)
         # Uncertain parameter: demand at each time stage
         @uncertain(rm, d_nom[t]*(1-θ) <= d[t=1:T] <= d_nom[t]*(1+θ))
         # Decision: how much to produce at each factory at each time
@@ -76,21 +76,21 @@ print_with_color(:yellow, "Adaptive Inventory Model...\n")
         end
         # Objective: total cost of production
         @variable(rm, F); @objective(rm, Min, F)
-        @constraint(rm, sum{c[i,t] * p[i,t], i=1:I, t=1:T} <= F)
+        @constraint(rm, sum(c[i,t] * p[i,t] for i=1:I, t=1:T) <= F)
         add_constraints(rm, p, d)
         solve(rm)
         @test isapprox(getvalue(F), 44272.82749, atol=TOL)
     end
 
     @testset "Affine, auto" begin
-        rm = RobustModel()
+        rm = RobustModel(solver=solver)
         # Uncertain parameter: demand at each time stage
         @uncertain(rm, d_nom[t]*(1-θ) <= d[t=1:T] <= d_nom[t]*(1+θ))
         # Decision: how much to produce at each factory at each time
         @adaptive(rm, p[i=1:I,t=1:T], policy=Affine, depends_on=d[1:t-1])
         # Objective: total cost of production
         @variable(rm, F); @objective(rm, Min, F)
-        @constraint(rm, sum{c[i,t] * p[i,t], i=1:I, t=1:T} <= F)
+        @constraint(rm, sum(c[i,t] * p[i,t] for i=1:I, t=1:T) <= F)
         add_constraints(rm, p, d)
         solve(rm)
         @test isapprox(getvalue(F), 44272.82749, atol=TOL)

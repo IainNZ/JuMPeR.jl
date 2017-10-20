@@ -103,7 +103,7 @@ function get_worst_case_value(us::BasicUncertaintySet, rm::Model, idx::Int)
     con = rmext.unc_constraints[idx]
     # Update the cutting plane problem's objective, and solve
     cut_sense, unc_obj_coeffs, lhs_const = JuMPeR.build_cut_objective_sparse(rm, con)
-    @objective(us.cut_model, cut_sense, sum{u[2]*us.cut_vars[u[1]], u=unc_obj_coeffs})
+    @objective(us.cut_model, cut_sense, sum(u[2]*us.cut_vars[u[1]] for u=unc_obj_coeffs))
     cut_solve_status = solve(us.cut_model, suppress_warnings=true)
     cut_solve_status != :Optimal &&
         error("BasicUncertaintySet: cutting plane problem is infeasible or unbounded!")

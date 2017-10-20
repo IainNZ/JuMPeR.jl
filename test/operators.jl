@@ -522,60 +522,60 @@ rm = RobustModel()
 us = JuMPeR.get_robust(rm).default_uncset
 nc = us.norm_constraints
 @uncertain(rm, u[1:3])
-@constraint(us, norm1{u[i],i=1:3} <= 1)
+@constraint(us, norm((u[i] for i=1:3),1) <= 1)
 @test string(nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 1"
-@constraint(us, norm2{u[i],i=1:3} <= 2)
+@constraint(us, norm(u[i] for i=1:3) <= 2)
 @test string(nc[end]) == "‖u[1],u[2],u[3]‖₂ $leq 2"
-@constraint(us, norm∞{u[i],i=1:3} <= 9)
+@constraint(us, norm((u[i] for i=1:3),Inf) <= 9)
 @test string(nc[end]) == "‖u[1],u[2],u[3]‖∞ $leq 9"
 
-@constraint(us, 2*norm1{u[i],i=1:3} <= 1)
+@constraint(us, 2*norm((u[i] for i=1:3),1) <= 1)
 @test string(nc[end]) == "2‖u[1],u[2],u[3]‖₁ $leq 1"
-@constraint(us, -1*norm1{u[i],i=1:3} >= -1)
+@constraint(us, -1*norm((u[i] for i=1:3),1) >= -1)
 @test string(nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 1"
 
-@constraint(us, 1 + norm1{u[i],i=1:3} <= 1)
+@constraint(us, 1 + norm((u[i] for i=1:3),1) <= 1)
 @test string(nc[end]) == "‖u[1],u[2],u[3]‖₁ $leq 0"
 
 @variable(rm, x)
 
-@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} + u[1] <= 1)
-@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} - u[1] <= 1)
-@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} * u[1] <= 1)
-@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} / u[1] <= 1)
+@test_throws ErrorException @constraint(us, norm((u[i] for i=1:3),1) + u[1] <= 1)
+@test_throws ErrorException @constraint(us, norm((u[i] for i=1:3),1) - u[1] <= 1)
+@test_throws ErrorException @constraint(us, norm((u[i] for i=1:3),1) * u[1] <= 1)
+@test_throws ErrorException @constraint(us, norm((u[i] for i=1:3),1) / u[1] <= 1)
 
-@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} + (2*u[1]) <= 1)
-@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} - (2*u[1]) <= 1)
-@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} * (2*u[1]) <= 1)
-@test_throws MethodError    @constraint(us, norm1{u[i],i=1:3} / (2*u[1]) <= 1)
+@test_throws ErrorException @constraint(us, norm((u[i] for i=1:3),1) + (2*u[1]) <= 1)
+@test_throws ErrorException @constraint(us, norm((u[i] for i=1:3),1) - (2*u[1]) <= 1)
+@test_throws ErrorException @constraint(us, norm((u[i] for i=1:3),1) * (2*u[1]) <= 1)
+@test_throws MethodError    @constraint(us, norm((u[i] for i=1:3),1) / (2*u[1]) <= 1)
 # MethodError: `/` has no method matching /(::Int64, ::JuMP.GenericAffExpr{Float64,JuMPeR.Uncertain})
 
-@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} + (2*u[1]*x+u[2]) <= 1)
-@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} - (2*u[1]*x+u[2]) <= 1)
-@test_throws ErrorException @constraint(us, norm1{u[i],i=1:3} * (2*u[1]*x+u[2]) <= 1)
-@test_throws MethodError    @constraint(us, norm1{u[i],i=1:3} / (2*u[1]*x+u[2]) <= 1)
+@test_throws ErrorException @constraint(us, norm((u[i] for i=1:3),1) + (2*u[1]*x+u[2]) <= 1)
+@test_throws ErrorException @constraint(us, norm((u[i] for i=1:3),1) - (2*u[1]*x+u[2]) <= 1)
+@test_throws ErrorException @constraint(us, norm((u[i] for i=1:3),1) * (2*u[1]*x+u[2]) <= 1)
+@test_throws MethodError    @constraint(us, norm((u[i] for i=1:3),1) / (2*u[1]*x+u[2]) <= 1)
 
-@test_throws ErrorException @constraint(us, x + norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @constraint(us, x - norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @constraint(us, (2x) + norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @constraint(us, (2x) - norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, x + norm((u[i] for i=1:3),1) <= 1)
+@test_throws ErrorException @constraint(us, x - norm((u[i] for i=1:3),1) <= 1)
+@test_throws ErrorException @constraint(us, (2x) + norm((u[i] for i=1:3),1) <= 1)
+@test_throws ErrorException @constraint(us, (2x) - norm((u[i] for i=1:3),1) <= 1)
 
-@test_throws ErrorException @constraint(us, (u[1]) + norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @constraint(us, (u[1]) - norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @constraint(us, (u[1]) * norm1{u[i],i=1:3} <= 1)
-# @constraint(us, (u[1]) / norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (u[1]) + norm((u[i] for i=1:3),1) <= 1)
+@test_throws ErrorException @constraint(us, (u[1]) - norm((u[i] for i=1:3),1) <= 1)
+@test_throws ErrorException @constraint(us, (u[1]) * norm((u[i] for i=1:3),1) <= 1)
+# @constraint(us, (u[1]) / norm((u[i] for i=1:3),1) <= 1)
 # UndefVarError: i not defined
 
-@test_throws ErrorException @constraint(us, (2*u[1]) + norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @constraint(us, (2*u[1]) - norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @constraint(us, (2*u[1]) * norm1{u[i],i=1:3} <= 1)
-# @constraint(us, (2*u[1]) / norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (2*u[1]) + norm((u[i] for i=1:3),1) <= 1)
+@test_throws ErrorException @constraint(us, (2*u[1]) - norm((u[i] for i=1:3),1) <= 1)
+@test_throws ErrorException @constraint(us, (2*u[1]) * norm((u[i] for i=1:3),1) <= 1)
+# @constraint(us, (2*u[1]) / norm((u[i] for i=1:3),1) <= 1)
 # UndefVarError: i not defined
 
-@test_throws ErrorException @constraint(us, (2*u[1]*x+u[2]) + norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @constraint(us, (2*u[1]*x+u[2]) - norm1{u[i],i=1:3} <= 1)
-@test_throws ErrorException @constraint(us, (2*u[1]*x+u[2]) * norm1{u[i],i=1:3} <= 1)
-# @constraint(us, (2*u[1]*x+u[2]) / norm1{u[i],i=1:3} <= 1)
+@test_throws ErrorException @constraint(us, (2*u[1]*x+u[2]) + norm((u[i] for i=1:3),1) <= 1)
+@test_throws ErrorException @constraint(us, (2*u[1]*x+u[2]) - norm((u[i] for i=1:3),1) <= 1)
+@test_throws ErrorException @constraint(us, (2*u[1]*x+u[2]) * norm((u[i] for i=1:3),1) <= 1)
+# @constraint(us, (2*u[1]*x+u[2]) / norm((u[i] for i=1:3),1) <= 1)
 # UndefVarError: i not defined
 
 end  # "Unc. set norms"

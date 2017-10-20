@@ -178,7 +178,6 @@ print_with_color(:yellow, "  LP tests...\n")
 
 end  # "LPs with ..."
 
-
 print_with_color(:yellow, "  MILP tests...\n")
 @testset "MILPs with $(solver_name(solver)), cuts=$cuts" for
                         solver in lazy_solvers, cuts in [true,false]
