@@ -12,7 +12,7 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Base.Test
 
 const TOL = 1e-4
 

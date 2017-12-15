@@ -12,7 +12,7 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Base.Test
 import JuMP: repl
 
 # Helper function to test IO methods work correctly

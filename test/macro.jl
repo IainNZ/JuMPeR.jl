@@ -12,7 +12,7 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Base.Test
 
 lastuc(rm) = string(JuMPeR.get_robust(rm).unc_constraints[end])
 lastus(rm) = string(JuMPeR.get_robust(rm).default_uncset.linear_constraints[end])

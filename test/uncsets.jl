@@ -12,7 +12,7 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Base.Test
 
 if !(:lp_solvers in names(Main))
     print_with_color(:magenta, "Loading solvers...\n")

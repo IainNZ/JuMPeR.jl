@@ -12,7 +12,7 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Base.Test
 
 # Use JuMP's testing code to load available solvers
 # and provide vectors of solvers by capability

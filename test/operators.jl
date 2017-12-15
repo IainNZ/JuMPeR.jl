@@ -12,7 +12,7 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Base.Test
 import JuMP: REPLMode, IJuliaMode
 
 # To ensure the tests work on both Windows and Linux/OSX, we need
