@@ -224,7 +224,7 @@ function cont_str(mode, j::Union{JuMPContainer{Uncertain},Array{Uncertain}},
         end
     end
     num_dims = length(data.indexsets)
-    idxvars = Array(String, num_dims)
+    idxvars = Array{String}(num_dims)
     dimidx = 1
     for i in 1:num_dims
         if data.indexexprs[i].idxvar == nothing
@@ -326,7 +326,7 @@ function aff_str(mode, a::UncExpr, show_constant=true)
     end
 
     elm = 1
-    term_str = Array(String, 2*length(a.vars))
+    term_str = Array{String}(2 * length(a.vars))
     # For each non-zero for this model
     for i in 1:indvec.nnz
         idx = indvec.nzidx[i]
@@ -380,7 +380,7 @@ function aff_str(mode, a::UncVarExpr, show_constant=true)
     rmext = get_robust(m)
 
     # Don't collect like terms
-    term_str = Array(String, length(a.vars))
+    term_str = Array{String}(length(a.vars))
     numTerms = 0
     first = true
     for i in 1:length(a.vars)
@@ -511,7 +511,7 @@ function aff_str(mode, a::AdaptExpr, show_constant=true)
     end
 
     elm = 1
-    term_str = Array(String, 2*length(a.vars))
+    term_str = Array{String}(2 * length(a.vars))
     # For each non-zero
     for i in 1:indvec_var.nnz
         idx = indvec_var.nzidx[i]
