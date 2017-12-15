@@ -105,7 +105,7 @@ function get_worst_case_value(us::BudgetUncertaintySet, rm::Model, idx::Int)
     # We now scale the x values by the deviations, and take the absolute
     # values - if σᵢ xᵢ is negative, we want to set ξᵢ=μᵢ-σᵢ, and if it
     # is positive, the opposite.
-    scaled_vals = abs(unc_x_vals) .* us.σ
+    scaled_vals = abs.(unc_x_vals) .* us.σ
     # We don't need to sort the list, just the permutation vector
     # of indices as if we had sorted. We then take the top Γ indices.
     max_inds = sortperm(scaled_vals)[(end - us.Γ + 1):end]
