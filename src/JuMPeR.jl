@@ -34,7 +34,7 @@ export RobustModel, @uncertain, @adaptive,
 All uncertainty sets implement the interface defined by AbstractUncertaintySet.
 Parent type is JuMP.AbstractModel, to enable JuMP's `@constraint`, etc.
 """
-abstract AbstractUncertaintySet <: JuMP.AbstractModel
+abstract type AbstractUncertaintySet <: JuMP.AbstractModel end
 
 
 """
@@ -194,7 +194,7 @@ include("adaptive.jl")
 
 `∑ⱼ (∑ᵢ aᵢⱼ uᵢ) xⱼ`  --  affine expression of unc. parameters and variables.
 """
-typealias UncVarExpr JuMP.GenericAffExpr{UncExpr,JuMPeRVar}
+const UncVarExpr = JuMP.GenericAffExpr{UncExpr,JuMPeRVar}
 UncVarExpr() = zero(UncVarExpr)
 Base.convert(::Type{UncVarExpr}, c::Number) =
     UncVarExpr(JuMPeRVar[], UncExpr[], UncExpr(c))
@@ -215,7 +215,7 @@ end
 
 A constraint with uncertain parameters and variables (i.e., `UncVarExpr`).
 """
-typealias UncConstraint JuMP.GenericRangeConstraint{UncVarExpr}
+const UncConstraint = JuMP.GenericRangeConstraint{UncVarExpr}
 function JuMP.addconstraint(m::Model, c::UncConstraint; uncset=nothing)
     # Handle the odd special case where there are actually no variables in
     # the constraint - arises from use of macros
