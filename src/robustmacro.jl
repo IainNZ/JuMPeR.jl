@@ -290,6 +290,9 @@ macro adaptive(args...)
     end
 
     # separate out keyword arguments
+    println("================")
+    show_sexpr(extra)
+    println("================")
     kwargs = filter(ex->isexpr(ex,:kw), extra)
     extra = filter(ex->!isexpr(ex,:kw), extra)
 
