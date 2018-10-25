@@ -208,25 +208,32 @@ end
 
 
 macro adaptive(args...)
-    # Synchronized to JuMP's @variable at commit:
-    # 6d888fe625138074c71322e2ebdf9cf14ed3444c (April 27 2016)
+    # Synchronized to JuMP's @variable (src/macros.jl) at commit:
+    # e98494ac10f707811749f8c18d73e5dabf9a288e (August 14 2018)
     # MODIFICATION: error message
     length(args) <= 1 &&
         error("in @adaptive: expected model as first argument, then variable information.")
     m = esc(args[1])
     x = args[2]
-    extra = vcat(args[3:end]...)
 
-    t = :Cont
+    # MODIFICATION: extra arguments start at position 3
+    extra = vcat(args[3:end]...)
+    # separate out keyword arguments
+    kwsymbol = :(=)
+    kwargs = filter(ex->isexpr(ex,kwsymbol), extra)
+    extra = filter(ex->!isexpr(ex,kwsymbol), extra)
+
+    # MODIFICATION: no anonymous case (i.e. anon_singleton is always false)
+
+    t = quot(:Default)
     gottype = false
     haslb = false
     hasub = false
     # Identify the variable bounds. Five (legal) possibilities are "x >= lb",
     # "x <= ub", "lb <= x <= ub", "x == val", or just plain "x"
-    if VERSION < v"0.5.0-dev+3231"
-        x = JuMP.comparison_to_call(x)
-    end
+    explicit_comparison = false
     if isexpr(x,:comparison) # two-sided
+        explicit_comparison = true
         haslb = true
         hasub = true
         if x.args[2] == :>= || x.args[2] == :≥
@@ -239,7 +246,6 @@ macro adaptive(args...)
         elseif x.args[2] == :<= || x.args[2] == :≤
             # lb <= x <= u
             var = x.args[3]
-            # MODIFICATION: error message
             (x.args[4] != :<= && x.args[4] != :≤) &&
                 error("in @adaptive ($var): expected <= operator after adaptive variable name.")
             lb = esc_nonconstant(x.args[1])
@@ -249,6 +255,7 @@ macro adaptive(args...)
             error("in @adaptive ($(string(x))): use the form lb <= ... <= ub.")
         end
     elseif isexpr(x,:call)
+        explicit_comparison = true
         if x.args[1] == :>= || x.args[1] == :≥
             # x >= lb
             var = x.args[2]
@@ -277,7 +284,7 @@ macro adaptive(args...)
             # MODIFICATION: no :Fixed type for uncertain parameters
             t = :Cont
         else
-            # Its a comparsion, but not using <= ... <=
+            # It's a comparsion, but not using <= ... <=
             # MODIFICATION: error message
             error("in @adaptive: unexpected syntax $(string(x)).")
         end
@@ -289,23 +296,23 @@ macro adaptive(args...)
         ub = Inf
     end
 
-    # separate out keyword arguments
-    println("================")
-    show_sexpr(extra)
-    println("================")
-    kwargs = filter(ex->isexpr(ex,:kw), extra)
-    extra = filter(ex->!isexpr(ex,:kw), extra)
+    # MODIFICATION: no anonymous variables
+    quotvarname = quot(getname(var))
+    escvarname  = esc(getname(var))   #### TODO: STILL USED?
+    symvarname = Symbol(getname(var))   #### TODO: STILL USED?
 
     # process keyword arguments
-    # MODIFICATION: no column generation, no initial values
-    quotvarname = quot(getname(var))
-    escvarname  = esc(getname(var))
-    symvarname = Symbol(getname(var))
+    value = NaN
+    obj = nothing
+    inconstraints = nothing
+    coefficients = nothing
+    extra_kwargs = []
     # MODIFICATION: adaptive-only things
     policy = :Static
     depends_on = Uncertain[]
     for ex in kwargs
         kwarg = ex.args[1]
+        # MODIFICATION: no column-wise modelling, no start value. 
         if kwarg == :basename
             quotvarname = esc(ex.args[2])
         elseif kwarg == :lowerbound
@@ -318,43 +325,20 @@ macro adaptive(args...)
             hasub && error("Cannot specify adaptive variable upperbound twice")
             ub = esc_nonconstant(ex.args[2])
             hasub = true
-        elseif kwarg == :policy
-            policy = ex.args[2]
-        elseif kwarg == :depends_on
-            depends_on = esc(ex.args[2])
+        elseif kwarg == :category
+            (t == quot(:Fixed)) && _error("Unexpected extra arguments when declaring a fixed variable")
+            t = esc_nonconstant(ex.args[2])
+            gottype = true
         else
-            # MODIFICATION: error message
-            error("in @adaptive ($var): Unrecognized keyword argument $kwarg")
+            push!(extra_kwargs, ex)
         end
     end
 
     sdp = any(t -> (t == :SDP), extra)
     symmetric = (sdp || any(t -> (t == :Symmetric), extra))
-    extra = filter(x -> (x != :SDP && x != :Symmetric), extra) # filter out SDP and sym tag
     # MODIFICATION: no SDP
     if sdp || symmetric
         error("in @adaptive ($var): SDP and Symmetric not supported.")
-    end
-
-    # Determine variable type (if present).
-    # Types: default is continuous (reals)
-    if length(extra) > 0
-        # MODIFICATION: no fixed
-        if extra[1] in [:Bin, :Int, :SemiCont, :SemiInt]
-            gottype = true
-            t = extra[1]
-        end
-
-        if t == :Bin
-            if (lb != -Inf || ub != Inf) && !(lb == 0.0 && ub == 1.0)
-            error("in @adaptive ($var): bounds other than [0, 1] may not be specified for binary adaptive variables.\nThese are always taken to have a lower bound of 0 and upper bound of 1.")
-            else
-                lb = 0.0
-                ub = 1.0
-            end
-        end
-        # MODIFICATION: error message
-        !gottype && error("in @adaptive ($var): syntax error")
     end
 
     # Handle the column generation functionality
@@ -362,36 +346,225 @@ macro adaptive(args...)
 
     if isa(var,Symbol)
         # Easy case - a single variable
-        # MODIFICATION: skip SDP check
-        return assert_validmodel(m, quote
-            # MODIFICATION: Variable to Adaptive, no start value, etc
+        # MODIFICATION: skip SDP check, no anonymous variables
+        # MODIFICATION: Variable to Adaptive, no start value, etc. 
+        macro_code = quote
             $(esc(var)) = Adaptive($m,$lb,$ub,$(quot(t)),string($quotvarname),
                                     $(quot(policy)), $(depends_on))
             # MODIFICATION: No equivalent to registering variables
-        end)
+        end
+        return assert_validmodel(m, macro_code)
     end
     # MODIFICATION: error message
-    isa(var,Expr) || error("in @adaptive: expected $var to be an adaptive variable name")
+    isa(var, Expr) || error("in @adaptive: expected $var to be an adaptive variable name")
 
     # We now build the code to generate the variables (and possibly the JuMPDict
     # to contain them)
-    refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(var)
-    clear_dependencies(i) = (isdependent(idxvars,idxsets[i],i) ? nothing : idxsets[i])
+    refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(var, variable)
+    clear_dependencies(i) = (isdependent(idxvars,idxsets[i],i) ? () : idxsets[i])
 
+    # Code to be used to create each variable of the container.
+    variablecall = :( constructvariable!($m, $(extra...), $_error, $lb, $ub, $t, EMPTYSTRING, $value) )
+    addkwargs!(variablecall, extra_kwargs)
     # MODIFICATION: Variable to Adaptive, no start value
     code = :( $(refcall) = Adaptive($m, $lb, $ub, $(quot(t)), JuMP.EMPTYSTRING,
                                     $(quot(policy)), $(depends_on)) )
-    # MODIFICATION: No symmetric support
+    # Determine the return type of constructvariable!. This is needed to create the container holding them.
+    vartype = :( variabletype($m, $(extra...)) )
+
+    # MODIFICATION: no symmetric support
     # if symmetric
     #     ...
     # else
-    # MODIFICATION: Variable to Adaptive
-    looped = getloopedcode(getname(var), code, condition, idxvars, idxsets, idxpairs, :Adaptive)
-    return assert_validmodel(m, quote
-        $looped
-        # MODIFICATION: no fancy name stuff
-        $escvarname = $symvarname
-    end)
+    coloncheckcode = Expr(:call,:coloncheck,refcall.args[2:end]...)
+    code = :($coloncheckcode; $code)
+    creation_code = quote
+        $(getloopedcode(variable, code, condition, idxvars, idxsets, idxpairs, vartype))
+        isa($variable, JuMPContainer) && pushmeta!($variable, :model, $m)
+        push!($(m).dictList, $variable)
+        # MODIFICATION: no anonymous variables or registration
+        storecontainerdata($m, $variable, $quotvarname,
+                            $(Expr(:tuple,map(clear_dependencies,1:length(idxsets))...)),
+                            $idxpairs, $(quot(condition)))
+    end
+
+    # MODIFICATION: No anonymous variables
+    # if anonvar
+    #     ...
+    # else
+    macro_code = macro_assign_and_return(creation_code, variable, getname(var))
+    return assert_validmodel(m, macro_code)
+
+    #### OLD JuMPeR CODE
+
+    # t = :Cont
+    # gottype = false
+    # haslb = false
+    # hasub = false
+    # # Identify the variable bounds. Five (legal) possibilities are "x >= lb",
+    # # "x <= ub", "lb <= x <= ub", "x == val", or just plain "x"
+    # if VERSION < v"0.5.0-dev+3231"
+    #     x = JuMP.comparison_to_call(x)
+    # end
+    # if isexpr(x,:comparison) # two-sided
+    #     haslb = true
+    #     hasub = true
+    #     if x.args[2] == :>= || x.args[2] == :≥
+    #         # ub >= x >= lb
+    #         # MODIFICATION: error message
+    #         x.args[4] == :>= || x.args[4] == :≥ || error("Invalid adaptive variable bounds")
+    #         var = x.args[3]
+    #         lb = esc_nonconstant(x.args[5])
+    #         ub = esc_nonconstant(x.args[1])
+    #     elseif x.args[2] == :<= || x.args[2] == :≤
+    #         # lb <= x <= u
+    #         var = x.args[3]
+    #         # MODIFICATION: error message
+    #         (x.args[4] != :<= && x.args[4] != :≤) &&
+    #             error("in @adaptive ($var): expected <= operator after adaptive variable name.")
+    #         lb = esc_nonconstant(x.args[1])
+    #         ub = esc_nonconstant(x.args[5])
+    #     else
+    #         # MODIFICATION: error message
+    #         error("in @adaptive ($(string(x))): use the form lb <= ... <= ub.")
+    #     end
+    # elseif isexpr(x,:call)
+    #     if x.args[1] == :>= || x.args[1] == :≥
+    #         # x >= lb
+    #         var = x.args[2]
+    #         @assert length(x.args) == 3
+    #         lb = esc_nonconstant(x.args[3])
+    #         haslb = true
+    #         ub = Inf
+    #     elseif x.args[1] == :<= || x.args[1] == :≤
+    #         # x <= ub
+    #         var = x.args[2]
+    #         # NB: May also be lb <= x, which we do not support
+    #         #     We handle this later in the macro
+    #         @assert length(x.args) == 3
+    #         ub = esc_nonconstant(x.args[3])
+    #         hasub = true
+    #         lb = -Inf
+    #     elseif x.args[1] == :(==)
+    #         # fixed variable
+    #         var = x.args[2]
+    #         @assert length(x.args) == 3
+    #         lb = esc(x.args[3])
+    #         haslb = true
+    #         ub = esc(x.args[3])
+    #         hasub = true
+    #         gottype = true
+    #         # MODIFICATION: no :Fixed type for uncertain parameters
+    #         t = :Cont
+    #     else
+    #         # Its a comparsion, but not using <= ... <=
+    #         # MODIFICATION: error message
+    #         error("in @adaptive: unexpected syntax $(string(x)).")
+    #     end
+    # else
+    #     # No bounds provided - free variable
+    #     # If it isn't, e.g. something odd like f(x), we'll handle later
+    #     var = x
+    #     lb = -Inf
+    #     ub = Inf
+    # end
+
+    # # process keyword arguments
+    # # MODIFICATION: no column generation, no initial values
+    # quotvarname = quot(getname(var))
+    # escvarname  = esc(getname(var))
+    # symvarname = Symbol(getname(var))
+    # # MODIFICATION: adaptive-only things
+    # policy = :Static
+    # depends_on = Uncertain[]
+    # for ex in kwargs
+    #     kwarg = ex.args[1]
+    #     if kwarg == :basename
+    #         quotvarname = esc(ex.args[2])
+    #     elseif kwarg == :lowerbound
+    #         # MODIFICATION: error message
+    #         haslb && error("Cannot specify adaptive variable lowerbound twice")
+    #         lb = esc_nonconstant(ex.args[2])
+    #         haslb = true
+    #     elseif kwarg == :upperbound
+    #         # MODIFICATION: error message
+    #         hasub && error("Cannot specify adaptive variable upperbound twice")
+    #         ub = esc_nonconstant(ex.args[2])
+    #         hasub = true
+    #     elseif kwarg == :policy
+    #         policy = ex.args[2]
+    #     elseif kwarg == :depends_on
+    #         depends_on = esc(ex.args[2])
+    #     else
+    #         # MODIFICATION: error message
+    #         error("in @adaptive ($var): Unrecognized keyword argument $kwarg")
+    #     end
+    # end
+
+    # sdp = any(t -> (t == :SDP), extra)
+    # symmetric = (sdp || any(t -> (t == :Symmetric), extra))
+    # extra = filter(x -> (x != :SDP && x != :Symmetric), extra) # filter out SDP and sym tag
+    # # MODIFICATION: no SDP
+    # if sdp || symmetric
+    #     error("in @adaptive ($var): SDP and Symmetric not supported.")
+    # end
+
+    # # Determine variable type (if present).
+    # # Types: default is continuous (reals)
+    # if length(extra) > 0
+    #     # MODIFICATION: no fixed
+    #     if extra[1] in [:Bin, :Int, :SemiCont, :SemiInt]
+    #         gottype = true
+    #         t = extra[1]
+    #     end
+
+    #     if t == :Bin
+    #         if (lb != -Inf || ub != Inf) && !(lb == 0.0 && ub == 1.0)
+    #         error("in @adaptive ($var): bounds other than [0, 1] may not be specified for binary adaptive variables.\nThese are always taken to have a lower bound of 0 and upper bound of 1.")
+    #         else
+    #             lb = 0.0
+    #             ub = 1.0
+    #         end
+    #     end
+    #     # MODIFICATION: error message
+    #     !gottype && error("in @adaptive ($var): syntax error")
+    # end
+
+    # # Handle the column generation functionality
+    # # MODIFICATION: skipped
+
+    # if isa(var,Symbol)
+    #     # Easy case - a single variable
+    #     # MODIFICATION: skip SDP check
+    #     return assert_validmodel(m, quote
+    #         # MODIFICATION: Variable to Adaptive, no start value, etc
+    #         $(esc(var)) = Adaptive($m,$lb,$ub,$(quot(t)),string($quotvarname),
+    #                                 $(quot(policy)), $(depends_on))
+    #         # MODIFICATION: No equivalent to registering variables
+    #     end)
+    # end
+    # # MODIFICATION: error message
+    # isa(var,Expr) || error("in @adaptive: expected $var to be an adaptive variable name")
+
+    # # We now build the code to generate the variables (and possibly the JuMPDict
+    # # to contain them)
+    # refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(var)
+    # clear_dependencies(i) = (isdependent(idxvars,idxsets[i],i) ? nothing : idxsets[i])
+
+    # # MODIFICATION: Variable to Adaptive, no start value
+    # code = :( $(refcall) = Adaptive($m, $lb, $ub, $(quot(t)), JuMP.EMPTYSTRING,
+    #                                 $(quot(policy)), $(depends_on)) )
+    # # MODIFICATION: No symmetric support
+    # # if symmetric
+    # #     ...
+    # # else
+    # # MODIFICATION: Variable to Adaptive
+    # looped = getloopedcode(getname(var), code, condition, idxvars, idxsets, idxpairs, :Adaptive)
+    # return assert_validmodel(m, quote
+    #     $looped
+    #     # MODIFICATION: no fancy name stuff
+    #     $escvarname = $symvarname
+    # end)
 end
 
 
