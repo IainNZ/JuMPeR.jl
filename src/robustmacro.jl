@@ -211,8 +211,11 @@ macro adaptive(args...)
     # Synchronized to JuMP's @variable at commit:
     # 6d888fe625138074c71322e2ebdf9cf14ed3444c (April 27 2016)
     # MODIFICATION: error message
+    _error(str) = error("In @adaptive($(join(args,","))): ", str)
+    
     length(args) <= 1 &&
-        error("in @adaptive: expected model as first argument, then variable information.")
+        _error("Expected model as first argument, then variable information.")
+
     m = esc(args[1])
     x = args[2]
     extra = vcat(args[3:end]...)
@@ -223,16 +226,13 @@ macro adaptive(args...)
     hasub = false
     # Identify the variable bounds. Five (legal) possibilities are "x >= lb",
     # "x <= ub", "lb <= x <= ub", "x == val", or just plain "x"
-    if VERSION < v"0.5.0-dev+3231"
-        x = JuMP.comparison_to_call(x)
-    end
     if isexpr(x,:comparison) # two-sided
         haslb = true
         hasub = true
         if x.args[2] == :>= || x.args[2] == :≥
             # ub >= x >= lb
             # MODIFICATION: error message
-            x.args[4] == :>= || x.args[4] == :≥ || error("Invalid adaptive variable bounds")
+            x.args[4] == :>= || x.args[4] == :≥ || _error("Invalid adaptive variable bounds")
             var = x.args[3]
             lb = esc_nonconstant(x.args[5])
             ub = esc_nonconstant(x.args[1])
@@ -241,12 +241,12 @@ macro adaptive(args...)
             var = x.args[3]
             # MODIFICATION: error message
             (x.args[4] != :<= && x.args[4] != :≤) &&
-                error("in @adaptive ($var): expected <= operator after adaptive variable name.")
+                _error("Expected <= operator after adaptive variable name.")
             lb = esc_nonconstant(x.args[1])
             ub = esc_nonconstant(x.args[5])
         else
             # MODIFICATION: error message
-            error("in @adaptive ($(string(x))): use the form lb <= ... <= ub.")
+            _error("Use the form lb <= ... <= ub.")
         end
     elseif isexpr(x,:call)
         if x.args[1] == :>= || x.args[1] == :≥
@@ -279,7 +279,7 @@ macro adaptive(args...)
         else
             # Its a comparsion, but not using <= ... <=
             # MODIFICATION: error message
-            error("in @adaptive: unexpected syntax $(string(x)).")
+            _error("Unexpected syntax $(string(x)).")
         end
     else
         # No bounds provided - free variable
@@ -290,8 +290,17 @@ macro adaptive(args...)
     end
 
     # separate out keyword arguments
-    kwargs = filter(ex->isexpr(ex,:kw), extra)
-    extra = filter(ex->!isexpr(ex,:kw), extra)
+    kwargs = filter(ex->isexpr(ex,:(=)), extra)
+    extra = filter(ex->!isexpr(ex,:(=)), extra)
+
+    # MODIFICATION: no anonymous variables
+    # if there is only a single non-keyword argument, this is an anonymous
+    # variable spec and the one non-kwarg is the model
+    anon_singleton = length(kwargs) == length(args)-1
+    anonvar = isexpr(var, :vect) || isexpr(var, :vcat) || anon_singleton
+    if anonvar
+        _error("Anonymous Variables not supported.")
+    end
 
     # process keyword arguments
     # MODIFICATION: no column generation, no initial values
@@ -307,12 +316,12 @@ macro adaptive(args...)
             quotvarname = esc(ex.args[2])
         elseif kwarg == :lowerbound
             # MODIFICATION: error message
-            haslb && error("Cannot specify adaptive variable lowerbound twice")
+            haslb && _error("Cannot specify adaptive variable lowerbound twice")
             lb = esc_nonconstant(ex.args[2])
             haslb = true
         elseif kwarg == :upperbound
             # MODIFICATION: error message
-            hasub && error("Cannot specify adaptive variable upperbound twice")
+            hasub && _error("Cannot specify adaptive variable upperbound twice")
             ub = esc_nonconstant(ex.args[2])
             hasub = true
         elseif kwarg == :policy
@@ -321,7 +330,7 @@ macro adaptive(args...)
             depends_on = esc(ex.args[2])
         else
             # MODIFICATION: error message
-            error("in @adaptive ($var): Unrecognized keyword argument $kwarg")
+            _error("Unrecognized keyword argument $kwarg")
         end
     end
 
@@ -330,7 +339,7 @@ macro adaptive(args...)
     extra = filter(x -> (x != :SDP && x != :Symmetric), extra) # filter out SDP and sym tag
     # MODIFICATION: no SDP
     if sdp || symmetric
-        error("in @adaptive ($var): SDP and Symmetric not supported.")
+        _error("SDP and Symmetric not supported.")
     end
 
     # Determine variable type (if present).
@@ -344,14 +353,14 @@ macro adaptive(args...)
 
         if t == :Bin
             if (lb != -Inf || ub != Inf) && !(lb == 0.0 && ub == 1.0)
-            error("in @adaptive ($var): bounds other than [0, 1] may not be specified for binary adaptive variables.\nThese are always taken to have a lower bound of 0 and upper bound of 1.")
+                _error("Bounds other than [0, 1] may not be specified for binary adaptive variables.\nThese are always taken to have a lower bound of 0 and upper bound of 1.")
             else
                 lb = 0.0
                 ub = 1.0
             end
         end
         # MODIFICATION: error message
-        !gottype && error("in @adaptive ($var): syntax error")
+        !gottype && error("Syntax error")
     end
 
     # Handle the column generation functionality
@@ -360,7 +369,7 @@ macro adaptive(args...)
     if isa(var,Symbol)
         # Easy case - a single variable
         # MODIFICATION: skip SDP check
-        return assert_validmodel(m, quote
+        return JuMP.assert_validmodel(m, quote
             # MODIFICATION: Variable to Adaptive, no start value, etc
             $(esc(var)) = Adaptive($m,$lb,$ub,$(quot(t)),string($quotvarname),
                                     $(quot(policy)), $(depends_on))
@@ -368,7 +377,7 @@ macro adaptive(args...)
         end)
     end
     # MODIFICATION: error message
-    isa(var,Expr) || error("in @adaptive: expected $var to be an adaptive variable name")
+    isa(var,Expr) || _error("Expected $var to be an adaptive variable name")
 
     # We now build the code to generate the variables (and possibly the JuMPDict
     # to contain them)
@@ -407,8 +416,8 @@ function JuMP.constructconstraint!(faff::UncVarExpr, sense::Symbol)
 end
 
 
-function JuMP.constructconstraint!{P}(
-    normexpr::GenericNormExpr{P,Float64,Uncertain}, sense::Symbol)
+function JuMP.constructconstraint!(
+    normexpr::GenericNormExpr{P,Float64,Uncertain}, sense::Symbol) where P
     if sense == :(<=)
         UncSetNormConstraint( normexpr)
     elseif sense == :(>=)

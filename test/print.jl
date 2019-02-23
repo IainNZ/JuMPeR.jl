@@ -12,7 +12,7 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Test
 import JuMP: repl
 
 # Helper function to test IO methods work correctly
@@ -21,7 +21,7 @@ function io_test(obj, exp_str; repl=:both)
 end
 
 @testset "Printing" begin
-print_with_color(:yellow, "Printing...\n")
+printstyled("Printing...\n", color = :yellow)
 
 @testset "RobustModel" begin
     le, ge, fa = repl[:leq], repl[:geq], repl[:for_all]

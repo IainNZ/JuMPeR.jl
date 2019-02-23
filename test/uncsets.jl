@@ -12,21 +12,21 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Test
 
 if !(:lp_solvers in names(Main))
-    print_with_color(:magenta, "Loading solvers...\n")
-    include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
+    printstyled("Loading solvers...\n", color = :magenta)
+    include(joinpath(dirname(pathof(JuMP)),"..","test","solvers.jl"))
 end
-lp_solvers = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
+lp_solvers = filter(s->(!occursin("SCSSolver", string(typeof(s)))), lp_solvers)
 solver_name(solver) = split(string(typeof(solver)),".")[2]
 
 @testset "UncertainySet" begin
-print_with_color(:yellow, "UncertainySet...\n")
+printstyled("UncertainySet...\n", color = :yellow)
 
 @testset "with $(solver_name(solver))," for solver in lp_solvers
     @testset "Check interface throws" begin
-        eval(:(type IncompleteSet <: JuMPeR.AbstractUncertaintySet end))  # In global scope
+        eval(:(mutable struct IncompleteSet <: JuMPeR.AbstractUncertaintySet end))  # In global scope
         @test_throws ErrorException JuMPeR.setup_set(IncompleteSet(), RobustModel(solver=solver), Int[], false, nothing)
         @test_throws ErrorException JuMPeR.generate_reform(IncompleteSet(), RobustModel(solver=solver), Int[])
         @test_throws ErrorException JuMPeR.generate_cut(IncompleteSet(), RobustModel(solver=solver), Int[])
@@ -78,8 +78,8 @@ print_with_color(:yellow, "UncertainySet...\n")
         # -------------------
         unc_val = [1.0, 2.0, 3.0, 4.0, 5.0]
         new_con = JuMPeR.build_certain_constraint(unc_con, unc_val)
-        @test all(contains(string(new_con), "x[$i]") for i in 1:4)
-        @test contains(string(new_con), "$(JuMP.repl[:leq])")
+        @test all(occursin("x[$i]", string(new_con)) for i in 1:4)
+        @test occursin("$(JuMP.repl[:leq])", string(new_con))
 
         # Bit of a hack to test build from JuMP.JuMPDict
         inner_m = Model(solver=solver)
@@ -87,8 +87,8 @@ print_with_color(:yellow, "UncertainySet...\n")
         @objective(inner_m, Max, sum(inner_u))
         solve(inner_m)
         new_con = JuMPeR.build_certain_constraint(unc_con, getvalue(inner_u))
-        @test all(contains(string(new_con), "x[$i]") for i in 1:4)
-        @test contains(string(new_con), "$(JuMP.repl[:leq])")
+        @test all(occursin("x[$i]", string(new_con)) for i in 1:4)
+        @test occursin("$(JuMP.repl[:leq])", string(new_con))
 
         # -------------------
         lhs_val = 1.0*dot([5,1,4,11],[2,3,4,5])

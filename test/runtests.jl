@@ -12,12 +12,12 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Test, LinearAlgebra
 
 # Use JuMP's testing code to load available solvers
 # and provide vectors of solvers by capability
-print_with_color(:magenta, "Loading solvers...\n")
-include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
+printstyled("Loading solvers...\n", color = :magenta)
+include(joinpath(dirname(pathof(JuMP)),"..","test","solvers.jl"))
 
 @testset "JuMPeR" begin
     include("operators.jl")

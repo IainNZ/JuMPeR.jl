@@ -23,7 +23,7 @@ The default uncertainty set, use explicitly provided constraints on the
 uncertain parameters to either build and repeatedly solve a cutting plane
 model, or use duality to generate reformulations of uncertain constraints.
 """
-type BasicUncertaintySet <: AbstractUncertaintySet
+mutable struct BasicUncertaintySet <: AbstractUncertaintySet
     use_cuts::Bool
 
     # Explicitly provided constraints, other than the bounds

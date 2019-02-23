@@ -12,19 +12,19 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Test
 
 const TOL = 1e-4
 
 if !(:lp_solvers in names(Main))
-    print_with_color(:magenta, "Loading solvers...\n")
-    include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
+    printstyled("Loading solvers...\n", color = :magenta)
+    include(joinpath(dirname(pathof(JuMP)),"..","test","solvers.jl"))
 end
-lp_solvers  = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
+lp_solvers  = filter(s->(!occursin("SCSSolver", string(typeof(s)))), lp_solvers)
 solver_name(solver) = split(string(typeof(solver)),".")[2]
 
 @testset "BudgetUncertaintySet" begin
-print_with_color(:yellow, "BudgetUncertaintySet...\n")
+printstyled("BudgetUncertaintySet...\n", color = :yellow)
 @testset "LPs with $(solver_name(solver))" for solver in lp_solvers
 
     @testset "Test 1 (+x, +coeff)" begin
@@ -163,9 +163,9 @@ print_with_color(:yellow, "BudgetUncertaintySet...\n")
         @test isapprox(getvalue(x), 5.0, atol=TOL)
         @test isapprox(getvalue(y), 5.0, atol=TOL)
         @test isapprox(getvalue(z), 5.0, atol=TOL)
-        @test isapprox(uncvalue(get(getscenario(cn1)), u), 10.0, atol=TOL)
-        @test isapprox(uncvalue(get(getscenario(cn2)), u), 100.0, atol=TOL)
-        @test isapprox(uncvalue(get(getscenario(cn3)), u), 1000.0, atol=TOL)
+        @test isapprox(uncvalue(getscenario(cn1), u), 10.0, atol=TOL)
+        @test isapprox(uncvalue(getscenario(cn2), u), 100.0, atol=TOL)
+        @test isapprox(uncvalue(getscenario(cn3), u), 1000.0, atol=TOL)
     end
 end  # "LPs with"
 end  # "BudgetUncertaintySet"

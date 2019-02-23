@@ -12,21 +12,21 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Test
 
 const TOL = 1e-4
 
 if !(:lp_solvers in names(Main))
-    print_with_color(:magenta, "Loading solvers...\n")
-    include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
+    printstyled("Loading solvers...\n", color = :magenta)
+    include(joinpath(dirname(pathof(JuMP)),"..","test","solvers.jl"))
 end
-lp_solvers  = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
-soc_solvers = filter(s->(!contains(string(typeof(s)),"SCSSolver")), soc_solvers)
+lp_solvers  = filter(s->(!occursin("SCSSolver", string(typeof(s)))), lp_solvers)
+soc_solvers = filter(s->(!occursin("SCSSolver", string(typeof(s)))), soc_solvers)
 solver_name(solver) = split(string(typeof(solver)),".")[2]
 
 @testset "BasicUncertaintySet polyhedral" begin
-print_with_color(:yellow, "BasicUncertaintySet polyhedral...\n")
-print_with_color(:yellow, "  LP tests...\n")
+printstyled("BasicUncertaintySet polyhedral...\n", color = :yellow)
+printstyled("  LP tests...\n", color = :yellow)
 @testset "LPs with $(solver_name(solver)), cuts=$cuts" for
                         solver in lp_solvers, cuts in [true,false]
 
@@ -133,7 +133,7 @@ print_with_color(:yellow, "  LP tests...\n")
         @test solve(m, prefer_cuts=cuts, suppress_warnings=true) == :Unbounded
     end  # "Test 8"
 
-    if !contains("$(typeof(solver))","IpoptSolver")  # reports UserLimit
+    if !occursin("IpoptSolver", "$(typeof(solver))")  # reports UserLimit
     @testset "Test 9 (infeasible LP)" begin
         m = RobustModel(solver=solver)
         @variable(m, x)
@@ -160,7 +160,7 @@ print_with_color(:yellow, "  LP tests...\n")
         end
     end
 
-    if !contains("$(typeof(solver))","IpoptSolver")  # reports UserLimit
+    if !occursin("IpoptSolver", "$(typeof(solver))")  # reports UserLimit
     @testset "Test 11 (unbounded unc. set)" begin
         m = RobustModel(solver=solver)
         @variable(m, x >= 1)
@@ -178,7 +178,7 @@ print_with_color(:yellow, "  LP tests...\n")
 
 end  # "LPs with ..."
 
-print_with_color(:yellow, "  MILP tests...\n")
+printstyled("  MILP tests...\n", color = :yellow)
 @testset "MILPs with $(solver_name(solver)), cuts=$cuts" for
                         solver in lazy_solvers, cuts in [true,false]
 
@@ -231,7 +231,7 @@ print_with_color(:yellow, "  MILP tests...\n")
         @test solve(m, prefer_cuts=cuts, suppress_warnings=true) == :Infeasible
     end
 
-    if !contains("$(typeof(solver))","GLPK")  # reports Error
+    if !occursin("GLPK", "$(typeof(solver))")  # reports Error
     @testset "Test 5 (unbounded MILP)" begin
         m = RobustModel(solver=solver)
         @variable(m, x >= 0, Int)
@@ -257,9 +257,9 @@ end  # "MILPs with..."
         @test solve(m, prefer_cuts=cuts, active_scenarios=true) == :Optimal
         @test isapprox(getvalue(x[1]), 2.0+2.0/3.0, atol=TOL)
         @test isapprox(getvalue(x[2]),     2.0/3.0, atol=TOL)
-        scen1 = get(getscenario(con1))
+        scen1 = getscenario(con1)
         @test isapprox(uncvalue(scen1, u1), 0.5, atol=TOL)
-        scen2 = get(getscenario(con2))
+        scen2 = getscenario(con2)
         @test isapprox(uncvalue(scen2, u2), 2.0, atol=TOL)
     end
 end

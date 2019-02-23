@@ -12,19 +12,19 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Test
 
 const TOL = 1e-4
 
 if !(:lp_solvers in names(Main))
-    print_with_color(:magenta, "Loading solvers...\n")
-    include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
+    printstyled("Loading solvers...\n", color = :magenta)
+    include(joinpath(dirname(pathof(JuMP)),"..","test","solvers.jl"))
 end
-lp_solvers  = filter(s->(!contains(string(typeof(s)),"SCSSolver")), lp_solvers)
+lp_solvers  = filter(s->(!occursin("SCSSolver", string(typeof(s)))), lp_solvers)
 solver_name(solver) = split(string(typeof(solver)),".")[2]
 
 @testset "BasicUncertaintySet L∞ norm" begin
-print_with_color(:yellow, "BasicUncertaintySet L∞ norm...\n")
+printstyled("BasicUncertaintySet L∞ norm...\n", color = :yellow)
 @testset "LPs with $(solver_name(solver)), cuts=$cuts, flip=$flip" for
                         solver in lp_solvers, cuts in [true,false],
                         flip in [true,false]
@@ -52,7 +52,7 @@ print_with_color(:yellow, "BasicUncertaintySet L∞ norm...\n")
         a = Float64[2, 0, 0, 2, 2];
         c = Float64[5, 0, 0, 5, 5]
         I = [1, 4, 5]
-        z = convert(Vector{JuMPeR.UncExpr}, a.*u-c)
+        z = convert.(JuMPeR.UncExpr, a.*u-c)
         !macr && @constraint(m, norm(z, Inf) <= 2)
          macr && @constraint(m, norm((a[i]*u[i]-c[i] for i=I),Inf) <= 2)
         solve(m, suppress_warnings=true, prefer_cuts=cuts, cut_tol=1e-4)

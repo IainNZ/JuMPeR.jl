@@ -10,7 +10,7 @@
 # src/uncertain.jl
 # Defines the uncertain parameter type Uncertain, and expressions and
 # constraints of Uncertains: Uncertain, UncExpr, UncSetConstraint,
-# UncSetNorm, UncSetNormConstraint.
+# UncSetNormConstraint.
 # Included by src/JuMPeR.jl
 #-----------------------------------------------------------------------
 
@@ -21,7 +21,7 @@
 Uncertain parameter, implemented much the same as a JuMP.Variable. It belongs
 to a RobustModel, not to any particular UncertaintySet.
 """
-type Uncertain <: JuMP.AbstractJuMPScalar
+mutable struct Uncertain <: JuMP.AbstractJuMPScalar
     m::Model
     id::Int
 end
@@ -34,9 +34,9 @@ function Uncertain(m::Model, lower::Number, upper::Number, cat::Symbol, name::Ab
     push!(robdata.unc_cat, cat)
     return Uncertain(m, robdata.num_uncs)
 end
-Base.zero(::Type{Uncertain}) = UncExpr()
+Base.zero(::Type{Uncertain}) = zero(UncExpr)
 Base.zero(::Uncertain) = zero(Uncertain)
-Base.one(::Type{Uncertain}) = UncExpr(1)
+Base.one(::Type{Uncertain}) = one(UncExpr)
 Base.one(::Uncertain) = one(Uncertain)
 Base.isequal(u1::Uncertain, u2::Uncertain) = (u1.m === u2.m) && isequal(u1.id, u2.id)
 
@@ -46,12 +46,9 @@ Base.isequal(u1::Uncertain, u2::Uncertain) = (u1.m === u2.m) && isequal(u1.id, u
 
 `∑ᵢ aᵢ uᵢ`  --  affine expression of uncertain parameters and numbers.
 """
-typealias UncExpr JuMP.GenericAffExpr{Float64,Uncertain}
+UncExpr = JuMP.GenericAffExpr{Float64,Uncertain}
 Base.convert(::Type{UncExpr}, u::Uncertain) = UncExpr(Uncertain[u],Float64[1],0.0)
 Base.convert(::Type{UncExpr}, c::Number)    = UncExpr(Uncertain[ ],Float64[ ],  c)
-UncExpr() = zero(UncExpr)
-UncExpr(x::Union{Number,Uncertain}) = convert(UncExpr, x)
-UncExpr(c::Number,u::Uncertain) = UncExpr(Uncertain[u],Float64[c],0.0)
 
 
 """
@@ -59,7 +56,7 @@ UncExpr(c::Number,u::Uncertain) = UncExpr(Uncertain[u],Float64[c],0.0)
 
 A constraint with just uncertain parameters and numbers (i.e., `UncExpr`).
 """
-typealias UncSetConstraint JuMP.GenericRangeConstraint{UncExpr}
+UncSetConstraint = JuMP.GenericRangeConstraint{UncExpr}
 function JuMP.addconstraint(m::Model, c::UncSetConstraint)
     # If m is a RobustModel, we add it to the default uncertainty set
     rmext = get_robust(m)::RobustModelExt
@@ -73,13 +70,7 @@ function JuMP.addVectorizedConstraint(m::Model, v::Array{UncSetConstraint})
 end
 
 
-"""
-    UncSetNorm
-
-A norm on uncertain parameters.
-"""
-typealias UncSetNorm{Typ} GenericNorm{Typ,Float64,Uncertain}
-JuMP._build_norm(Lp, terms::Vector{UncExpr}) = UncSetNorm{Lp}(terms)
+JuMP._build_norm(Lp, terms::Vector{UncExpr}) = GenericNorm{Lp,Float64,Uncertain}(terms)
 
 
 """
@@ -87,7 +78,7 @@ JuMP._build_norm(Lp, terms::Vector{UncExpr}) = UncSetNorm{Lp}(terms)
 
 A constraint involving a norm of uncertain parameters.
 """
-type UncSetNormConstraint{P} <: JuMP.AbstractConstraint
+mutable struct UncSetNormConstraint{P} <: JuMP.AbstractConstraint
     normexpr::GenericNormExpr{P,Float64,Uncertain}
 end
 function JuMP.addconstraint(m::Model, c::UncSetNormConstraint)

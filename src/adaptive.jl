@@ -20,7 +20,7 @@
 An adaptive variable, a variable whose value depends on the realized
 values of the uncertain parameters.
 """
-type Adaptive <: JuMP.AbstractJuMPScalar
+mutable struct Adaptive <: JuMP.AbstractJuMPScalar
     m::Model
     id::Int
 end
@@ -50,7 +50,7 @@ getname(x::Adaptive) = get_robust(x.m).adp_names[x.id]
 
 Either a plain JuMP Variable, or a JuMPeR Adaptive variable.
 """
-typealias JuMPeRVar Union{Variable,Adaptive}
+JuMPeRVar = Union{Variable,Adaptive}
 
 
 """
@@ -58,8 +58,7 @@ typealias JuMPeRVar Union{Variable,Adaptive}
 
 `∑ᵢ aᵢ vᵢ`  --  affine expression of JuMPeRVars and numbers.
 """
-typealias AdaptExpr JuMP.GenericAffExpr{Float64,JuMPeRVar}
-AdaptExpr() = zero(AdaptExpr)
+AdaptExpr = JuMP.GenericAffExpr{Float64,JuMPeRVar}
 Base.convert(::Type{AdaptExpr}, c::Number) =
     AdaptExpr(JuMPeRVar[ ], Float64[ ], 0.0)
 Base.convert(::Type{AdaptExpr}, x::JuMPeRVar) =
@@ -73,7 +72,7 @@ Base.convert(::Type{AdaptExpr}, aff::AffExpr) =
 
 A constraint with just JuMPeRVars and numbers (i.e., `AdaptExpr`).
 """
-typealias AdaptConstraint JuMP.GenericRangeConstraint{AdaptExpr}
+AdaptConstraint = JuMP.GenericRangeConstraint{AdaptExpr}
 function JuMP.addconstraint(m::Model, c::AdaptConstraint)
     rm = get_robust(m)::RobustModelExt
     push!(rm.adapt_constraints, c)

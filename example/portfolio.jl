@@ -15,6 +15,7 @@
 
 using JuMP, JuMPeR  # Modeling
 using Distributions  # For generating data
+using LinearAlgebra
 
 # Number of stocks
 const NUM_ASSET = 10

@@ -65,11 +65,11 @@ generate_cut(us::AbstractUncertaintySet, rm::Model, idxs::Vector{Int}) =
     generate_scenario(UncSet, RobustModel, idxs)
 
 If requested by the user, this method will be called at optimality. Returns
-a `Nullable{Scenario}` for each constraint, where that `Scenario` corresponds
+a `Union{Scenario, Missing}` for each constraint, where that `Scenario` corresponds
 to the values of the uncertain parameters that reduce slack in the constraint
 the most. If there are multiple such sets of values, the uncertainty set can
 select arbitrarily, and if the set cannot provide a scenario it should return
-an empty `Nullable{Scenario}`.
+an empty `Union{Scenario, Missing}`.
 """
 generate_scenario(us::AbstractUncertaintySet, rm::Model, idxs::Vector{Int}) =
     error("$(typeof(us)) hasn't implemented generate_scenario")

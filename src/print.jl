@@ -129,7 +129,7 @@ function unc_str(mode, m::Model, id::Int)
     end
     return uncNames[id] == "" ? "unc_$id" : uncNames[id]
 end
-function fill_unc_names{N}(mode, uncNames, u::JuMP.JuMPArray{Uncertain,N})
+function fill_unc_names(mode, uncNames, u::JuMP.JuMPArray{Uncertain,N}) where N
     data = printdata(u)
     idxsets = data.indexsets
     lengths = map(length, idxsets)
@@ -168,7 +168,7 @@ function fill_unc_names(mode, uncNames, u::Array{Uncertain})
     name = rmext.uncData[u].name
     for (ii,unc) in enumerate(u)
         @assert unc.m === m
-        ind = ind2sub(sizes, ii)
+        ind = Tuple(CartesianIndices(sizes)[ii])
         #uncNames[unc.id] = if mode === IJuliaMode
         #    string(name, "_{", join(ind, ","), "}")
         #else
@@ -224,7 +224,7 @@ function cont_str(mode, j::Union{JuMPContainer{Uncertain},Array{Uncertain}},
         end
     end
     num_dims = length(data.indexsets)
-    idxvars = Array(String, num_dims)
+    idxvars = Array{String}(undef, num_dims)
     dimidx = 1
     for i in 1:num_dims
         if data.indexexprs[i].idxvar == nothing
@@ -326,7 +326,7 @@ function aff_str(mode, a::UncExpr, show_constant=true)
     end
 
     elm = 1
-    term_str = Array(String, 2*length(a.vars))
+    term_str = Array{String}(undef, 2*length(a.vars))
     # For each non-zero for this model
     for i in 1:indvec.nnz
         idx = indvec.nzidx[i]
@@ -380,7 +380,7 @@ function aff_str(mode, a::UncVarExpr, show_constant=true)
     rmext = get_robust(m)
 
     # Don't collect like terms
-    term_str = Array(String, length(a.vars))
+    term_str = Array{String}(undef, length(a.vars))
     numTerms = 0
     first = true
     for i in 1:length(a.vars)
@@ -454,7 +454,7 @@ Base.show( io::IO, unc::UncSetNormConstraint) = print(io, con_str(REPLMode,unc))
 #Base.writemime(io::IO, ::MIME"text/latex", e::UncSetNormConstraint) =
 #    print(io, math(con_str(IJuliaMode,e),false))
 # Generic string converter, called by mode-specific handlers
-function con_str{P}(mode, unc::UncSetNormConstraint{P})
+function con_str(mode, unc::UncSetNormConstraint{P}) where P
     normexpr = unc.normexpr
     nrm = normexpr.norm
     cof = normexpr.coeff
@@ -511,7 +511,7 @@ function aff_str(mode, a::AdaptExpr, show_constant=true)
     end
 
     elm = 1
-    term_str = Array(String, 2*length(a.vars))
+    term_str = Array{String}(undef, 2*length(a.vars))
     # For each non-zero
     for i in 1:indvec_var.nnz
         idx = indvec_var.nzidx[i]

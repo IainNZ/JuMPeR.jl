@@ -12,19 +12,19 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Test
 
 const TOL = 1e-4
 
 if !(:lp_solvers in names(Main))
-    print_with_color(:magenta, "Loading solvers...\n")
-    include(joinpath(Pkg.dir("JuMP"),"test","solvers.jl"))
+    printstyled("Loading solvers...\n", color = :magenta)
+    include(joinpath(dirname(pathof(JuMP)),"..","test","solvers.jl"))
 end
-soc_solvers = filter(s->(!contains(string(typeof(s)),"SCSSolver")), soc_solvers)
+soc_solvers = filter(s->(!occursin("SCSSolver", string(typeof(s)))), soc_solvers)
 solver_name(solver) = split(string(typeof(solver)),".")[2]
 
 @testset "BasicUncertaintySet L2 norm" begin
-print_with_color(:yellow, "BasicUncertaintySet L2 norm...\n")
+printstyled("BasicUncertaintySet L2 norm...\n", color = :yellow)
 @testset "SOCPs with $(solver_name(solver)), cuts=$cuts, flip=$flip" for
                         solver in soc_solvers, cuts in [true,false],
                         flip in [true,false]
