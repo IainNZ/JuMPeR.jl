@@ -108,11 +108,11 @@ Base.:/(lhs::AffExpr, rhs::UncExpr)  = error("Cannot divide $AFF by $UNE")
 # AffExpr--UncVarExpr
 Base.:+(lhs::AffExpr, rhs::UncVarExpr) = UncVarExpr(
   vcat(lhs.vars, rhs.vars),
-  vcat(convert.(UncExpr,lhs.coeffs), rhs.coeffs),
+  vcat(map(UncExpr,lhs.coeffs), rhs.coeffs),
   lhs.constant + rhs.constant)
 Base.:-(lhs::AffExpr, rhs::UncVarExpr) = UncVarExpr(
   vcat(lhs.vars, rhs.vars),
-  vcat(convert.(UncExpr,lhs.coeffs), -1 .* rhs.coeffs),
+  vcat(map(UncExpr,lhs.coeffs), -1 .* rhs.coeffs),
   lhs.constant - rhs.constant)
 Base.:*(lhs::AffExpr, rhs::UncVarExpr) = error("Cannot multiply $AFF by $UVE")
 Base.:/(lhs::AffExpr, rhs::UncVarExpr) = error("Cannot divide $AFF by $UVE")

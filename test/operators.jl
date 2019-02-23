@@ -199,10 +199,11 @@ end  # "Uncertain--... tests"
 
 @testset "UncExpr--... tests" begin
     # Constructors
+    @test string(JuMPeR.UncExpr()) == "0"
     @test string(JuMPeR.UncExpr(1)) == "1"
     @test string(JuMPeR.UncExpr(a)) == "a"
     @test typeof(zero(uaff)) == JuMPeR.UncExpr
-    @test string(JuMPeR.UncExpr(0)) == "0"
+    @test string(zero(JuMPeR.UncExpr)) == "0"
     # UncExpr--Number
     @test string(uaff + 4.0) == "2.3 a + 9.5"
     @test string(uaff - 3.0) == "2.3 a + 2.5"
@@ -251,7 +252,7 @@ end  # "UncExpr--... tests"
 @testset "UncVarExpr--... tests" begin
     # Constructors
     @test typeof(zero(faff)) == JuMPeR.UncVarExpr
-    @test string(JuMPeR.UncVarExpr()) == "0"
+    @test string(zero(JuMPeR.UncVarExpr)) == "0"
     # Push/append
     pusher = a * x
     @test string(pusher) == "a x"
