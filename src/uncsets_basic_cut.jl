@@ -56,12 +56,13 @@ function setup_set_cut(us::BasicUncertaintySet, rm::Model)
         n_terms = length(terms)
         if isa(norm_c, UncSetNormConstraint{2})
             # L2 norm constraint
-            # Output: yᵢ = aᵢᵀu, t = Γ, Σyᵢ^2 ≤ t^2
+            # Output: yᵢ = aᵢᵀu, t ≤ Γ, Σyᵢ^2 ≤ t^2
             @variable(cut_model, y[i=1:n_terms], basename="_c$(idx)_L2_y")
             for i in 1:n_terms
                 @constraint(cut_model, y[i] == uaff_to_aff(terms[i], cut_vars))
             end
-            @variable(cut_model, t == Γ, basename="_c$(idx)_L2_t")
+            t = @variable(cut_model, lowerbound=0, basename="_c$(idx)_L2_t")
+            @constraint(cut_model, t <= Γ)
             @constraint(cut_model, dot(y,y) <= t^2)
         elseif isa(norm_c, UncSetNormConstraint{1})
             # L1 norm constraint
@@ -120,11 +121,10 @@ Wraps the results from `get_worst_case_value` in `Scenario` objects.
 """
 function generate_scenario(us::BasicUncertaintySet, rm::Model, idxs::Vector{Int})
     # We need to return one Scenario per constraint
-    scens = Nullable{Scenario}[]
+    scens = Union{Scenario, Missing}[]
     for idx in idxs
         _, uncvalues = get_worst_case_value(us, rm, idx)
-        scen = Scenario(uncvalues)
-        push!(scens, Nullable{Scenario}(scen))
+        push!(scens, Scenario(uncvalues))
     end
     return scens
 end

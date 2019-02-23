@@ -11,7 +11,7 @@
 # Adaptive robust optimization support - pre-solve expansion
 #-----------------------------------------------------------------------
 
-any_adaptive(u::UncVarExpr) = any(v->isa(v,Adaptive), u.vars)
+any_adaptive(u::UncVarExpr) = any(isa.(u.vars,Adaptive))
 
 
 function expand_adaptive(rm::Model)

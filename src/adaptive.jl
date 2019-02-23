@@ -20,7 +20,7 @@
 An adaptive variable, a variable whose value depends on the realized
 values of the uncertain parameters.
 """
-type Adaptive <: JuMP.AbstractJuMPScalar
+mutable struct Adaptive <: JuMP.AbstractJuMPScalar
     m::Model
     id::Int
 end
@@ -37,9 +37,9 @@ function Adaptive(m::Model, lower::Real, upper::Real,
     push!(rmext.adp_arguments, depends_on)
     return Adaptive(m, rmext.num_adps)
 end
-Base.zero(::Type{Adaptive}) = AdaptExpr()
+Base.zero(::Type{Adaptive}) = zero(AdaptExpr)
 Base.zero(     ::Adaptive)  = zero(Adaptive)
-Base.one(::Type{Adaptive})  = AdaptExpr(1)
+Base.one(::Type{Adaptive})  = one(AdaptExpr)
 Base.one(     ::Adaptive)   = one(Adaptive)
 Base.isequal(a::Adaptive, b::Adaptive) = (a.m === b.m) && (a.id == b.id)
 getname(x::Adaptive) = get_robust(x.m).adp_names[x.id]
@@ -50,7 +50,7 @@ getname(x::Adaptive) = get_robust(x.m).adp_names[x.id]
 
 Either a plain JuMP Variable, or a JuMPeR Adaptive variable.
 """
-typealias JuMPeRVar Union{Variable,Adaptive}
+JuMPeRVar = Union{Variable,Adaptive}
 
 
 """
@@ -58,8 +58,7 @@ typealias JuMPeRVar Union{Variable,Adaptive}
 
 `∑ᵢ aᵢ vᵢ`  --  affine expression of JuMPeRVars and numbers.
 """
-typealias AdaptExpr JuMP.GenericAffExpr{Float64,JuMPeRVar}
-AdaptExpr() = zero(AdaptExpr)
+AdaptExpr = JuMP.GenericAffExpr{Float64,JuMPeRVar}
 Base.convert(::Type{AdaptExpr}, c::Number) =
     AdaptExpr(JuMPeRVar[ ], Float64[ ], 0.0)
 Base.convert(::Type{AdaptExpr}, x::JuMPeRVar) =
@@ -73,7 +72,7 @@ Base.convert(::Type{AdaptExpr}, aff::AffExpr) =
 
 A constraint with just JuMPeRVars and numbers (i.e., `AdaptExpr`).
 """
-typealias AdaptConstraint JuMP.GenericRangeConstraint{AdaptExpr}
+AdaptConstraint = JuMP.GenericRangeConstraint{AdaptExpr}
 function JuMP.addconstraint(m::Model, c::AdaptConstraint)
     rm = get_robust(m)::RobustModelExt
     push!(rm.adapt_constraints, c)

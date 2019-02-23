@@ -16,10 +16,10 @@
 
 module JuMPeR
 
-importall Base.Operators
 import MathProgBase
-importall JuMP  # So we can build on it, but prefer explict qualification
-import JuMP: JuMPContainer, GenericNorm, GenericNormExpr
+using JuMP  # So we can build on it, but prefer explicit qualification
+import JuMP: JuMPContainer, GenericAffExpr, GenericNorm, GenericNormExpr, getname
+import LinearAlgebra: dot, norm
 
 # JuMPeRs exported interface
 export RobustModel, @uncertain, @adaptive,
@@ -34,7 +34,7 @@ export RobustModel, @uncertain, @adaptive,
 All uncertainty sets implement the interface defined by AbstractUncertaintySet.
 Parent type is JuMP.AbstractModel, to enable JuMP's `@constraint`, etc.
 """
-abstract AbstractUncertaintySet <: JuMP.AbstractModel
+abstract type AbstractUncertaintySet <: JuMP.AbstractModel end
 
 
 """
@@ -73,7 +73,7 @@ Fields:
   Misc:
     solved                  Flags if solved already (to prevent resolves)
 """
-type RobustModelExt{S,T,U}
+mutable struct RobustModelExt{S,T,U}
     # Uncertain parameters
     num_uncs::Int
     unc_names::Vector{String}
@@ -97,22 +97,22 @@ type RobustModelExt{S,T,U}
     default_uncset::AbstractUncertaintySet
     constraint_uncsets::Vector{Any}
     # Scenarios
-    scenarios::Vector{Nullable{U}}
+    scenarios::Vector{Union{U, Missing}}
     # Misc
     solved::Bool
     # Pretty printing magic
     dictList::Vector
     uncDict::Dict{Symbol,Any}
-    uncData::ObjectIdDict
+    uncData::IdDict{Any, Any}
 end
 RobustModelExt(cutsolver) =
     RobustModelExt{UncConstraint, AdaptConstraint, Scenario}(
     # Uncertain parameters
-    0, String[],            # num_uncs, unc_names
+    0, String[],                # num_uncs, unc_names
     Float64[], Float64[],       # unc_lower, unc_upper
     Symbol[],                   # unc_cat
     # Adaptive variables
-    0, String[],            # num_adps, adp_names
+    0, String[],                # num_adps, adp_names
     Float64[], Float64[],       # adp_lower, adp_upper
     Symbol[], Symbol[], Any[],  # adp_cat, adp_policy,adp_arguments
     # Constraints
@@ -124,13 +124,13 @@ RobustModelExt(cutsolver) =
     BasicUncertaintySet(),      # default_uncset
     Any[],                      # constraint_uncsets
     # Scenarios
-    Nullable{Scenario}[],       # scenarios
+    Union{Scenario, Missing}[], # scenarios
     # Misc
     false,                      # solved
     # Pretty printing magic
     Any[],                      # dictList
     Dict{Symbol,Any}(),         # uncDict
-    ObjectIdDict())             # uncData
+    IdDict{Any, Any}())         # uncData
 
 
 """
@@ -181,7 +181,7 @@ end
 JuMP.registercon(m::AbstractUncertaintySet, conname, value) = value
 
 
-# Uncertain, UncExpr, UncSetConstraint, UncSetNorm, UncSetNormConstraint
+# Uncertain, UncExpr, UncSetConstraint, UncSetNormConstraint
 include("uncertain.jl")
 
 
@@ -194,8 +194,7 @@ include("adaptive.jl")
 
 `∑ⱼ (∑ᵢ aᵢⱼ uᵢ) xⱼ`  --  affine expression of unc. parameters and variables.
 """
-typealias UncVarExpr JuMP.GenericAffExpr{UncExpr,JuMPeRVar}
-UncVarExpr() = zero(UncVarExpr)
+UncVarExpr = JuMP.GenericAffExpr{UncExpr,JuMPeRVar}
 Base.convert(::Type{UncVarExpr}, c::Number) =
     UncVarExpr(JuMPeRVar[], UncExpr[], UncExpr(c))
 Base.convert(::Type{UncVarExpr}, x::JuMPeRVar) =
@@ -204,6 +203,8 @@ Base.convert(::Type{UncVarExpr}, aff::AffExpr) =
     UncVarExpr(copy(aff.vars), map(UncExpr,aff.coeffs), UncExpr(aff.constant))
 Base.convert(::Type{UncVarExpr}, uaff::UncExpr) =
     UncVarExpr(JuMPeRVar[], UncExpr[], uaff)
+JuMP.GenericAffExpr{U,V}() where {U<:UncExpr,V<:JuMPeRVar} = zero(UncVarExpr)
+JuMP.GenericAffExpr{U,V}(x::Union{Number,JuMPeRVar,AffExpr,UncExpr}) where {U<:UncExpr,V<:JuMPeRVar} = convert(UncExpr, x)
 function Base.push!(faff::UncVarExpr, new_coeff::Union{Real,Uncertain}, new_var::JuMPeRVar)
     push!(faff.vars, new_var)
     push!(faff.coeffs, UncExpr(new_coeff))
@@ -215,7 +216,7 @@ end
 
 A constraint with uncertain parameters and variables (i.e., `UncVarExpr`).
 """
-typealias UncConstraint JuMP.GenericRangeConstraint{UncVarExpr}
+UncConstraint = JuMP.GenericRangeConstraint{UncVarExpr}
 function JuMP.addconstraint(m::Model, c::UncConstraint; uncset=nothing)
     # Handle the odd special case where there are actually no variables in
     # the constraint - arises from use of macros
@@ -241,7 +242,7 @@ end
 
 A realization of some or all of the uncertain parameters in a model.
 """
-type Scenario
+mutable struct Scenario
     values::Vector{Float64}  # Using NaN as undefined
 end
 
@@ -257,7 +258,7 @@ uncvalue(scen::Scenario, u::Uncertain) = scen.values[u.id]
 """
     getscenario(ConstraintRef{RobustModel,UncConstraint})
 
-Get the Scenario for a constraint (as a `Nullable{Scenario}`)
+Get the Scenario for a constraint (as a `Union{Scenario, Missing}`)
 """
 getscenario(uc::ConstraintRef{Model,UncConstraint}) = get_robust(uc.m).scenarios[uc.idx]
 

@@ -12,22 +12,20 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Test
 
 lastuc(rm) = string(JuMPeR.get_robust(rm).unc_constraints[end])
 lastus(rm) = string(JuMPeR.get_robust(rm).default_uncset.linear_constraints[end])
 le, eq, ge = JuMP.repl[:leq], JuMP.repl[:eq], JuMP.repl[:geq]
 
 @testset "Macros" begin
-print_with_color(:yellow, "Macros...\n")
+printstyled("Macros...\n", color = :yellow)
 
 @testset "Uncertain parameters" begin
     rm = RobustModel()
     @uncertain(rm, 5 >= u >= 1)
     @test JuMPeR.get_robust(rm).unc_lower[1] == 1
     @test JuMPeR.get_robust(rm).unc_upper[1] == 5
-    @test string(zero(u)) == "0"
-    @test string(one(u)) == "1"
     @test sprint(print,rm) == """Min 0
 Subject to
 Uncertain constraints:

@@ -20,7 +20,7 @@
 # Requires a mixed-integer linear optimization problem solver.
 #-----------------------------------------------------------------------
 
-using JuMP, JuMPeR
+using JuMP, JuMPeR, LinearAlgebra
 
 """
     TreeScenario
@@ -28,7 +28,7 @@ using JuMP, JuMPeR
 Stores the values of "active" uncertain parameters, as well as the
 associated tree structure described in the paper.
 """
-type TreeScenario
+mutable struct TreeScenario
     ξ::Vector{Float64}
     parent
     children::Vector
@@ -136,12 +136,12 @@ function solve_partitioned_problem(N::Int, θ::Float64, B::Float64,
     # Extend the scenario tree
     for p in 1:P
         # Extract the active uncertain parameter values
-        profit_scen = get(getscenario(profit_con_refs[p]))
+        profit_scen = getscenario(profit_con_refs[p])
         profit_scen_ξ = [uncvalue(profit_scen, ξ[i]) for i in 1:4]
         # Create a new child in the tree under this leaf
         profit_child = TreeScenario(profit_scen_ξ, leaf_scenarios[p], [])
         # Same for budget
-        budget_scen = get(getscenario(budget_con_refs[p]))
+        budget_scen = getscenario(budget_con_refs[p])
         budget_scen_ξ = [uncvalue(budget_scen, ξ[i]) for i in 1:4]
         budget_child = TreeScenario(budget_scen_ξ, leaf_scenarios[p], [])
         # Add to the tree

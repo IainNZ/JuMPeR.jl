@@ -40,7 +40,7 @@ with the default `BasicUncertaintySet`:
     end
 
 """
-type BudgetUncertaintySet <: AbstractUncertaintySet
+mutable struct BudgetUncertaintySet <: AbstractUncertaintySet
     Γ::Int               # Budget of uncertainty
     μ::Vector{Float64}   # Nominal values for each parameter
     σ::Vector{Float64}   # Deviation values for each parameter
@@ -105,7 +105,7 @@ function get_worst_case_value(us::BudgetUncertaintySet, rm::Model, idx::Int)
     # We now scale the x values by the deviations, and take the absolute
     # values - if σᵢ xᵢ is negative, we want to set ξᵢ=μᵢ-σᵢ, and if it
     # is positive, the opposite.
-    scaled_vals = abs(unc_x_vals) .* us.σ
+    scaled_vals = abs.(unc_x_vals) .* us.σ
     # We don't need to sort the list, just the permutation vector
     # of indices as if we had sorted. We then take the top Γ indices.
     max_inds = sortperm(scaled_vals)[(end - us.Γ + 1):end]
@@ -150,11 +150,10 @@ Wraps the results from `get_worst_case_value` in `Scenario` objects.
 """
 function generate_scenario(us::BudgetUncertaintySet, rm::Model, idxs::Vector{Int})
     # We need to return one Scenario per constraint
-    scens = Nullable{Scenario}[]
+    scens = Union{Scenario, Missing}[]
     for idx in idxs
         _, uncvalues = get_worst_case_value(us, rm, idx)
-        scen = Scenario(uncvalues)
-        push!(scens, Nullable{Scenario}(scen))
+        push!(scens, Scenario(uncvalues))
     end
     return scens
 end

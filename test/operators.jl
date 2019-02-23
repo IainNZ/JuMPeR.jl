@@ -12,7 +12,7 @@
 #-----------------------------------------------------------------------
 
 using JuMP, JuMPeR
-using BaseTestNext
+using Test
 import JuMP: REPLMode, IJuliaMode
 
 # To ensure the tests work on both Windows and Linux/OSX, we need
@@ -22,7 +22,7 @@ const geq = JuMP.repl[:geq]
 const  eq = JuMP.repl[:eq]
 
 @testset "Operators" begin
-print_with_color(:yellow, "Operators...\n")
+printstyled("Operators...\n", color = :yellow)
 
 @testset "Basics" begin
 
@@ -54,7 +54,7 @@ uaex = (5b+1)x + (2c + 3)
 @test string(uaff)    == "2.3 a + 5.5"
 @test string(uaff2)   == "3.4 b + 1.1"
 @test string(faff)    == "(5 a + 1) x + 2 b + 3"
-@test string(x+JuMPeR.UncExpr(0.0)) == sprint(print, x)
+@test string(x + JuMPeR.UncExpr()) == sprint(print, x)
 
 
 @testset "Number--... tests" begin
@@ -251,7 +251,6 @@ end  # "UncExpr--... tests"
 
 @testset "UncVarExpr--... tests" begin
     # Constructors
-    @test string(JuMPeR.UncVarExpr()) == "0"
     @test typeof(zero(faff)) == JuMPeR.UncVarExpr
     @test string(zero(JuMPeR.UncVarExpr)) == "0"
     # Push/append
@@ -456,13 +455,13 @@ end
     @test string(dot(c,u)) == "3.5 u[1] + 4 u[2] + 2 u[3]"
     @test string(dot(u,c)) == "3.5 u[1] + 4 u[2] + 2 u[3]"
     # Matrix{Float64} (2D) :: JuMP.JuMPArray{Uncertain} (2D)
-    @test string(vecdot(A,U)) == "3 U[1,1] + 1.5 U[2,1] + 5.5 U[3,1] + 4 U[1,2] + 2.5 U[2,2] + 6.2 U[3,2] + 5 U[1,3] + 3.3 U[2,3] + 1.2 U[3,3]"
+    @test string(dot(A,U)) == "3 U[1,1] + 1.5 U[2,1] + 5.5 U[3,1] + 4 U[1,2] + 2.5 U[2,2] + 6.2 U[3,2] + 5 U[1,3] + 3.3 U[2,3] + 1.2 U[3,3]"
 
     # JuMP.JuMPArray{Variable} :: JuMP.JuMPArray{Uncertain}
     @test string(dot(x,u)) == "u[1] x[1] + u[2] x[2] + u[3] x[3]"
 
     # Matrix{Float64} (2D) :: JuMP.JuMPDict{Uncertain} (1D)
-    @test_throws DimensionMismatch vecdot(A, u)
+    @test_throws DimensionMismatch dot(A, u)
 end
 
 end  # "Higher level"
@@ -477,7 +476,7 @@ end  # "Higher level"
     s = JuMPeR.get_robust(m).default_uncset
 
     b = [1,2,3]
-    A = eye(3,3)
+    A = Matrix(I,3,3)
     @constraint(m, A*vecunc .== b)
     c = s.linear_constraints[1:3]
     for i in 1:3
@@ -508,7 +507,7 @@ end  # "Higher level"
         @test string(c[i,j]) == "matunc[$i,$j] matvar[$i,$j] $eq 1"
     end
 
-    @constraint(m, 2.*matvar.*matunc + matvar.*matunc .== ones(3,3))
+    @constraint(m, 2 .* matvar.*matunc + matvar.*matunc .== ones(3,3))
     c = reshape(JuMPeR.get_robust(m).unc_constraints[22:30], (3,3))
     for i in 1:3, j in 1:3
         @test string(c[i,j]) == "(2 matunc[$i,$j]) matvar[$i,$j] + matunc[$i,$j] matvar[$i,$j] $eq 1"

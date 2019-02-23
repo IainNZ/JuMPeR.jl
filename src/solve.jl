@@ -24,7 +24,7 @@ end
 
 function _solve_robust(rm::Model, suppress_warnings::Bool,
                         disable_cuts::Bool, active_scenarios::Bool,
-                        show_cuts::Bool, kwargs::Vector{Any})
+                        show_cuts::Bool, kwargs)
 
     rmext = get_robust(rm)::RobustModelExt
     if rmext.solved
@@ -206,7 +206,7 @@ function _solve_robust(rm::Model, suppress_warnings::Bool,
     # 5. Extract active scenarios, if desired
     #-------------------------------------------------------------------
     if active_scenarios
-        rmext.scenarios = Vector{Nullable{Scenario}}(length(rmext.unc_constraints))
+        rmext.scenarios = Vector{Union{Scenario, Missing}}(undef, length(rmext.unc_constraints))
         for (uncset, idxs) in uncsets_to_con_idxs
             scens_to_add = generate_scenario(uncset, rm, idxs)
             for i in 1:length(idxs)
