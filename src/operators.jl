@@ -38,7 +38,7 @@ ADP = "an adaptive variable"
 # Number--Uncertain
 Base.:+(lhs::Number, rhs::Uncertain) = UncExpr([rhs], [  1], lhs)
 Base.:-(lhs::Number, rhs::Uncertain) = UncExpr([rhs], [ -1], lhs)
-Base.:*(lhs::Number, rhs::Uncertain) = UncExpr(Uncertain[rhs], Float64[lhs], 0.0)
+Base.:*(lhs::Number, rhs::Uncertain) = UncExpr([rhs], [lhs], 0.0)
 Base.:/(lhs::Number, rhs::Uncertain) = error("Cannot divide a number by $UNC")
 # Number--UncExpr        - handled by JuMP
 # Number--UncVarExpr     - handled by JuMP
@@ -57,18 +57,18 @@ Base.:/(c::Number, x::AdaptExpr) = error("Cannot divide a number by $AFF")
 #-----------------------------------------------------------------------
 # 2. Variable
 # Variable--Uncertain
-Base.:+(lhs::Variable, rhs::Uncertain) = UncVarExpr([lhs],[one(UncExpr)], convert(UncExpr,  rhs))
-Base.:-(lhs::Variable, rhs::Uncertain) = UncVarExpr([lhs],[one(UncExpr)], convert(UncExpr, -rhs))
-Base.:*(lhs::Variable, rhs::Uncertain) = UncVarExpr([lhs],[convert(UncExpr, rhs)], zero(UncExpr))
+Base.:+(lhs::Variable, rhs::Uncertain) = UncVarExpr([lhs],[UncExpr(  1)], UncExpr(rhs))
+Base.:-(lhs::Variable, rhs::Uncertain) = UncVarExpr([lhs],[UncExpr(  1)],-UncExpr(rhs))
+Base.:*(lhs::Variable, rhs::Uncertain) = UncVarExpr([lhs],[UncExpr(rhs)], UncExpr())
 Base.:/(lhs::Variable, rhs::Uncertain) = error("Cannot divide a variable by $UNC")
 # Variable--UncExpr
-Base.:+(lhs::Variable, rhs::UncExpr) = UncVarExpr([lhs],[one(UncExpr)],  rhs)
-Base.:-(lhs::Variable, rhs::UncExpr) = UncVarExpr([lhs],[one(UncExpr)], -rhs)
-Base.:*(lhs::Variable, rhs::UncExpr) = UncVarExpr([lhs],[rhs], zero(UncExpr))
+Base.:+(lhs::Variable, rhs::UncExpr) = UncVarExpr([lhs],[UncExpr(1)],       rhs)
+Base.:-(lhs::Variable, rhs::UncExpr) = UncVarExpr([lhs],[UncExpr(1)],      -rhs)
+Base.:*(lhs::Variable, rhs::UncExpr) = UncVarExpr([lhs],[       rhs], UncExpr())
 Base.:/(lhs::Variable, rhs::UncExpr) = error("Cannot divide a variable by $UNE")
 # Variable--UncVarExpr
-Base.:+(lhs::Variable, rhs::UncVarExpr) = UncVarExpr(vcat(rhs.vars,lhs),vcat(    rhs.coeffs,one(UncExpr)), rhs.constant)
-Base.:-(lhs::Variable, rhs::UncVarExpr) = UncVarExpr(vcat(rhs.vars,lhs),vcat(-1 .* rhs.coeffs,one(UncExpr)),-rhs.constant)
+Base.:+(lhs::Variable, rhs::UncVarExpr) = UncVarExpr(vcat(rhs.vars,lhs),vcat(      rhs.coeffs,UncExpr(1)), rhs.constant)
+Base.:-(lhs::Variable, rhs::UncVarExpr) = UncVarExpr(vcat(rhs.vars,lhs),vcat(-1 .* rhs.coeffs,UncExpr(1)),-rhs.constant)
 Base.:*(lhs::Variable, rhs::UncVarExpr) = error("Cannot multiply a variable by $UVE")
 Base.:/(lhs::Variable, rhs::UncVarExpr) = error("Cannot divide a variable by $UVE")
 # Variable--Adaptive
@@ -96,13 +96,13 @@ Base.:/(lhs::GenericNorm{P,C,V}, rhs::UncVarExpr) where {P,C,V<:Uncertain} = err
 #-----------------------------------------------------------------------
 # 4. AffExpr
 # AffExpr--Uncertain
-Base.:+(lhs::AffExpr, rhs::Uncertain) = UncVarExpr(lhs.vars, convert.(UncExpr,lhs.coeffs), UncExpr([rhs],[ 1.],lhs.constant))
-Base.:-(lhs::AffExpr, rhs::Uncertain) = UncVarExpr(lhs.vars, convert.(UncExpr,lhs.coeffs), UncExpr([rhs],[-1.],lhs.constant))
+Base.:+(lhs::AffExpr, rhs::Uncertain) = UncVarExpr(lhs.vars, map(UncExpr,lhs.coeffs), UncExpr([rhs],[ 1.],lhs.constant))
+Base.:-(lhs::AffExpr, rhs::Uncertain) = UncVarExpr(lhs.vars, map(UncExpr,lhs.coeffs), UncExpr([rhs],[-1.],lhs.constant))
 Base.:*(lhs::AffExpr, rhs::Uncertain) = UncVarExpr(lhs.vars,         rhs.*lhs.coeffs , UncExpr([rhs],[lhs.constant],0.0))
 Base.:/(lhs::AffExpr, rhs::Uncertain) = error("Cannot divide $AFF by $UNC")
 # AffExpr--UncExpr
-Base.:+(lhs::AffExpr, rhs::UncExpr)  = UncVarExpr(lhs.vars, convert.(UncExpr,lhs.coeffs), lhs.constant+rhs)
-Base.:-(lhs::AffExpr, rhs::UncExpr)  = UncVarExpr(lhs.vars, convert.(UncExpr,lhs.coeffs), lhs.constant-rhs)
+Base.:+(lhs::AffExpr, rhs::UncExpr)  = UncVarExpr(lhs.vars, map(UncExpr,lhs.coeffs), lhs.constant+rhs)
+Base.:-(lhs::AffExpr, rhs::UncExpr)  = UncVarExpr(lhs.vars, map(UncExpr,lhs.coeffs), lhs.constant-rhs)
 Base.:*(lhs::AffExpr, rhs::UncExpr)  = UncVarExpr(lhs.vars,         rhs.*lhs.coeffs , lhs.constant*rhs)
 Base.:/(lhs::AffExpr, rhs::UncExpr)  = error("Cannot divide $AFF by $UNE")
 # AffExpr--UncVarExpr
@@ -163,15 +163,15 @@ Base.:/(lhs::GenericNormExpr{P,C,V},rhs::UncVarExpr) where {P, C, V <: Uncertain
 
 #-----------------------------------------------------------------------
 # 7. Uncertain
-Base.:-(lhs::Uncertain) = UncExpr(Uncertain[lhs],Float64[-1],0.0)
+Base.:-(lhs::Uncertain) = UncExpr(-1,lhs)
 # Uncertain--Number
 Base.:+(lhs::Uncertain, rhs::Number) = UncExpr([lhs],[1.0], rhs)
 Base.:-(lhs::Uncertain, rhs::Number) = UncExpr([lhs],[1.0],-rhs)
-Base.:*(lhs::Uncertain, rhs::Number) = UncExpr(Uncertain[lhs],Float64[  rhs],0.0)
-Base.:/(lhs::Uncertain, rhs::Number) = UncExpr(Uncertain[lhs],Float64[1/rhs],0.0)
+Base.:*(lhs::Uncertain, rhs::Number) = UncExpr(  rhs, lhs)
+Base.:/(lhs::Uncertain, rhs::Number) = UncExpr(1/rhs, lhs)
 # Uncertain--Variable
 Base.:+(lhs::Uncertain, rhs::Variable) = Base.:+(rhs, lhs)
-Base.:-(lhs::Uncertain, rhs::Variable) = UncVarExpr([rhs],[convert(UncExpr,-1)],convert(UncExpr,lhs))
+Base.:-(lhs::Uncertain, rhs::Variable) = UncVarExpr([rhs],[UncExpr(-1)],UncExpr(lhs))
 Base.:*(lhs::Uncertain, rhs::Variable) = Base.:*(rhs, lhs)
 Base.:/(lhs::Uncertain, rhs::Variable) = error("Cannot divide $UNC by a variable")
 # Uncertain--GenericNorm
@@ -179,7 +179,7 @@ Base.:*(lhs::Uncertain, rhs::GenericNorm{P,C,V}) where {P, C, V <: Uncertain} = 
 Base.:/(lhs::Uncertain, rhs::GenericNorm{P,C,V}) where {P, C, V <: Uncertain} = error("Cannot multiply $UNC by $UNM")
 # Uncertain--AffExpr
 Base.:+(lhs::Uncertain, rhs::AffExpr) = Base.:+(rhs, lhs)
-Base.:-(lhs::Uncertain, rhs::AffExpr) = UncVarExpr(rhs.vars, convert.(UncExpr,-rhs.coeffs), UncExpr([lhs],[1.0],-rhs.constant))
+Base.:-(lhs::Uncertain, rhs::AffExpr) = UncVarExpr(rhs.vars, map(UncExpr,-rhs.coeffs), UncExpr([lhs],[1.0],-rhs.constant))
 Base.:*(lhs::Uncertain, rhs::AffExpr) = Base.:*(rhs, lhs)
 Base.:/(lhs::Uncertain, rhs::AffExpr) = error("Cannot divide $UNC by $AFF")
 # Uncertain--GenericNormExpr
@@ -219,7 +219,7 @@ Base.:/(u::Uncertain, x::AdaptExpr) = error("Cannout divide $UNC by $AFF")
 # UncExpr--Number        - handled by JuMP
 # UncExpr--Variable
 Base.:+(lhs::UncExpr, rhs::Variable) = Base.:+(rhs,lhs)
-Base.:-(lhs::UncExpr, rhs::Variable) = UncVarExpr([rhs],[convert(UncExpr,-1)],lhs)
+Base.:-(lhs::UncExpr, rhs::Variable) = UncVarExpr([rhs],[UncExpr(-1)],lhs)
 Base.:*(lhs::UncExpr, rhs::Variable) = Base.:*(rhs,lhs)
 Base.:/(lhs::UncExpr, rhs::Variable) = error("Cannot divide $UNE by a variable")
 # UncExpr--AffExpr
@@ -241,7 +241,7 @@ Base.:/(lhs::UncExpr, rhs::Uncertain) = error("Cannot divide $UNE by $UNC")
 Base.:*(lhs::UncExpr, rhs::UncExpr) = error("Cannot multiply $UNE by $UNE")
 Base.:/(lhs::UncExpr, rhs::UncExpr) = error("Cannot divide $UNE by $UNE")
 # UncExpr--UncVarExpr
-Base.:+(lhs::UncExpr, rhs::UncVarExpr) = UncVarExpr(rhs.vars,    rhs.coeffs,lhs+rhs.constant)
+Base.:+(lhs::UncExpr, rhs::UncVarExpr) = UncVarExpr(rhs.vars,      rhs.coeffs,lhs+rhs.constant)
 Base.:-(lhs::UncExpr, rhs::UncVarExpr) = UncVarExpr(rhs.vars,-1 .* rhs.coeffs,lhs-rhs.constant)
 Base.:*(lhs::UncExpr, rhs::UncVarExpr) = (length(lhs.vars) == 0) ?
                                         lhs.constant * rhs : # LHS is just a constant, so OK
@@ -264,7 +264,7 @@ Base.:/(u::UncExpr, x::AdaptExpr) = error("Cannot divide $UNE by $AFF")
 # UncVarExpr--Number     - handled by JuMP
 # UncVarExpr--Variable
 Base.:+(lhs::UncVarExpr, rhs::Variable) = Base.:+(rhs,lhs)
-Base.:-(lhs::UncVarExpr, rhs::Variable) = UncVarExpr(vcat(lhs.vars,rhs),vcat(lhs.coeffs,convert(UncExpr,-1)), lhs.constant)
+Base.:-(lhs::UncVarExpr, rhs::Variable) = UncVarExpr(vcat(lhs.vars,rhs),vcat(lhs.coeffs,UncExpr(-1)), lhs.constant)
 Base.:*(lhs::UncVarExpr, rhs::Variable) = error("Cannot multiply $UVE by a variable")
 Base.:/(lhs::UncVarExpr, rhs::Variable) = error("Cannot divide $UVE by a variable")
 # UncVarExpr--AffExpr
@@ -295,19 +295,19 @@ Base.:*(lhs::UncVarExpr, rhs::UncVarExpr) = error("Cannot multiply $UVE by $UVE"
 Base.:/(lhs::UncVarExpr, rhs::UncVarExpr) = error("Cannot divide $UVE by $UVE")
 # UncVarExpr--Adaptive
 Base.:+(a::UncVarExpr, x::Adaptive) = UncVarExpr(vcat(a.vars, x),
-                                           vcat(a.coeffs,  one(UncExpr)),
+                                           vcat(a.coeffs, UncExpr(1)),
                                            a.constant)
 Base.:-(a::UncVarExpr, x::Adaptive) = UncVarExpr(vcat(a.vars, x),
-                                           vcat(a.coeffs, convert(UncExpr, -1)),
+                                           vcat(a.coeffs, UncExpr(-1)),
                                            a.constant)
 Base.:*(a::UncVarExpr, x::Adaptive) = error("Cannot multiply $UVE by $ADP")
 Base.:/(a::UncVarExpr, x::Adaptive) = error("Cannot divide $UVE by $ADP")
 # UncVarExpr--AdaptExpr
 Base.:+(a::UncVarExpr, b::AdaptExpr) = UncVarExpr(vcat(a.vars, b.vars),
-                                               vcat(a.coeffs, convert.(UncExpr, b.coeffs)),
+                                               vcat(a.coeffs, map(UncExpr, b.coeffs)),
                                                a.constant + b.constant)
 Base.:-(a::UncVarExpr, b::AdaptExpr) = UncVarExpr(vcat(a.vars, b.vars),
-                                               vcat(a.coeffs, convert.(UncExpr,-b.coeffs)),
+                                               vcat(a.coeffs, map(UncExpr,-b.coeffs)),
                                                a.constant - b.constant)
 Base.:*(a::UncVarExpr, b::AdaptExpr) = error("Cannot multiply $UVE by $AFF")
 Base.:/(a::UncVarExpr, b::AdaptExpr) = error("Cannot divide $UVE by $AFF")
@@ -377,7 +377,7 @@ Base.:/(x::AdaptExpr, a::AffExpr) = error("Cannot divide $AFF by $AFF")
 # AdaptExpr--Uncertain
 Base.:+(a::AdaptExpr, u::Uncertain) = UncVarExpr(copy(a.vars), copy(a.coeffs), a.constant + u)
 Base.:-(a::AdaptExpr, u::Uncertain) = UncVarExpr(copy(a.vars), copy(a.coeffs), a.constant - u)
-Base.:*(a::AdaptExpr, u::Uncertain) = UncVarExpr(copy(a.vars), copy(a.coeffs) * u, a.constant * u)
+Base.:*(a::AdaptExpr, u::Uncertain) = UncVarExpr(copy(a.vars), copy(a.coeffs) .* u, a.constant * u)
 Base.:/(a::AdaptExpr, u::Uncertain) = error("Cannot divide $AFF by $UNC")
 # AdaptExpr--UncExpr
 Base.:+(a::AdaptExpr, b::UncExpr) = +( b, a)
@@ -386,10 +386,10 @@ Base.:*(a::AdaptExpr, b::UncExpr) = *( b, a)
 Base.:/(a::AdaptExpr, b::UncExpr) = /( b, a)  # not quite
 # AdaptExpr--UncVarExpr
 Base.:+(a::AdaptExpr, b::UncVarExpr) = UncVarExpr(vcat(a.vars, b.vars),
-                                                 vcat(convert.(UncExpr,a.coeffs), b.coeffs),
+                                                 vcat(map(UncExpr,a.coeffs), b.coeffs),
                                                  a.constant + b.constant)
 Base.:-(a::AdaptExpr, b::UncVarExpr) = UncVarExpr(vcat(a.vars, b.vars),
-                                                 vcat(convert.(UncExpr,a.coeffs), -b.coeffs),
+                                                 vcat(map(UncExpr,a.coeffs), -b.coeffs),
                                                  a.constant - b.constant)
 Base.:*(a::AdaptExpr, b::UncVarExpr) = error("Cannot multiply $AFF by $UVE")
 Base.:/(a::AdaptExpr, b::UncVarExpr) = error("Cannot divide $AFF by $UVE")

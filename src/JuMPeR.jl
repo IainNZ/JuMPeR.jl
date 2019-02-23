@@ -17,8 +17,8 @@
 module JuMPeR
 
 import MathProgBase
-importall JuMP  # So we can build on it, but prefer explict qualification
-import JuMP: JuMPContainer, GenericNorm, GenericNormExpr
+using JuMP  # So we can build on it, but prefer explicit qualification
+import JuMP: JuMPContainer, GenericAffExpr, GenericNorm, GenericNormExpr, getname
 import LinearAlgebra: dot, norm
 
 # JuMPeRs exported interface
@@ -195,17 +195,18 @@ include("adaptive.jl")
 `∑ⱼ (∑ᵢ aᵢⱼ uᵢ) xⱼ`  --  affine expression of unc. parameters and variables.
 """
 UncVarExpr = JuMP.GenericAffExpr{UncExpr,JuMPeRVar}
+JuMP.GenericAffExpr{U,V}() where {U<:UncExpr,V<:JuMPeRVar} = zero(UncVarExpr)
 Base.convert(::Type{UncVarExpr}, c::Number) =
-    UncVarExpr(JuMPeRVar[], UncExpr[], convert(UncExpr,c))
+    UncVarExpr(JuMPeRVar[], UncExpr[], UncExpr(c))
 Base.convert(::Type{UncVarExpr}, x::JuMPeRVar) =
-    UncVarExpr(JuMPeRVar[x],UncExpr[convert(UncExpr,1)], zero(UncExpr))
+    UncVarExpr(JuMPeRVar[x],UncExpr[UncExpr(1)], UncExpr())
 Base.convert(::Type{UncVarExpr}, aff::AffExpr) =
-    UncVarExpr(copy(aff.vars), map(UncExpr,aff.coeffs), convert(UncExpr,aff.constant))
+    UncVarExpr(copy(aff.vars), convert.(UncExpr,aff.coeffs), UncExpr(aff.constant))
 Base.convert(::Type{UncVarExpr}, uaff::UncExpr) =
     UncVarExpr(JuMPeRVar[], UncExpr[], uaff)
 function Base.push!(faff::UncVarExpr, new_coeff::Union{Real,Uncertain}, new_var::JuMPeRVar)
     push!(faff.vars, new_var)
-    push!(faff.coeffs, convert(UncExpr,new_coeff))
+    push!(faff.coeffs, UncExpr(new_coeff))
 end
 
 

@@ -11,7 +11,7 @@
 # Adaptive robust optimization support - pre-solve expansion
 #-----------------------------------------------------------------------
 
-any_adaptive(u::UncVarExpr) = any(v->isa(v,Adaptive), u.vars)
+any_adaptive(u::UncVarExpr) = any(isa.(u.vars,Adaptive))
 
 
 function expand_adaptive(rm::Model)
@@ -56,9 +56,9 @@ function expand_adaptive(rm::Model)
             vname = string(adp_str(rm,i), "{_}")
             aux_con = Variable(rm, -Inf, +Inf, :Cont, vname)
             # Build the policy
-            aff_policy = one(UncExpr) * aux_con
+            aff_policy = UncExpr(1) * aux_con
             for j in eachindex(deps)
-                push!(aff_policy, convert(UncExpr,deps[j]), aux_aff[j])
+                push!(aff_policy, UncExpr(deps[j]), aux_aff[j])
             end
             #println(aff_policy)
             push!(new_vars, aff_policy)
@@ -80,7 +80,7 @@ function expand_adaptive(rm::Model)
     for uncaffcon in rmext.unc_constraints
         lhs = uncaffcon.terms
         !any_adaptive(lhs) && continue
-        new_lhs = convert(UncVarExpr, lhs.constant)
+        new_lhs = UncVarExpr(lhs.constant)
         for (coeff, var) in linearterms(lhs)
             new_lhs += coeff * (isa(var, Adaptive) ? new_vars[var.id] : var)
         end
@@ -88,7 +88,7 @@ function expand_adaptive(rm::Model)
         # Remove old constraint by emptying all fields
         lhs.vars = JuMPeRVar[]
         lhs.coeffs = UncExpr[]
-        lhs.constant = zero(UncExpr)
+        lhs.constant = UncExpr()
         if uncaffcon.lb != -Inf
             uncaffcon.lb = 0
         end
@@ -100,7 +100,7 @@ function expand_adaptive(rm::Model)
     # Create new constraints from number-and-adaptive constraints
     for varaffcon in rmext.adapt_constraints
         lhs = varaffcon.terms
-        new_lhs = convert(UncVarExpr, lhs.constant)
+        new_lhs = UncVarExpr(lhs.constant)
         for (coeff, var) in linearterms(lhs)
             new_lhs += coeff * (isa(var, Adaptive) ? new_vars[var.id] : var)
         end

@@ -1,4 +1,4 @@
 julia 0.7
-JuMP
+JuMP 0.18.5 0.19
 MathProgBase
 LinearAlgebra

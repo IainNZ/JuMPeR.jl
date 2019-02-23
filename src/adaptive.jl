@@ -37,9 +37,9 @@ function Adaptive(m::Model, lower::Real, upper::Real,
     push!(rmext.adp_arguments, depends_on)
     return Adaptive(m, rmext.num_adps)
 end
-Base.zero(::Type{Adaptive}) = AdaptExpr()
+Base.zero(::Type{Adaptive}) = zero(AdaptExpr)
 Base.zero(     ::Adaptive)  = zero(Adaptive)
-Base.one(::Type{Adaptive})  = AdaptExpr(1)
+Base.one(::Type{Adaptive})  = one(AdaptExpr)
 Base.one(     ::Adaptive)   = one(Adaptive)
 Base.isequal(a::Adaptive, b::Adaptive) = (a.m === b.m) && (a.id == b.id)
 getname(x::Adaptive) = get_robust(x.m).adp_names[x.id]

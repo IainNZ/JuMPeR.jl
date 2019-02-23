@@ -317,7 +317,7 @@ macro adaptive(args...)
         elseif kwarg == :lowerbound
             # MODIFICATION: error message
             haslb && _error("Cannot specify adaptive variable lowerbound twice")
-            lb = esc_nonconstant(ex.args[2])
+            lb = JuMP.esc_nonconstant(ex.args[2])
             haslb = true
         elseif kwarg == :upperbound
             # MODIFICATION: error message
@@ -419,7 +419,7 @@ end
 function JuMP.constructconstraint!(
     normexpr::GenericNormExpr{P,Float64,Uncertain}, sense::Symbol) where P
     if sense == :(<=)
-        UncSetNormConstraint( normexpr)
+        UncSetNormConstraint(normexpr)
     elseif sense == :(>=)
         UncSetNormConstraint(-normexpr)
     else

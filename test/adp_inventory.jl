@@ -16,7 +16,7 @@
 using JuMP, JuMPeR
 using Test
 
-const TOL = 5e-3
+TOL = 5e-3
 
 if !(:lp_solvers in names(Main))
     printstyled("Loading solvers...\n", color = :magenta)

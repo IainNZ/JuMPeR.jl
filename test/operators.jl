@@ -54,7 +54,7 @@ uaex = (5b+1)x + (2c + 3)
 @test string(uaff)    == "2.3 a + 5.5"
 @test string(uaff2)   == "3.4 b + 1.1"
 @test string(faff)    == "(5 a + 1) x + 2 b + 3"
-@test string(x + zero(JuMPeR.UncExpr)) == sprint(print, x)
+@test string(x + JuMPeR.UncExpr()) == sprint(print, x)
 
 
 @testset "Number--... tests" begin
@@ -199,10 +199,10 @@ end  # "Uncertain--... tests"
 
 @testset "UncExpr--... tests" begin
     # Constructors
-    @test string(one(JuMPeR.UncExpr)) == "1"
-    @test string(convert(JuMPeR.UncExpr, a)) == "a"
+    @test string(JuMPeR.UncExpr(1)) == "1"
+    @test string(JuMPeR.UncExpr(a)) == "a"
     @test typeof(zero(uaff)) == JuMPeR.UncExpr
-    @test string(zero(JuMPeR.UncExpr)) == "0"
+    @test string(JuMPeR.UncExpr(0)) == "0"
     # UncExpr--Number
     @test string(uaff + 4.0) == "2.3 a + 9.5"
     @test string(uaff - 3.0) == "2.3 a + 2.5"
@@ -251,7 +251,7 @@ end  # "UncExpr--... tests"
 @testset "UncVarExpr--... tests" begin
     # Constructors
     @test typeof(zero(faff)) == JuMPeR.UncVarExpr
-    @test string(zero(JuMPeR.UncVarExpr)) == "0"
+    @test string(JuMPeR.UncVarExpr()) == "0"
     # Push/append
     pusher = a * x
     @test string(pusher) == "a x"

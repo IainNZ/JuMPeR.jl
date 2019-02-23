@@ -47,9 +47,11 @@ Base.isequal(u1::Uncertain, u2::Uncertain) = (u1.m === u2.m) && isequal(u1.id, u
 `∑ᵢ aᵢ uᵢ`  --  affine expression of uncertain parameters and numbers.
 """
 UncExpr = JuMP.GenericAffExpr{Float64,Uncertain}
+JuMP.GenericAffExpr{N,U}() where {N<:Float64,U<:Uncertain} = zero(UncExpr)
 Base.convert(::Type{UncExpr}, u::Uncertain) = UncExpr(Uncertain[u],Float64[1],0.0)
 Base.convert(::Type{UncExpr}, c::Number)    = UncExpr(Uncertain[ ],Float64[ ],  c)
-
+JuMP.GenericAffExpr{N,U}(x::Union{Number,Uncertain}) where {N<:Float64,U<:Uncertain} = convert(UncExpr, x)
+JuMP.GenericAffExpr{N,U}(c::Number,u::Uncertain) where {N<:Float64,U<:Uncertain} = UncExpr([u], [c], 0.0)
 
 """
     UncSetConstraint
