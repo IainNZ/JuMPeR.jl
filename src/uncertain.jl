@@ -73,7 +73,12 @@ end
 
 
 JuMP._build_norm(Lp, terms::Vector{UncExpr}) = GenericNorm{Lp,Float64,Uncertain}(terms)
-
+# To prevent broadcasting:
+# ┌ Warning: broadcast will default to iterating over its arguments in the future. Wrap arguments of
+# │ type `x::JuMP.GenericNormExpr{1,Float64,JuMPeR.Uncertain}` with `Ref(x)` to ensure they broadcast as "scalar" elements.
+# │   caller = ip:0x0
+Broadcast.broadcastable(x::GenericNormExpr{Lp,Float64,Uncertain}) where Lp =
+    Base.RefValue{GenericNormExpr{Lp,Float64,Uncertain}}(x)
 
 """
     UncSetNormConstraint
