@@ -195,7 +195,6 @@ include("adaptive.jl")
 `∑ⱼ (∑ᵢ aᵢⱼ uᵢ) xⱼ`  --  affine expression of unc. parameters and variables.
 """
 UncVarExpr = JuMP.GenericAffExpr{UncExpr,JuMPeRVar}
-JuMP.GenericAffExpr{U,V}() where {U<:UncExpr,V<:JuMPeRVar} = zero(UncVarExpr)
 Base.convert(::Type{UncVarExpr}, c::Number) =
     UncVarExpr(JuMPeRVar[], UncExpr[], UncExpr(c))
 Base.convert(::Type{UncVarExpr}, x::JuMPeRVar) =
@@ -204,6 +203,8 @@ Base.convert(::Type{UncVarExpr}, aff::AffExpr) =
     UncVarExpr(copy(aff.vars), convert.(UncExpr,aff.coeffs), UncExpr(aff.constant))
 Base.convert(::Type{UncVarExpr}, uaff::UncExpr) =
     UncVarExpr(JuMPeRVar[], UncExpr[], uaff)
+JuMP.GenericAffExpr{U,V}() where {U<:UncExpr,V<:JuMPeRVar} = zero(UncVarExpr)
+JuMP.GenericAffExpr{U,V}(x::Union{JuMPeRVar,AffExpr,UncExpr}) where {U<:UncExpr,V<:JuMPeRVar} = convert(UncExpr, x)
 function Base.push!(faff::UncVarExpr, new_coeff::Union{Real,Uncertain}, new_var::JuMPeRVar)
     push!(faff.vars, new_var)
     push!(faff.coeffs, UncExpr(new_coeff))
