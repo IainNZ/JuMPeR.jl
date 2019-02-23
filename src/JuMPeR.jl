@@ -200,7 +200,7 @@ Base.convert(::Type{UncVarExpr}, c::Number) =
 Base.convert(::Type{UncVarExpr}, x::JuMPeRVar) =
     UncVarExpr(JuMPeRVar[x],UncExpr[UncExpr(1)], UncExpr())
 Base.convert(::Type{UncVarExpr}, aff::AffExpr) =
-    UncVarExpr(copy(aff.vars), convert.(UncExpr,aff.coeffs), UncExpr(aff.constant))
+    UncVarExpr(copy(aff.vars), map(UncExpr,aff.coeffs), UncExpr(aff.constant))
 Base.convert(::Type{UncVarExpr}, uaff::UncExpr) =
     UncVarExpr(JuMPeRVar[], UncExpr[], uaff)
 JuMP.GenericAffExpr{U,V}() where {U<:UncExpr,V<:JuMPeRVar} = zero(UncVarExpr)
